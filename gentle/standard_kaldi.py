@@ -71,7 +71,7 @@ class Kaldi:
             if line.startswith("Transition-state"):
                 m = re.match(r'Transition-state (\d+): phone = ([^ ]*) hmm-state = (\d) pdf = (\d+)', line)
                 if not m:
-                    print 'err', line
+                    sys.stderr.write('err %s' % line)
                     continue
                 cur_trans_state = {"phone": m.group(2),
                                    "hmm-state": int(m.group(3)),
@@ -79,7 +79,7 @@ class Kaldi:
             else:
                 m = re.match(r'Transition-id = (\d+) p = (\d\.\d+) \[([^\]]+)\]', line)
                 if not m:
-                    print 'err', line
+                    sys.stderr.write('err %s' % line)
                     continue
 
                 transitions[int(m.group(1))] = {"state": cur_trans_state,
@@ -223,10 +223,10 @@ class Kaldi:
         self._cmd("continue");
 
     def stop(self):
-        print 'stopping...'
+        sys.stderr.write('stopping...\n')
         self._cmd("stop")
         self._p.wait()
-        print 'stopped'
+        sys.stderr.write('stopped\n')
 
     def __del__(self):
         self.stop()
@@ -244,10 +244,10 @@ def lattice(k, infile):
     start_idx = 0
     for idx,buf in enumerate(numm3.sound_chunks(infile, R=8000, chunksize=16000, nchannels=1)):
         buf = buf.reshape((-1))
-        print idx, len(buf)
+        sys.stderr.write('%d %d\n', idx, len(buf))
         
         if buf.shape[0] < 16000:
-            print 'done with audio!'
+            sys.stderr.write('done with audio!\n')
             ret = k.get_final_lattice()
             _add_lattice(ret, start_idx*2)
             k.stop()
@@ -255,7 +255,7 @@ def lattice(k, infile):
         #elif not (k.push_chunk(buf) or idx == start_idx):
         k.push_chunk(buf)
         if idx > 0 and idx % 15 == 0:
-            print 'endpoint!', idx*2
+            sys.stderr.write('endpoint! %d\n', idx*2)
             ret = k.get_final_lattice()
             _add_lattice(ret, start_idx*2)
             k.reset()
@@ -278,15 +278,15 @@ def transcribe(k, infile):
         if len(arr) > 0:
             lst = arr[-1]
             if lst["start"] > offset:
-                print 'trimming', lst
+                sys.stderr.write('trimming %s\n' % lst)
                 arr.pop()
 
         for w in wds:
             w["start"] += offset
             if lst is not None and (w["start"] - lst["start"]) < -0.05:
-                print 'skipping', w, (w["start"] - lst["start"])
+                sys.stderr.write('skipping %s %f\n' % (w, (w["start"] - lst["start"])))
             elif lst is not None:
-                print 'adding', w, (w["start"] - lst["start"])
+                sys.stderr.write('adding %s %f\n' % (w, (w["start"] - lst["start"])))
             arr.append(w)
 
     def _add_words(wds, offset):
@@ -297,14 +297,14 @@ def transcribe(k, infile):
         buf = buf.reshape((-1))
 
         if buf.shape[0] < 16000:
-            print 'done with audio!'
+            sys.stderr.write('done with audio!\n')
             ret = k.get_final()
             _add_words(ret, start_idx*2)
             k.stop()
             return {"words": words}
         k.push_chunk(buf)        
         if idx > 0 and idx % 15 == 0:
-            print 'endpoint!'
+            sys.stderr.write('endpoint!\n')
             ret = k.get_final()
             _add_words(ret, start_idx*2)
             
@@ -316,7 +316,7 @@ def transcribe(k, infile):
 
         if idx > 0 and idx % 5 == 0:
             # ...just to show some progress
-            print k.get_partial()
+            sys.stderr.write('%s\n' % k.get_partial())
 
 if __name__=='__main__':
     import numm3

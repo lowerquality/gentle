@@ -1,7 +1,8 @@
-import subprocess
-import os
-import tempfile
 from generate_wp import wordpair_from_word_sequence
+import os
+import subprocess
+import sys
+import tempfile
 
 KALDI_ROOT = "kaldi"
 FST_BIN = KALDI_ROOT + "/tools/openfst/bin"
@@ -22,7 +23,7 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
 
     # Create a language model directory
     lang_model_dir = tempfile.mkdtemp()
-    print 'saving language model to', lang_model_dir
+    sys.stderr.write('saving language model to %s\n' % lang_model_dir)
 
     # Symlink in necessary files from the prototype directory
     for dirpath, dirnames, filenames in os.walk(proto_langdir, followlinks=True):

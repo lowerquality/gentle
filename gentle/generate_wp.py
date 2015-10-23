@@ -50,7 +50,7 @@ def generate_wordpair(words_file, transcript_file, output_file):
 
 def wordpair_from_word_sequence(word_sequence, output_file):
     word_sequence = ['[oov]', '[oov]'] + word_sequence + ['[oov]']
-    print word_sequence
+    sys.stderr.write('%s\n' % word_sequence)
 
     # Create a bigram mapping
     bigram = {}

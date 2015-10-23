@@ -12,7 +12,7 @@ def lm_transcribe(audio_f, text_f, proto_langdir, nnet_dir):
     ms = metasentence.MetaSentence(open(text_f).read(), vocab)
     gen_model_dir = language_model.getLanguageModel(ms.get_kaldi_sequence(), proto_langdir)
 
-    print 'generated model', gen_model_dir
+    sys.stderr.write('generated model %s' % gen_model_dir)
 
     gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
     k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
