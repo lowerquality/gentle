@@ -1,21 +1,17 @@
+import numpy as np
 import os
 import re
 import subprocess
-import numpy as np
+import sys
 
 EXECUTABLE_PATH = "./standard_kaldi"
 
 class Kaldi:
-    def __init__(self, language_model='data/graph/HCLG.fst'):
-
-        # make sure we're using the right language model
-        # H_PATH = 'HCLG.fst'
-        # if os.path.exists(H_PATH):
-        #     os.unlink(H_PATH)
-        # os.symlink(language_model, H_PATH)
-        
-        self._p = subprocess.Popen([EXECUTABLE_PATH, language_model],
-                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    def __init__(self, nnet_dir, hclg_path, proto_langdir):
+        self.proto_langdir = proto_langdir
+        self._p = subprocess.Popen([EXECUTABLE_PATH, nnet_dir, hclg_path, proto_langdir],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
 
         self._transitions = None
         self._words = None
@@ -39,7 +35,9 @@ class Kaldi:
             self._words = self._get_words()
         return self._words
     
-    def _get_words(self, path="PROTO_LANGDIR/graphdir/words.txt"):
+    def _get_words(self):
+        path = os.path.join(self.proto_langdir, "graphdir/words.txt")
+
         # Load from disk (could load from kaldi)
         words = {}
         for idx,line in enumerate(open(path)):
@@ -328,8 +326,11 @@ if __name__=='__main__':
     INFILE = sys.argv[1]
     OUTFILE= sys.argv[2]
 
-    if len(sys.argv) > 3:
-        k = Kaldi(sys.argv[3])
+    if len(sys.argv) > 5:
+        nnet_dir = argv[3]
+        graph_dir = argv[4]
+        proto_langdir = argv[5]
+        k = Kaldi(nnet_dir, graph_dir, proto_langdir)
     else:
         k = Kaldi()
 
