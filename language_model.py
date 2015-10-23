@@ -3,19 +3,20 @@ import os
 import tempfile
 from generate_wp import wordpair_from_word_sequence
 
-WORDS_FILE = 'PROTO_LANGDIR/graphdir/words.txt' # XXX: path cannot have spaces
-TXT_FST_SCRIPT = './kaldi/egs/rm/s5/local/make_rm_lm.pl'
+KALDI_ROOT = "kaldi"
+FST_BIN = KALDI_ROOT + "/tools/openfst/bin"
+
+TXT_FST_SCRIPT = KALDI_ROOT + "/egs/rm/s5/local/make_rm_lm.pl"
 ENV = os.environ
-ENV["PATH"] += ":" + os.path.abspath("kaldi/src/fstbin/")
-ENV["PATH"] += ":" + os.path.abspath("kaldi/src/bin/")
-ENV["PATH"] += ":" + os.path.abspath("kaldi/tools/openfst/bin/")
-MKGRAPH_WD = "kaldi/egs/wsj/s5/utils/"
+ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/fstbin/")
+ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/bin/")
+ENV["PATH"] += ":" + os.path.abspath(FST_BIN)
+MKGRAPH_WD = KALDI_ROOT + "/egs/wsj/s5/utils/"
 
-PROTOTYPE_LANGUAGE_DIR = 'PROTO_LANGDIR/'
-
-def getLanguageModel(kaldi_seq):
+def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text
 
+    `proto_langdir` is a path to a directory containing prototype model data
     `kaldi_seq` is a list of words within kaldi's vocabulary.
     """
 
@@ -24,17 +25,15 @@ def getLanguageModel(kaldi_seq):
     print 'saving language model to', lang_model_dir
 
     # Symlink in necessary files from the prototype directory
-    for dirpath, dirnames, filenames in os.walk(PROTOTYPE_LANGUAGE_DIR, followlinks=True):
+    for dirpath, dirnames, filenames in os.walk(proto_langdir, followlinks=True):
         for dirname in dirnames:
-            os.makedirs(
-                os.path.join(lang_model_dir,
-                             os.path.join(dirpath, dirname)[len(PROTOTYPE_LANGUAGE_DIR):]))
+            relpath = os.path.relpath(os.path.join(dirpath, dirname), proto_langdir)
+            os.makedirs(os.path.join(lang_model_dir, relpath))
         for filename in filenames:
-            dstpath = os.path.join(lang_model_dir,
-                                   os.path.join(dirpath, filename)[len(PROTOTYPE_LANGUAGE_DIR):])
-            os.symlink(
-                os.path.abspath(os.path.join(dirpath, filename)),
-                dstpath)
+            abspath = os.path.abspath(os.path.join(dirpath, filename))
+            relpath = os.path.relpath(os.path.join(dirpath, filename), proto_langdir)
+            dstpath = os.path.join(lang_model_dir, relpath)
+            os.symlink(abspath, dstpath)
 
     # Save the wordpair
     wordpair_file = os.path.join(lang_model_dir, 'wordpairs.txt')
@@ -45,13 +44,15 @@ def getLanguageModel(kaldi_seq):
     open(txt_fst_file, 'w').write(
         subprocess.check_output([TXT_FST_SCRIPT, wordpair_file]))
     
+    # TODO(maxhawkins): can this path have spaces?
+    words_file = os.path.join(proto_langdir, "graphdir/words.txt")
 
     # Generate a binary FST
     bin_fst_file = os.path.join(lang_model_dir, 'langdir', 'G.fst')
     open(bin_fst_file, 'w').write(subprocess.check_output([
         'fstcompile',
-        '--isymbols=%s' % (WORDS_FILE),
-        '--osymbols=%s' % (WORDS_FILE),
+        '--isymbols=%s' % (words_file),
+        '--osymbols=%s' % (words_file),
         '--keep_isymbols=false',
         '--keep_osymbols=false',
         txt_fst_file]))

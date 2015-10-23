@@ -17,25 +17,30 @@
 #include "thread/kaldi-thread.h"
 
 void usage() {
-  fprintf(stderr, "usage: standard_kaldi model_filename\n");
+  fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
 }
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
   using namespace fst;
 
-  if (argc != 2) {
+  if (argc != 4) {
     usage();
     return EXIT_FAILURE;
   }
 
-  setbuf(stdout, NULL);
+  const string nnet_dir = argv[1];
+  const string fst_rxfilename = argv[2];
+  const string proto_lang_dir = argv[3];
 
-  const string nnet2_rxfilename = "PROTO_LANGDIR/modeldir/final.mdl";
-  const string fst_rxfilename = argv[1];
-  const string word_syms_rxfilename = "PROTO_LANGDIR/langdir/words.txt";
-  const string phone_syms_rxfilename = "PROTO_LANGDIR/langdir/phones.txt";  
-  const string word_boundary_filename = "PROTO_LANGDIR/langdir/phones/word_boundary.int";
+  const string config_path = nnet_dir + "/conf/online_nnet2_decoding.conf";
+
+  const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
+  const string word_syms_rxfilename = proto_lang_dir + "/langdir/words.txt";
+  const string phone_syms_rxfilename = proto_lang_dir + "/langdir/phones.txt";  
+  const string word_boundary_filename = proto_lang_dir + "/langdir/phones/word_boundary.int";
+
+  setbuf(stdout, NULL);
 
   const int arate = 8000;
   const int chunk_len = 16000;    // 2sec
@@ -52,6 +57,8 @@ int main(int argc, char *argv[]) {
   nnet2_decoding_config.Register(&po);
   endpoint_config.Register(&po);
 
+  string config_arg = "--config=" + config_path;
+
   // HACK(maxhawkins): omg
   const char* args[] = {
     "",
@@ -59,7 +66,7 @@ int main(int argc, char *argv[]) {
     "--beam=15.0",
     "--lattice-beam=6.0",
     "--acoustic-scale=0.1",
-    "--config=data/nnet_a_gpu_online/conf/online_nnet2_decoding.conf",
+    config_arg.c_str()
   };
   po.Read(6, args);
 
