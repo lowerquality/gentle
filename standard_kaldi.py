@@ -20,9 +20,17 @@ class Kaldi:
         self._transitions = None
         self._words = None
         
+    def _write(self, data):
+        """Send data to the subprocess, print stderr and raise if it crashes"""
+        try:
+            self._p.stdin.write(data)
+        except IOError, e:
+            _, stderr = self._p.communicate()
+            sys.stderr.write(stderr)
+            raise IOError("Lost connection with standard_kaldi subprocess")
 
     def _cmd(self, c):
-        self._p.stdin.write("%s\n" % (c))
+        self._write("%s\n" % (c))
         self._p.stdin.flush()
 
     def get_words(self):
@@ -41,7 +49,7 @@ class Kaldi:
     def push_chunk(self, arr):
         # Wait until we're ready
         self._cmd("push-chunk")
-        self._p.stdin.write(arr.tostring())
+        self._write(arr.tostring())
         status = self._p.stdout.readline().strip()
         return status == 'ok'
 
