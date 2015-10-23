@@ -4,6 +4,8 @@
 
 // Based on online2-wav-nnet2-latgen-faster
 
+#include <stdlib.h>
+
 #include "online2/online-nnet2-decoding.h"
 #include "online2/onlinebin-util.h"
 #include "online2/online-timing.h"
@@ -14,11 +16,20 @@
 #include "hmm/hmm-utils.h"
 #include "thread/kaldi-thread.h"
 
+void usage() {
+  fprintf(stderr, "usage: standard_kaldi model_filename\n");
+}
+
 int main(int argc, char *argv[]) {
   using namespace kaldi;
   using namespace fst;
 
-  setbuf(stdout, NULL);  
+  if (argc != 2) {
+    usage();
+    return EXIT_FAILURE;
+  }
+
+  setbuf(stdout, NULL);
 
   const string nnet2_rxfilename = "PROTO_LANGDIR/modeldir/final.mdl";
   const string fst_rxfilename = argv[1];
