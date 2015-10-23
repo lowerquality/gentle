@@ -27,10 +27,19 @@ def lm_transcribe(audio_f, text_f):
     return ret
 
 if __name__=='__main__':
-    AUDIO_FILE = sys.argv[1]
-    TEXT_FILE = sys.argv[2]
-    OUTPUT_FILE = sys.argv[3]
+    import argparse
 
-    ret = lm_transcribe(AUDIO_FILE, TEXT_FILE)
-    json.dump(ret, open(OUTPUT_FILE, 'w'), indent=2)
+    parser = argparse.ArgumentParser(
+        description='Align a transcript to audio by generating a new language model.')
+    parser.add_argument('audio_file', help='input audio file in any format supported by FFMPEG')
+    parser.add_argument('text_file', help='input transcript as plain text')
+    parser.add_argument('output_file', type=argparse.FileType('w'),
+                       help='output json file for aligned transcript')
+    parser.add_argument('--proto_langdir', default="PROTO_LANGDIR",
+                       help='path to the prototype language directory')
+
+    args = parser.parse_args()
+
+    ret = lm_transcribe(args.audio_file, args.text_file)
+    json.dump(ret, args.output_file, indent=2)
     
