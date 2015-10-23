@@ -3,6 +3,8 @@ import re
 import subprocess
 import numpy as np
 
+EXECUTABLE_PATH = "./standard_kaldi"
+
 class Kaldi:
     def __init__(self, language_model='data/graph/HCLG.fst'):
 
@@ -12,7 +14,7 @@ class Kaldi:
         #     os.unlink(H_PATH)
         # os.symlink(language_model, H_PATH)
         
-        self._p = subprocess.Popen(["./standard_kaldi", language_model],
+        self._p = subprocess.Popen([EXECUTABLE_PATH, language_model],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
         self._transitions = None
