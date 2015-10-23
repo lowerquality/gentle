@@ -1,0 +1,95 @@
+<html><head><meta charset="utf-8" /></script><style>
+
+p {
+    width: 50%;
+}
+p.fail {
+    color: rgb(255,150,150);
+    position: absolute;
+    left: 50%;
+}
+
+.dud {
+    color: rgb(150,150,150);
+}
+
+</style></head><body><script>
+
+function get(url, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.onload = function() {
+        cb(this.responseText);
+    }
+    xhr.send();
+}
+function get_json(url, cb) {
+    get(url, function(x) {
+        cb(JSON.parse(x));
+    });
+}
+
+var $a = document.createElement("audio");
+$a.src = "ch2.mp3";
+window.onkeydown = function(ev) {
+    if(ev.keyCode == 32) {
+        ev.preventDefault();
+        $a.pause();
+    }
+}
+
+var $cur_p, $fail_p;
+function do_break() {
+    $cur_p = document.createElement("p");
+    document.body.appendChild($cur_p);
+
+    $fail_p = document.createElement("p");
+    $fail_p.className = "fail";
+    $fail_p.style.top = $cur_p.offsetTop;
+    document.body.appendChild($fail_p);
+}
+
+document.body.innerHTML = "Loading...";
+
+var res;
+get_json("ch2-aligned.json", function(ret) {
+    res = ret;
+    
+    document.body.innerHTML = "";
+    do_break();
+    
+    ret.forEach(function(wd) {
+
+        var $wd = document.createElement("span");
+        $wd.innerHTML = (wd.word || wd.fail) + " ";
+
+        $wd.onclick = function() {
+            if(wd.start !== undefined) {
+                console.log(wd.start);
+                $a.currentTime = wd.start;
+                $a.play();
+            }
+        }
+
+        if(wd.fail) {
+            $fail_p.appendChild($wd);
+        }
+        else {
+            if(wd.start == undefined) {
+                $wd.className = "dud";
+            }
+            $cur_p.appendChild($wd);
+
+            // newline to break
+            if(wd.word[wd.word.length-1]=='\n') {
+                do_break();
+            }
+
+            
+        }
+        
+    });
+
+});
+
+</script></body></html>

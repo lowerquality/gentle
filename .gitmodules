@@ -1,0 +1,3 @@
+[submodule "kaldi"]
+	path = kaldi
+	url = https://github.com/kaldi-asr/kaldi
