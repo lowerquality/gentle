@@ -13,11 +13,10 @@ ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/bin/")
 ENV["PATH"] += ":" + os.path.abspath(FST_BIN)
 MKGRAPH_WD = KALDI_ROOT + "/egs/wsj/s5/utils/"
 
-PROTOTYPE_LANGUAGE_DIR = 'PROTO_LANGDIR/'
-
-def getLanguageModel(kaldi_seq):
+def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text
 
+    `proto_langdir` is a path to a directory containing prototype model data
     `kaldi_seq` is a list of words within kaldi's vocabulary.
     """
 
@@ -45,13 +44,15 @@ def getLanguageModel(kaldi_seq):
     open(txt_fst_file, 'w').write(
         subprocess.check_output([TXT_FST_SCRIPT, wordpair_file]))
     
+    # TODO(maxhawkins): can this path have spaces?
+    words_file = os.path.join(proto_langdir, "graphdir/words.txt")
 
     # Generate a binary FST
     bin_fst_file = os.path.join(lang_model_dir, 'langdir', 'G.fst')
     open(bin_fst_file, 'w').write(subprocess.check_output([
         'fstcompile',
-        '--isymbols=%s' % (WORDS_FILE),
-        '--osymbols=%s' % (WORDS_FILE),
+        '--isymbols=%s' % (words_file),
+        '--osymbols=%s' % (words_file),
         '--keep_isymbols=false',
         '--keep_osymbols=false',
         txt_fst_file]))

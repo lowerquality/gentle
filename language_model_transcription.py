@@ -9,12 +9,12 @@ import os
 import sys
 
 
-vocab = metasentence.load_vocabulary('PROTO_LANGDIR/graphdir/words.txt')
-
 def lm_transcribe(audio_f, text_f, proto_langdir, nnet_dir):
+    vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
+    vocab = metasentence.load_vocabulary(vocab_path)
 
     ms = metasentence.MetaSentence(open(text_f).read(), vocab)
-    gen_model_dir = language_model.getLanguageModel(ms.get_kaldi_sequence())
+    gen_model_dir = language_model.getLanguageModel(ms.get_kaldi_sequence(), proto_langdir)
 
     print 'generated model', gen_model_dir
 
