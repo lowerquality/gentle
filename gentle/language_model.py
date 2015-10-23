@@ -58,7 +58,7 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
         txt_fst_file]))
               
     # Create the full HCLG.fst graph
-    subprocess.call(['./mkgraph.sh',
+    subprocess.check_output(['./mkgraph.sh',
                      os.path.join(lang_model_dir, 'langdir'),
                      os.path.join(lang_model_dir, 'modeldir'),
                      os.path.join(lang_model_dir, 'graphdir')],
