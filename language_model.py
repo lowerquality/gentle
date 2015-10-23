@@ -8,6 +8,7 @@ TXT_FST_SCRIPT = './kaldi/egs/rm/s5/local/make_rm_lm.pl'
 ENV = os.environ
 ENV["PATH"] += ":" + os.path.abspath("kaldi/src/fstbin/")
 ENV["PATH"] += ":" + os.path.abspath("kaldi/src/bin/")
+ENV["PATH"] += ":" + os.path.abspath("kaldi/tools/openfst/bin/")
 MKGRAPH_WD = "kaldi/egs/wsj/s5/utils/"
 
 PROTOTYPE_LANGUAGE_DIR = 'PROTO_LANGDIR/'
