@@ -1,10 +1,10 @@
 # Build Kaldi
 cd kaldi/tools
-make -j8
+make # -j 8
 cd ../src
 ./configure
-make depend -j 8
-make -j 8
+make depend # -j 8
+make # -j 8
 cd ../../
 
 # Build "standard_kaldi" python wrapper
