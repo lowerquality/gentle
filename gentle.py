@@ -1,8 +1,4 @@
-import metasentence
-import language_model
-import standard_kaldi
-
-import diff_align
+from gentle import metasentence, language_model, standard_kaldi, diff_align
 
 import json
 import os
