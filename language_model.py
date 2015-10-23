@@ -24,17 +24,15 @@ def getLanguageModel(kaldi_seq):
     print 'saving language model to', lang_model_dir
 
     # Symlink in necessary files from the prototype directory
-    for dirpath, dirnames, filenames in os.walk(PROTOTYPE_LANGUAGE_DIR, followlinks=True):
+    for dirpath, dirnames, filenames in os.walk(proto_langdir, followlinks=True):
         for dirname in dirnames:
-            os.makedirs(
-                os.path.join(lang_model_dir,
-                             os.path.join(dirpath, dirname)[len(PROTOTYPE_LANGUAGE_DIR):]))
+            relpath = os.path.relpath(os.path.join(dirpath, dirname), proto_langdir)
+            os.makedirs(os.path.join(lang_model_dir, relpath))
         for filename in filenames:
-            dstpath = os.path.join(lang_model_dir,
-                                   os.path.join(dirpath, filename)[len(PROTOTYPE_LANGUAGE_DIR):])
-            os.symlink(
-                os.path.abspath(os.path.join(dirpath, filename)),
-                dstpath)
+            abspath = os.path.abspath(os.path.join(dirpath, filename))
+            relpath = os.path.relpath(os.path.join(dirpath, filename), proto_langdir)
+            dstpath = os.path.join(lang_model_dir, relpath)
+            os.symlink(abspath, dstpath)
 
     # Save the wordpair
     wordpair_file = os.path.join(lang_model_dir, 'wordpairs.txt')
