@@ -14,7 +14,7 @@ echo "Running test..."
 
 TMPDIR=$(mktemp -dt "gentle_test")
 
-ERR=$(python gentle.py tests/data/lucier.mp3 tests/data/lucier.txt $TMPDIR/got.json 2>&1)
+ERR=$(python gentle/language_model_transcribe.py tests/data/lucier.mp3 tests/data/lucier.txt $TMPDIR/got.json 2>&1)
 if [ $? -ne 0 ]; then
 	echo "lucier.mp3: error running gentle.py"
 	echo "$ERR"
