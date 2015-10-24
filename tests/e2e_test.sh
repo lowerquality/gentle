@@ -12,11 +12,21 @@ cd "$DIR/.."
 
 echo "Running test..."
 
-WANT="$(cat tests/data/lucier_golden.json | md5)"
-GOT="$(python gentle.py tests/data/lucier.mp3 tests/data/lucier.txt - 2>/dev/null | md5)"
+TMPDIR=$(mktemp -dt "gentle_test")
 
-if [[ "$WANT" != "$GOT" ]]; then
-	echo "transcript for lucier.mp3: MD5 = '$GOT', expected '$WANT'"
+ERR=$(python gentle.py tests/data/lucier.mp3 tests/data/lucier.txt $TMPDIR/got.json 2>&1)
+if [ $? -ne 0 ]; then
+	echo "lucier.mp3: error running gentle.py"
+	echo "$ERR"
+	echo "FAIL"
+	exit 1
+fi
+
+DIFF="$(diff tests/data/lucier_golden.json $TMPDIR/got.json)"
+
+if [ "$DIFF" != "" ]; then
+	echo "lucier.mp3: transcript doesn't match golden master"
+	echo "$DIFF"
 	echo "FAIL"
 	exit 1
 else
