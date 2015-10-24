@@ -1,8 +1,10 @@
-import numpy as np
 import os
 import re
 import subprocess
 import sys
+import wave
+
+import ffmpeg
 
 EXECUTABLE_PATH = "./standard_kaldi"
 
@@ -47,10 +49,10 @@ class Kaldi:
             words[idx] = line.split(' ')[0]
         return words
 
-    def push_chunk(self, arr):
+    def push_chunk(self, buf):
         # Wait until we're ready
         self._cmd("push-chunk")
-        self._write(arr.tostring())
+        self._write(buf)
         status = self._p.stdout.readline().strip()
         return status == 'ok'
 
@@ -235,41 +237,70 @@ class Kaldi:
         self.stop()
 
 def lattice(k, infile):
-    import numm3
     # TODO: Merge into a single ID -> Arc dictionary
     lat = []
+
+    input_wav = read_wav(infile)
 
     def _add_lattice(ret, offset):
         # First, construct lattice independenctly
         mLat = k.clean_lattice(ret)
         lat.append({"start": offset, "lattice": mLat})
 
-    start_idx = 0
-    for idx,buf in enumerate(numm3.sound_chunks(infile, R=8000, chunksize=16000, nchannels=1)):
-        buf = buf.reshape((-1))
-        sys.stderr.write('%d %d\n', idx, len(buf))
-        
-        if buf.shape[0] < 16000:
+    idx = 0
+    seg_offset = 0
+    while True:
+        chunk = input_wav.readframes(16000)
+
+        sys.stderr.write('%d %d\n', idx, len(chunk))
+
+        # TODO(maxhawkins): this fails with very short audio clips
+        if len(chunk) != 32000:
             sys.stderr.write('done with audio!\n')
-            ret = k.get_final_lattice()
-            _add_lattice(ret, start_idx*2)
+            ret = k.get_final()
+            _add_lattice(ret, seg_offset*2)
             k.stop()
             return lat
-        #elif not (k.push_chunk(buf) or idx == start_idx):
-        k.push_chunk(buf)
+
+        k.push_chunk(chunk)
+
         if idx > 0 and idx % 15 == 0:
-            sys.stderr.write('endpoint! %d\n', idx*2)
-            ret = k.get_final_lattice()
-            _add_lattice(ret, start_idx*2)
+            sys.stderr.write('endpoint!\n')
+            ret = k.get_final()
+            _add_lattice(ret, seg_offset*2)
+
             k.reset()
-            start_idx = idx
+            seg_offset = idx
+            
             # Push same chunk again
-            k.push_chunk(buf)
+            k.push_chunk(chunk)
+
+        idx += 1
+
+def read_wav(infile):
+    '''
+    Create a stdlib wave object from the given input file.
+
+    If the file isn't a wav or has the wrong sample format,
+    try to convert it using ffmpeg.
+    '''
+    try:
+        input_wav = wave.open(infile, 'r')
+        if input_wav.getnchannels() != 1:
+            raise ValueError("input wav must be mono")
+        if input_wav.getframerate() != 8000:
+            raise ValueError("input wav must have 8kHZ sample rate")
+        if input_wav.getsampwidth() != 2:
+            raise ValueError("input wav must have 16 bit depth")
+    except:
+        input_wav = wave.open(ffmpeg.to_wav(infile), 'r')
+    return input_wav
+
 
 def transcribe(k, infile):
-    import numm3
-    #phones = []
     words = []
+
+    input_wav = read_wav(infile)
 
     def _add_words_arr(wds, arr, offset):
         # There may be some overlap between the end of the last
@@ -295,34 +326,39 @@ def transcribe(k, infile):
     def _add_words(wds, offset):
         _add_words_arr(wds, words, offset)
 
-    start_idx = 0
-    for idx,buf in enumerate(numm3.sound_chunks(infile, R=8000, chunksize=16000, nchannels=1)):
-        buf = buf.reshape((-1))
+    idx = 0
+    seg_offset = 0
+    while True:
+        chunk = input_wav.readframes(16000)
 
-        if buf.shape[0] < 16000:
+        # TODO(maxhawkins): this fails with very short audio clips
+        if len(chunk) != 32000:
             sys.stderr.write('done with audio!\n')
             ret = k.get_final()
-            _add_words(ret, start_idx*2)
+            _add_words(ret, seg_offset*2)
             k.stop()
             return {"words": words}
-        k.push_chunk(buf)        
+
+        k.push_chunk(chunk)
+
         if idx > 0 and idx % 15 == 0:
             sys.stderr.write('endpoint!\n')
             ret = k.get_final()
-            _add_words(ret, start_idx*2)
-            
+            _add_words(ret, seg_offset*2)
+
             k.reset()
-            start_idx = idx
+            seg_offset = idx
             
             # Push same chunk again
-            k.push_chunk(buf)
+            k.push_chunk(chunk)
 
         if idx > 0 and idx % 5 == 0:
             # ...just to show some progress
             sys.stderr.write('%s\n' % k.get_partial())
 
+        idx += 1
+
 if __name__=='__main__':
-    import numm3
     import sys
 
     import json
