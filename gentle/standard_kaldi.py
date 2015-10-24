@@ -7,7 +7,10 @@ import sys
 EXECUTABLE_PATH = "./standard_kaldi"
 
 class Kaldi:
-    def __init__(self, nnet_dir, hclg_path, proto_langdir):
+    def __init__(self,
+        nnet_dir='data/nnet_a_gpu_online',
+        hclg_path='data/graph/HCLG.fst',
+        proto_langdir='PROTO_LANGDIR'):
         self.proto_langdir = proto_langdir
         self._p = subprocess.Popen([EXECUTABLE_PATH, nnet_dir, hclg_path, proto_langdir],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
