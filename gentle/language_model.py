@@ -1,4 +1,4 @@
-from generate_wp import wordpair_from_word_sequence
+from generate_wp import language_model_from_word_sequence
 import os
 import subprocess
 import sys
@@ -7,7 +7,6 @@ import tempfile
 KALDI_ROOT = "kaldi"
 FST_BIN = KALDI_ROOT + "/tools/openfst/bin"
 
-TXT_FST_SCRIPT = KALDI_ROOT + "/egs/rm/s5/local/make_rm_lm.pl"
 ENV = os.environ
 ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/fstbin/")
 ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/bin/")
@@ -36,14 +35,10 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
             dstpath = os.path.join(lang_model_dir, relpath)
             os.symlink(abspath, dstpath)
 
-    # Save the wordpair
-    wordpair_file = os.path.join(lang_model_dir, 'wordpairs.txt')
-    wordpair_from_word_sequence(kaldi_seq, wordpair_file)
-
     # Generate a textual FST
+    txt_fst = language_model_from_word_sequence(kaldi_seq)
     txt_fst_file = os.path.join(lang_model_dir, 'G.txt')
-    open(txt_fst_file, 'w').write(
-        subprocess.check_output([TXT_FST_SCRIPT, wordpair_file]))
+    open(txt_fst_file, 'w').write(txt_fst)
     
     # TODO(maxhawkins): can this path have spaces?
     words_file = os.path.join(proto_langdir, "graphdir/words.txt")
