@@ -1,44 +1,68 @@
-from gentle import metasentence, language_model, standard_kaldi, diff_align
-
-import json
 import os
 import sys
+import tempfile
 
+from gentle.language_model_transcribe import lm_transcribe
 
-def lm_transcribe(audio_f, text_f, proto_langdir, nnet_dir):
-    vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
-    vocab = metasentence.load_vocabulary(vocab_path)
+from flask import jsonify, request, Flask, render_template
+app = Flask(__name__)
 
-    ms = metasentence.MetaSentence(open(text_f).read(), vocab)
-    gen_model_dir = language_model.getLanguageModel(ms.get_kaldi_sequence(), proto_langdir)
+@app.route('/', methods=['GET'])
+def index():
+    return """<html>
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            body { font-family: sans-serif; }
+            textarea { width: 500px; height: 20em; }
+            input, textarea { margin: 1em 0; }
+        </style>
+    </head>
+    <body>
+        <form action="/transcribe" method="POST" enctype="multipart/form-data">
+          Audio:<br>
+          <input type=file name=audio><br>
+          <br>
+          Transcript:<br>
+          <textarea name="transcript"></textarea><br>
+          <input type=submit value=Align>
+        </form>
+    </body>
+    </html>"""
 
-    sys.stderr.write('generated model %s' % gen_model_dir)
+@app.route('/transcribe', methods=['POST'])
+def transcribe():
+    transcript = request.form['transcript']
 
-    gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
-    k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
+    audio = request.files['audio']
+    _, extension = os.path.splitext(audio.filename)
+    audio_file = tempfile.NamedTemporaryFile(suffix=extension)
+    audio.save(audio_file)
 
-    trans = standard_kaldi.transcribe(k, audio_f)
+    proto_langdir = app.config['proto_langdir']
+    nnet_dir = app.config['nnet_dir']
 
-    ret = diff_align.align(trans["words"], ms)
+    aligned = lm_transcribe(audio_file.name, transcript,
+        proto_langdir, nnet_dir)
+    return jsonify(transcript=aligned)
 
-    return ret
 
 if __name__=='__main__':
     import argparse
 
     parser = argparse.ArgumentParser(
         description='Align a transcript to audio by generating a new language model.')
-    parser.add_argument('audio_file', help='input audio file in any format supported by FFMPEG')
-    parser.add_argument('text_file', help='input transcript as plain text')
-    parser.add_argument('output_file', type=argparse.FileType('w'),
-                       help='output json file for aligned transcript')
     parser.add_argument('--proto_langdir', default="PROTO_LANGDIR",
                        help='path to the prototype language directory')
     parser.add_argument('--nnet_dir', default="data",
                        help='path to the kaldi neural net model directory')
+    parser.add_argument('--port', default=8080, type=int,
+                        help='port number to run http server on')
 
     args = parser.parse_args()
 
-    ret = lm_transcribe(args.audio_file, args.text_file, args.proto_langdir, args.nnet_dir)
-    json.dump(ret, args.output_file, indent=2)
+    app.config['proto_langdir'] = args.proto_langdir
+    app.config['nnet_dir'] = args.nnet_dir
+    
+    app.run(port=args.port)
     
