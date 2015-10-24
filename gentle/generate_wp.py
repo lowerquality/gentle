@@ -1,25 +1,4 @@
-# Take a transcript, and generate an APRA-style word-pair text file, in the style of
-# https://catalog.ldc.upenn.edu/docs/LDC93S3B/disc_1/doc/wp_gram.txt
-#
-# Unlike the 1987 BBN example, we remove SENTENCE-END and make everything lowercase.
-
-"""
- * A symbol '>' before a word in the list below signifies that the word is in
- * the first position of the bigram.
- * The sequence of words that immediately follow a bigram initial word
- * constitute the words allowed in the second position of the bigram.
- *
- * A distinguished symbol, 'SENTENCE-END', has been added to the lexicon
- * for the purpose of this specification and for computing the perplexity of 
- * the resulting language model.
- * Note that all words which follow the symbol, '>SENTENCE-END',
- * are the words which can occur at the begining of sentences.
- * Similarly, all words which contain the symbol, 'SENTENCE-END', in their
- * lists of allowable succeeding words constitute the words which can occur
- * at the end of sentences.
- * For this task domain, their are 181 legal sentence initial words and
- * 605 legal sentence final words.
-"""
+# Take a transcript, and generate a textual FST containing a bigram language model
 
 import sys
 import re
