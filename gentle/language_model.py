@@ -4,14 +4,7 @@ import subprocess
 import sys
 import tempfile
 
-KALDI_ROOT = "kaldi"
-FST_BIN = KALDI_ROOT + "/tools/openfst/bin"
-
-ENV = os.environ
-ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/fstbin/")
-ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/bin/")
-ENV["PATH"] += ":" + os.path.abspath(FST_BIN)
-MKGRAPH_WD = KALDI_ROOT + "/egs/wsj/s5/utils/"
+MKGRAPH_PATH = "./mkgraph"
 
 def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text
@@ -42,23 +35,12 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     
     # TODO(maxhawkins): can this path have spaces?
     words_file = os.path.join(proto_langdir, "graphdir/words.txt")
-
-    # Generate a binary FST
-    bin_fst_file = os.path.join(lang_model_dir, 'langdir', 'G.fst')
-    open(bin_fst_file, 'w').write(subprocess.check_output([
-        'fstcompile',
-        '--isymbols=%s' % (words_file),
-        '--osymbols=%s' % (words_file),
-        '--keep_isymbols=false',
-        '--keep_osymbols=false',
-        txt_fst_file]))
-              
-    # Create the full HCLG.fst graph
-    subprocess.check_output(['./mkgraph.sh',
+    subprocess.check_output([MKGRAPH_PATH,
                      os.path.join(lang_model_dir, 'langdir'),
                      os.path.join(lang_model_dir, 'modeldir'),
-                     os.path.join(lang_model_dir, 'graphdir')],
-                    env=ENV, cwd=MKGRAPH_WD)
+                     txt_fst_file,
+                     words_file,
+                     os.path.join(lang_model_dir, 'graphdir', 'HCLG.fst')])
 
     # Return the language model directory
     return lang_model_dir
