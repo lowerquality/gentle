@@ -39,33 +39,27 @@ int main(int argc, char *argv[]) {
 			model_filename = model_dir + "/final.mdl",
 			tree_filename = model_dir + "/tree";
 
-		std::ifstream lang_fst_file(lang_fst_filename);
-		if (!lang_fst_file.good()) {
+		if (!std::ifstream(lang_fst_filename.c_str())) {
 			std::cerr << "expected " << lang_fst_filename << " to exist" << std::endl;
 			return 1;
 		}
-		std::ifstream lang_disambig_fst_file(lang_disambig_fst_filename);
-		if (!lang_disambig_fst_file.good()) {
+		if (!std::ifstream(lang_disambig_fst_filename.c_str())) {
 			std::cerr << "expected " << lang_disambig_fst_filename << " to exist" << std::endl;
 			return 1;
 		}
-		std::ifstream grammar_fst_file(grammar_fst_filename);
-		if (!grammar_fst_file.good()) {
+		if (!std::ifstream(grammar_fst_filename.c_str())) {
 			std::cerr << "expected " << grammar_fst_filename << " to exist" << std::endl;
 			return 1;
 		}
-		std::ifstream disambig_phones_file(disambig_phones_filename);
-		if (!disambig_phones_file.good()) {
+		if (!std::ifstream(disambig_phones_filename.c_str())) {
 			std::cerr << "expected " << disambig_phones_filename << " to exist" << std::endl;
 			return 1;
 		}
-		std::ifstream model_file(model_filename);
-		if (!model_file.good()) {
+		if (!std::ifstream(model_filename.c_str())) {
 			std::cerr << "expected " << model_filename << " to exist" << std::endl;
 			return 1;
 		}
-		std::ifstream tree_file(tree_filename);
-		if (!tree_file.good()) {
+		if (!std::ifstream(tree_filename.c_str())) {
 			std::cerr << "expected " << tree_filename << " to exist" << std::endl;
 			return 1;
 		}
@@ -77,6 +71,7 @@ int main(int argc, char *argv[]) {
 		if (!isyms) { return 1; }
 		const SymbolTable *osyms = SymbolTable::ReadText(words_filename, opts);
 		if (!osyms) { return 1; }
+		std::ifstream grammar_fst_file(grammar_fst_filename.c_str());
 		FstCompiler<StdArc> fstcompiler(grammar_fst_file, "", isyms,
 			osyms, ssyms,
 			false, false,
