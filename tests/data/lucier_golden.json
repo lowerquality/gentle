@@ -1,0 +1,782 @@
+[
+  {
+    "duration": 0.07, 
+    "k_word": "i", 
+    "word": "I", 
+    "start": 0.0
+  }, 
+  {
+    "duration": 0.06, 
+    "k_word": "am", 
+    "word": "am", 
+    "start": 0.11
+  }, 
+  {
+    "word": "sitting"
+  }, 
+  {
+    "word": "in"
+  }, 
+  {
+    "fail": "recording", 
+    "start": 0.17, 
+    "duration": 0.63
+  }, 
+  {
+    "fail": "the", 
+    "start": 0.83, 
+    "duration": 0.11
+  }, 
+  {
+    "fail": "sound", 
+    "start": 0.97, 
+    "duration": 5.21
+  }, 
+  {
+    "fail": "of", 
+    "start": 6.26, 
+    "duration": 0.09
+  }, 
+  {
+    "duration": 0.15, 
+    "k_word": "a", 
+    "word": "a", 
+    "start": 6.74
+  }, 
+  {
+    "fail": "demonstration", 
+    "start": 6.89, 
+    "duration": 1.1
+  }, 
+  {
+    "fail": "of", 
+    "start": 7.99, 
+    "duration": 0.08
+  }, 
+  {
+    "fail": "the", 
+    "start": 8.07, 
+    "duration": 0.11
+  }, 
+  {
+    "duration": 0.6, 
+    "k_word": "room", 
+    "word": "room", 
+    "start": 8.179999
+  }, 
+  {
+    "duration": 0.52, 
+    "k_word": "different", 
+    "word": "different", 
+    "start": 11.639999
+  }, 
+  {
+    "duration": 0.43, 
+    "k_word": "from", 
+    "word": "from", 
+    "start": 12.19
+  }, 
+  {
+    "duration": 0.11, 
+    "k_word": "the", 
+    "word": "the", 
+    "start": 12.62
+  }, 
+  {
+    "duration": 0.27, 
+    "k_word": "one", 
+    "word": "one", 
+    "start": 12.73
+  }, 
+  {
+    "duration": 0.28, 
+    "k_word": "you", 
+    "word": "you", 
+    "start": 13.0
+  }, 
+  {
+    "duration": 0.15, 
+    "k_word": "are", 
+    "word": "are", 
+    "start": 13.28
+  }, 
+  {
+    "duration": 0.25, 
+    "k_word": "in", 
+    "word": "in", 
+    "start": 13.429999
+  }, 
+  {
+    "duration": 0.47, 
+    "k_word": "now", 
+    "word": "now.", 
+    "start": 13.679999
+  }, 
+  {
+    "duration": 0.13, 
+    "k_word": "i", 
+    "word": "I", 
+    "start": 17.77
+  }, 
+  {
+    "duration": 0.19, 
+    "k_word": "am", 
+    "word": "am", 
+    "start": 17.9
+  }, 
+  {
+    "duration": 0.65, 
+    "k_word": "recording", 
+    "word": "recording", 
+    "start": 18.09
+  }, 
+  {
+    "duration": 0.06, 
+    "k_word": "the", 
+    "word": "the", 
+    "start": 18.969999
+  }, 
+  {
+    "duration": 0.37, 
+    "k_word": "sound", 
+    "word": "sound", 
+    "start": 19.029999
+  }, 
+  {
+    "duration": 0.13, 
+    "k_word": "of", 
+    "word": "of", 
+    "start": 19.4
+  }, 
+  {
+    "duration": 0.25, 
+    "k_word": "my", 
+    "word": "my", 
+    "start": 19.529999
+  }, 
+  {
+    "duration": 0.46, 
+    "k_word": "speaking", 
+    "word": "speaking", 
+    "start": 19.9
+  }, 
+  {
+    "duration": 0.62, 
+    "k_word": "voice", 
+    "word": "voice", 
+    "start": 20.359999
+  }, 
+  {
+    "duration": 0.21, 
+    "k_word": "and", 
+    "word": "and", 
+    "start": 23.5
+  }, 
+  {
+    "duration": 0.06, 
+    "k_word": "i", 
+    "word": "I", 
+    "start": 23.709999
+  }, 
+  {
+    "duration": 0.18, 
+    "k_word": "am", 
+    "word": "am", 
+    "start": 23.769999
+  }, 
+  {
+    "duration": 0.22, 
+    "k_word": "going", 
+    "word": "going", 
+    "start": 23.949999
+  }, 
+  {
+    "duration": 0.11, 
+    "k_word": "to", 
+    "word": "to", 
+    "start": 24.17
+  }, 
+  {
+    "duration": 0.22, 
+    "k_word": "play", 
+    "word": "play", 
+    "start": 24.33
+  }, 
+  {
+    "duration": 0.16, 
+    "k_word": "it", 
+    "word": "it", 
+    "start": 24.549999
+  }, 
+  {
+    "duration": 0.35, 
+    "k_word": "back", 
+    "word": "back", 
+    "start": 24.709999
+  }, 
+  {
+    "duration": 0.32, 
+    "k_word": "into", 
+    "word": "into", 
+    "start": 25.059999
+  }, 
+  {
+    "duration": 0.12, 
+    "k_word": "the", 
+    "word": "the", 
+    "start": 25.379999
+  }, 
+  {
+    "word": "room"
+  }, 
+  {
+    "word": "again"
+  }, 
+  {
+    "word": "and"
+  }, 
+  {
+    "word": "again"
+  }, 
+  {
+    "word": "until"
+  }, 
+  {
+    "word": "the"
+  }, 
+  {
+    "word": "resonant"
+  }, 
+  {
+    "word": "frequencies"
+  }, 
+  {
+    "word": "of"
+  }, 
+  {
+    "word": "the"
+  }, 
+  {
+    "fail": "one", 
+    "start": 25.92, 
+    "duration": 0.09
+  }, 
+  {
+    "fail": "you", 
+    "start": 26.51, 
+    "duration": 0.06
+  }, 
+  {
+    "fail": "will", 
+    "start": 29.039999, 
+    "duration": 0.16
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 30.0, 
+    "duration": 0.74
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 30.74, 
+    "duration": 1.23
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 32.12, 
+    "duration": 0.45
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 32.57, 
+    "duration": 0.66
+  }, 
+  {
+    "fail": "i", 
+    "start": 33.23, 
+    "duration": 0.03
+  }, 
+  {
+    "fail": "am", 
+    "start": 33.26, 
+    "duration": 0.07
+  }, 
+  {
+    "fail": "sitting", 
+    "start": 33.33, 
+    "duration": 0.21
+  }, 
+  {
+    "fail": "in", 
+    "start": 33.54, 
+    "duration": 0.06
+  }, 
+  {
+    "fail": "a", 
+    "start": 33.6, 
+    "duration": 0.54
+  }, 
+  {
+    "duration": 0.44, 
+    "k_word": "room", 
+    "word": "room", 
+    "start": 35.480000000000004
+  }, 
+  {
+    "duration": 0.81, 
+    "k_word": "reinforce", 
+    "word": "reinforce", 
+    "start": 36.230000000000004
+  }, 
+  {
+    "duration": 0.91, 
+    "k_word": "themselves", 
+    "word": "themselves", 
+    "start": 37.04
+  }, 
+  {
+    "duration": 0.28, 
+    "k_word": "so", 
+    "word": "so", 
+    "start": 39.51
+  }, 
+  {
+    "duration": 0.19, 
+    "k_word": "that", 
+    "word": "that", 
+    "start": 39.79
+  }, 
+  {
+    "duration": 0.4, 
+    "k_word": "any", 
+    "word": "any", 
+    "start": 40.01
+  }, 
+  {
+    "duration": 0.84, 
+    "k_word": "semblance", 
+    "word": "semblance", 
+    "start": 40.41
+  }, 
+  {
+    "duration": 0.21, 
+    "k_word": "of", 
+    "word": "of", 
+    "start": 41.28
+  }, 
+  {
+    "duration": 0.22, 
+    "k_word": "my", 
+    "word": "my", 
+    "start": 41.49
+  }, 
+  {
+    "duration": 0.87, 
+    "k_word": "speech", 
+    "word": "speech,", 
+    "start": 41.71
+  }, 
+  {
+    "duration": 0.25, 
+    "k_word": "with", 
+    "word": "with", 
+    "start": 45.059999
+  }, 
+  {
+    "duration": 0.53, 
+    "k_word": "perhaps", 
+    "word": "perhaps", 
+    "start": 45.309999
+  }, 
+  {
+    "duration": 0.1, 
+    "k_word": "the", 
+    "word": "the", 
+    "start": 45.839999
+  }, 
+  {
+    "duration": 0.7, 
+    "k_word": "exception", 
+    "word": "exception", 
+    "start": 45.94
+  }, 
+  {
+    "duration": 0.27, 
+    "k_word": "of", 
+    "word": "of", 
+    "start": 46.639999
+  }, 
+  {
+    "word": "rhythm,"
+  }, 
+  {
+    "word": "is"
+  }, 
+  {
+    "word": "destroyed."
+  }, 
+  {
+    "word": "What"
+  }, 
+  {
+    "fail": "a", 
+    "start": 46.940000999999995, 
+    "duration": 0.48
+  }, 
+  {
+    "fail": "room", 
+    "start": 47.83, 
+    "duration": 0.27
+  }, 
+  {
+    "fail": "different", 
+    "start": 49.33, 
+    "duration": 0.37
+  }, 
+  {
+    "fail": "from", 
+    "start": 49.699999, 
+    "duration": 0.31
+  }, 
+  {
+    "fail": "the", 
+    "start": 51.480000000000004, 
+    "duration": 0.06
+  }, 
+  {
+    "fail": "room", 
+    "start": 52.09, 
+    "duration": 0.15
+  }, 
+  {
+    "fail": "different", 
+    "start": 52.279999000000004, 
+    "duration": 0.64
+  }, 
+  {
+    "fail": "from", 
+    "start": 53.449999, 
+    "duration": 0.09
+  }, 
+  {
+    "fail": "the", 
+    "start": 55.480000000000004, 
+    "duration": 0.06
+  }, 
+  {
+    "fail": "one", 
+    "start": 56.389999, 
+    "duration": 0.26
+  }, 
+  {
+    "duration": 0.15, 
+    "k_word": "you", 
+    "word": "you", 
+    "start": 56.65
+  }, 
+  {
+    "duration": 0.18, 
+    "k_word": "will", 
+    "word": "will", 
+    "start": 56.799999
+  }, 
+  {
+    "duration": 0.34, 
+    "k_word": "hear", 
+    "word": "hear,", 
+    "start": 56.980000000000004
+  }, 
+  {
+    "duration": 0.53, 
+    "k_word": "then", 
+    "word": "then,", 
+    "start": 57.32
+  }, 
+  {
+    "duration": 0.29, 
+    "k_word": "are", 
+    "word": "are", 
+    "start": 59.32
+  }, 
+  {
+    "duration": 0.3, 
+    "k_word": "the", 
+    "word": "the", 
+    "start": 59.609999
+  }, 
+  {
+    "duration": 0.96, 
+    "k_word": "natural", 
+    "word": "natural", 
+    "start": 60.699999
+  }, 
+  {
+    "word": "resonant"
+  }, 
+  {
+    "word": "frequencies"
+  }, 
+  {
+    "word": "of"
+  }, 
+  {
+    "word": "the"
+  }, 
+  {
+    "word": "room"
+  }, 
+  {
+    "word": "articulated"
+  }, 
+  {
+    "word": "by"
+  }, 
+  {
+    "word": "speech."
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 60.0, 
+    "duration": 0.34
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 60.71, 
+    "duration": 0.37
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 61.08, 
+    "duration": 0.56
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 62.19, 
+    "duration": 0.2
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 62.6, 
+    "duration": 0.75
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 63.35, 
+    "duration": 0.77
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 64.12, 
+    "duration": 0.7
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 66.81, 
+    "duration": 0.85
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 67.66, 
+    "duration": 0.23
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 67.89, 
+    "duration": 0.44
+  }, 
+  {
+    "duration": 0.21, 
+    "k_word": "i", 
+    "word": "I", 
+    "start": 73.059999
+  }, 
+  {
+    "duration": 0.78, 
+    "k_word": "regard", 
+    "word": "regard", 
+    "start": 73.27
+  }, 
+  {
+    "duration": 0.28, 
+    "k_word": "this", 
+    "word": "this", 
+    "start": 75.929999
+  }, 
+  {
+    "duration": 0.88, 
+    "k_word": "activity", 
+    "word": "activity", 
+    "start": 76.209999
+  }, 
+  {
+    "duration": 0.38, 
+    "k_word": "not", 
+    "word": "not", 
+    "start": 78.99
+  }, 
+  {
+    "duration": 0.15, 
+    "k_word": "so", 
+    "word": "so", 
+    "start": 79.369999
+  }, 
+  {
+    "duration": 0.55, 
+    "k_word": "much", 
+    "word": "much", 
+    "start": 79.52
+  }, 
+  {
+    "duration": 0.21, 
+    "k_word": "as", 
+    "word": "as", 
+    "start": 80.879999
+  }, 
+  {
+    "duration": 0.07, 
+    "k_word": "a", 
+    "word": "a", 
+    "start": 81.09
+  }, 
+  {
+    "duration": 1.08, 
+    "k_word": "demonstration", 
+    "word": "demonstration", 
+    "start": 81.16
+  }, 
+  {
+    "duration": 0.17, 
+    "k_word": "of", 
+    "word": "of", 
+    "start": 82.269999
+  }, 
+  {
+    "duration": 0.07, 
+    "k_word": "a", 
+    "word": "a", 
+    "start": 82.439999
+  }, 
+  {
+    "duration": 0.5, 
+    "k_word": "physical", 
+    "word": "physical", 
+    "start": 82.51
+  }, 
+  {
+    "duration": 0.61, 
+    "k_word": "fact", 
+    "word": "fact,", 
+    "start": 83.01
+  }, 
+  {
+    "duration": 0.22, 
+    "k_word": "but", 
+    "word": "but", 
+    "start": 85.639999
+  }, 
+  {
+    "duration": 0.69, 
+    "k_word": "more", 
+    "word": "more", 
+    "start": 86.369999
+  }, 
+  {
+    "duration": 0.2, 
+    "k_word": "as", 
+    "word": "as", 
+    "start": 88.049999
+  }, 
+  {
+    "duration": 0.04, 
+    "k_word": "a", 
+    "word": "a", 
+    "start": 88.25
+  }, 
+  {
+    "duration": 0.29, 
+    "k_word": "way", 
+    "word": "way", 
+    "start": 88.289999
+  }, 
+  {
+    "duration": 0.39, 
+    "k_word": "to", 
+    "word": "to", 
+    "start": 88.58
+  }, 
+  {
+    "duration": 1.69, 
+    "k_word": "smooth", 
+    "word": "smooth", 
+    "start": 89.83
+  }, 
+  {
+    "duration": 0.25, 
+    "k_word": "out", 
+    "word": "out", 
+    "start": 91.519999
+  }, 
+  {
+    "word": "any"
+  }, 
+  {
+    "word": "irregularities"
+  }, 
+  {
+    "word": "my"
+  }, 
+  {
+    "word": "speech"
+  }, 
+  {
+    "word": "might"
+  }, 
+  {
+    "word": "have."
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 90.0, 
+    "duration": 1.76
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 93.19, 
+    "duration": 0.4
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 93.59, 
+    "duration": 0.31
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 93.9, 
+    "duration": 0.62
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 94.52, 
+    "duration": 0.44
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 94.96, 
+    "duration": 0.36
+  }, 
+  {
+    "fail": "[oov]", 
+    "start": 95.32, 
+    "duration": 0.24
+  }, 
+  {
+    "fail": "i", 
+    "start": 95.56, 
+    "duration": 0.15
+  }, 
+  {
+    "fail": "am", 
+    "start": 95.74, 
+    "duration": 0.39
+  }
+]
