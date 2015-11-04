@@ -14,7 +14,7 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
     ms = metasentence.MetaSentence(transcript, vocab)
     gen_model_dir = language_model.getLanguageModel(ms.get_kaldi_sequence(), proto_langdir)
 
-    sys.stderr.write('generated model %s' % gen_model_dir)
+    sys.stderr.write('generated model %s\n' % gen_model_dir)
 
     gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
     k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
