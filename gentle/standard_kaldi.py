@@ -52,6 +52,7 @@ class Kaldi:
     def push_chunk(self, buf):
         # Wait until we're ready
         self._cmd("push-chunk")
+        self._write("%d\n" % len(buf))
         self._write(buf)
         status = self._p.stdout.readline().strip()
         return status == 'ok'
@@ -250,17 +251,10 @@ def lattice(k, infile):
     idx = 0
     seg_offset = 0
     while True:
-        chunk = input_wav.readframes(16000)
+        chunk_size = 16000 # frames (2sec)
+        chunk = input_wav.readframes(chunk_size)
 
         sys.stderr.write('%d %d\n', idx, len(chunk))
-
-        # TODO(maxhawkins): this fails with very short audio clips
-        if len(chunk) != 32000:
-            sys.stderr.write('done with audio!\n')
-            ret = k.get_final()
-            _add_lattice(ret, seg_offset*2)
-            k.stop()
-            return lat
 
         k.push_chunk(chunk)
 
@@ -275,7 +269,16 @@ def lattice(k, infile):
             # Push same chunk again
             k.push_chunk(chunk)
 
+        if len(chunk) != (chunk_size * input_wav.getsampwidth()):
+            break
+
         idx += 1
+
+    sys.stderr.write('done with audio!\n')
+    ret = k.get_final()
+    _add_lattice(ret, seg_offset*2)
+    k.stop()
+    return lat
 
 def read_wav(infile):
     '''
@@ -329,15 +332,8 @@ def transcribe(k, infile):
     idx = 0
     seg_offset = 0
     while True:
-        chunk = input_wav.readframes(16000)
-
-        # TODO(maxhawkins): this fails with very short audio clips
-        if len(chunk) != 32000:
-            sys.stderr.write('done with audio!\n')
-            ret = k.get_final()
-            _add_words(ret, seg_offset*2)
-            k.stop()
-            return {"words": words}
+        chunk_size = 16000 # frames (2sec)
+        chunk = input_wav.readframes(chunk_size)
 
         k.push_chunk(chunk)
 
@@ -356,7 +352,16 @@ def transcribe(k, infile):
             # ...just to show some progress
             sys.stderr.write('%s\n' % k.get_partial())
 
+        if len(chunk) != (chunk_size * input_wav.getsampwidth()):
+            break
+
         idx += 1
+
+    sys.stderr.write('done with audio!\n')
+    ret = k.get_final()
+    _add_words(ret, seg_offset*2)
+    k.stop()
+    return {"words": words}
 
 if __name__=='__main__':
     import sys

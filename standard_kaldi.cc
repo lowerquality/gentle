@@ -43,7 +43,6 @@ int main(int argc, char *argv[]) {
   setbuf(stdout, NULL);
 
   const int arate = 8000;
-  const int chunk_len = 16000;    // 2sec
 
   OnlineNnet2FeaturePipelineConfig feature_config;  
   OnlineNnet2DecodingConfig nnet2_decoding_config;
@@ -105,17 +104,6 @@ int main(int argc, char *argv[]) {
 
   std::cerr << "Loaded!\n";
 
-  //const int chunk_len = 16;
-
-  // XXX: should be int16?
-  //static uint8_t *audio_chunk; //[chunk_len*sizeof(uint8_t)];
-  //uint8_t audio_chunk[chunk_len*2];
-  int16_t audio_chunk[chunk_len];  
-
-  Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_len);
-  
-  //audio_chunk = (uint8_t *)malloc(chunk_len*2);
-
   OnlineIvectorExtractorAdaptationState adaptation_state(feature_info.ivector_extractor_info);
 
   OnlineNnet2FeaturePipeline feature_pipeline(feature_info);
@@ -176,36 +164,46 @@ int main(int argc, char *argv[]) {
 
     }
     else if(strcmp(cmd,"push-chunk\n") == 0) {
-      fread(&audio_chunk, 2, chunk_len, stdin);
+      // =Request=
+      // 1. chunk size in bytes (as ascii string)
+      // 2. newline
+      // 3. binary data as signed 16bit integer pcm
+      // =Reply=
+      // 1. "ok\n" upon completion
+      {
+        char chunk_len_str[100];
+        fgets(chunk_len_str, sizeof(chunk_len_str), stdin);
+        int chunk_len = atoi(chunk_len_str);
+
+        char *audio_chunk = new char[chunk_len];
+        fread(audio_chunk, sizeof(char), chunk_len, stdin);
+
+        int sample_count = chunk_len / 2;
+
+        Vector<BaseFloat> wave_part(sample_count);
+        for (int i = 0; i < sample_count; i++) {
+          int16_t sample = *reinterpret_cast<int16_t*>(&audio_chunk[i * 2]);
+          wave_part(i) = sample;
+        }
+
+        feature_pipeline.AcceptWaveform(arate, wave_part);
+
+        // What does this do?
+        std::vector<std::pair<int32, BaseFloat> > delta_weights;
+        if (silence_weighting.Active()) {
+          silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
+          silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
+                                            &delta_weights);
+          feature_pipeline.UpdateFrameWeights(delta_weights);
+        }
+
       
-      // Yikes! We need to copy this into the `wave_part' Vector<BaseFloat> thing.
-      // This should not need to exist.
-      // From `gst-audio-source.cc' in gst-kaldi-nnet2
-      for (int i = 0; i < chunk_len ; ++i) {
-        (wave_part)(i) = static_cast<BaseFloat>(audio_chunk[i]);
-      }
+        decoder.AdvanceDecoding();
 
-      feature_pipeline.AcceptWaveform(arate, wave_part);
+        delete[] audio_chunk;
 
-      // What does this do?
-      std::vector<std::pair<int32, BaseFloat> > delta_weights;
-      if (silence_weighting.Active()) {
-        silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-        silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
-                                          &delta_weights);
-        feature_pipeline.UpdateFrameWeights(delta_weights);
-      }
-
-      
-      decoder.AdvanceDecoding();
-
-      // TODO: make sure we've pushed at least one chunk...
-      // if(decoder.EndpointDetected(endpoint_config)) {
-      //   fprintf(stdout, "end\n");
-      // }
-      // else {
         fprintf(stdout, "ok\n");
-      // }
+      }
     }
     else if(strcmp(cmd, "get-transitions\n") == 0) {
       // Dump transition information (for phoneme introspection)
@@ -269,6 +267,11 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "%s\n", sentence.str().c_str());
     }
     else if(strcmp(cmd,"get-final\n") == 0) {
+      if (decoder.NumFramesDecoded() == 0) {
+        fprintf(stdout, "done with words\n");
+        continue;
+      }
+
       decoder.FinalizeDecoding();
 
       Lattice lat;
