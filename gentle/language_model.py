@@ -1,18 +1,10 @@
-from generate_wp import wordpair_from_word_sequence
+from generate_wp import language_model_from_word_sequence
 import os
 import subprocess
 import sys
 import tempfile
 
-KALDI_ROOT = "kaldi"
-FST_BIN = KALDI_ROOT + "/tools/openfst/bin"
-
-TXT_FST_SCRIPT = KALDI_ROOT + "/egs/rm/s5/local/make_rm_lm.pl"
-ENV = os.environ
-ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/fstbin/")
-ENV["PATH"] += ":" + os.path.abspath(KALDI_ROOT + "/src/bin/")
-ENV["PATH"] += ":" + os.path.abspath(FST_BIN)
-MKGRAPH_WD = KALDI_ROOT + "/egs/wsj/s5/utils/"
+MKGRAPH_PATH = "./mkgraph"
 
 def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text
@@ -36,34 +28,19 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
             dstpath = os.path.join(lang_model_dir, relpath)
             os.symlink(abspath, dstpath)
 
-    # Save the wordpair
-    wordpair_file = os.path.join(lang_model_dir, 'wordpairs.txt')
-    wordpair_from_word_sequence(kaldi_seq, wordpair_file)
-
     # Generate a textual FST
+    txt_fst = language_model_from_word_sequence(kaldi_seq)
     txt_fst_file = os.path.join(lang_model_dir, 'G.txt')
-    open(txt_fst_file, 'w').write(
-        subprocess.check_output([TXT_FST_SCRIPT, wordpair_file]))
+    open(txt_fst_file, 'w').write(txt_fst)
     
     # TODO(maxhawkins): can this path have spaces?
     words_file = os.path.join(proto_langdir, "graphdir/words.txt")
-
-    # Generate a binary FST
-    bin_fst_file = os.path.join(lang_model_dir, 'langdir', 'G.fst')
-    open(bin_fst_file, 'w').write(subprocess.check_output([
-        'fstcompile',
-        '--isymbols=%s' % (words_file),
-        '--osymbols=%s' % (words_file),
-        '--keep_isymbols=false',
-        '--keep_osymbols=false',
-        txt_fst_file]))
-              
-    # Create the full HCLG.fst graph
-    subprocess.check_output(['./mkgraph.sh',
+    subprocess.check_output([MKGRAPH_PATH,
                      os.path.join(lang_model_dir, 'langdir'),
                      os.path.join(lang_model_dir, 'modeldir'),
-                     os.path.join(lang_model_dir, 'graphdir')],
-                    env=ENV, cwd=MKGRAPH_WD)
+                     txt_fst_file,
+                     words_file,
+                     os.path.join(lang_model_dir, 'graphdir', 'HCLG.fst')])
 
     # Return the language model directory
     return lang_model_dir

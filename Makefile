@@ -7,7 +7,7 @@ include $(KALDI_BASE)kaldi.mk
 LDFLAGS += $(CUDA_LDFLAGS)
 LDLIBS += $(CUDA_LDLIBS)
 
-BINFILES = standard_kaldi
+BINFILES = standard_kaldi mkgraph
 
 OBJFILES =
 
