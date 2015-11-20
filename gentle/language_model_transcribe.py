@@ -1,3 +1,4 @@
+import csv
 import os
 import json
 import sys
@@ -25,6 +26,11 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
 
     return ret
 
+def write_csv(alignment, outf):
+    w = csv.writer(outf)
+    w.writerows(
+        [ [X["word"], X.get("alignedWord"), X.get("start"), X.get("end")] for X in alignment if X.get("case") in ("success", "not-found-in-audio")])
+
 if __name__=='__main__':
     import argparse
 
@@ -35,13 +41,23 @@ if __name__=='__main__':
     parser.add_argument('--nnet_dir', default="data",
                        help='path to the kaldi neural net model directory')
     parser.add_argument('audio_file', help='input audio file in any format supported by FFMPEG')
-    parser.add_argument('text_file', type=argparse.FileType('r'),
-                        help='input transcript as plain text')
+    parser.add_argument('input_file', type=argparse.FileType('r'),
+                        help='input transcript as plain text or json')
     parser.add_argument('output_file', type=argparse.FileType('w'),
-                       help='output json file for aligned transcript')
+                       help='output file for aligned transcript (json or csv)')
 
     args = parser.parse_args()
 
-    ret = lm_transcribe(args.audio_file, args.text_file.read(), args.proto_langdir, args.nnet_dir)
-    json.dump(ret, args.output_file, indent=2)
+    if args.input_file.name.endswith('.json'):
+        intxt = ''
+        for line in json.load(open(args.input_file)):
+            intxt += line['line'] + '\n\n'
+    else:
+        intxt = args.input_file.read()
+
+    ret = lm_transcribe(args.audio_file, intxt, args.proto_langdir, args.nnet_dir)
+    if args.output_file.name.endswith('.csv'):
+        write_csv(ret, args.output_file)
+    else:
+        json.dump({"words": ret}, args.output_file, indent=2)
     

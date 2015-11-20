@@ -19,42 +19,42 @@ def align(alignment, ms):
     s = difflib.SequenceMatcher(a=a, b=b)
 
     out = []
-    opcodes = []
     for opcode in s.get_opcodes():
-        opcodes.append(opcode)
-        #print "%6s a[%d:%d] b[%d:%d]" % opcode
-
         code, a_start, a_end, b_start, b_end = opcode
 
         if code == 'equal':
             for idx in range(a_end - a_start):
                 out.append({
+                    "case": "success",
                     "word": display_seq[b_start + idx],
-                    "k_word": a[a_start + idx],
+                    "alignedWord": a[a_start + idx],
                     "phones": alignment[a_start + idx]["phones"],
                     "start": alignment[a_start + idx]["start"],
-                    "duration": alignment[a_start + idx]["duration"]})
+                    "end": alignment[a_start + idx]["start"] + alignment[a_start + idx]["duration"]})
         elif code in ['insert', 'replace']:
             # Could not align.
             for idx in range(b_end - b_start):
                 out.append({
+                    "case": "not-found-in-audio",
                     "word": display_seq[b_start + idx]})
             if code == 'replace':
                 for idx in range(a_end - a_start):
                     out.append({
-                        "fail": a[a_start + idx],
+                        "case": "not-found-in-transcript",
+                        "alignedWord": a[a_start + idx],
                         "phones": alignment[a_start + idx]["phones"],                        
                         "start": alignment[a_start + idx]["start"],
-                        "duration": alignment[a_start + idx]["duration"]})
+                        "end": alignment[a_start + idx]["start"] + alignment[a_start + idx]["duration"]})
         elif code == 'delete':
             for idx in range(a_end - a_start):
                 out.append({
-                    "fail": a[a_start + idx],
+                    "case": "not-found-in-transcript",
+                    "alignedWord": a[a_start + idx],
                     "phones": alignment[a_start + idx]["phones"],
                     "start": alignment[a_start + idx]["start"],
-                    "duration": alignment[a_start + idx]["duration"]})
+                    "end": alignment[a_start + idx]["start"] + alignment[a_start + idx]["duration"]})
     return out
-        
+
 
 if __name__=='__main__':
     TEXT_FILE = sys.argv[1]
