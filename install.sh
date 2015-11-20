@@ -10,6 +10,17 @@ cd ../../
 # Build "standard_kaldi" python wrapper
 make
 
+# Install OS-specific dependencies
+if [[ `uname` == 'Darwin' ]]; then
+    sh dependencies_os.sh
+elif [[ `uname` == 'Linux' ]]; then
+    sh dependencies_ubuntu.sh
+fi
+
+# Download models
+wget http://lowerquality.com/gentle/kaldi-models-0.02.zip
+unzip kaldi-models-0.02.zip
+
 # Update nnet model config files
 cd data
 for x in nnet_a_gpu_online/conf/*conf; do
