@@ -206,6 +206,29 @@ class Kaldi:
             words.append(wd)
         return words
 
+    def get_prons(self):
+        self._cmd("get-prons")
+        words = []
+        while True:
+            line = self._p.stdout.readline()
+            if line.startswith("done"):
+                break
+            parts = line.split(' / ')
+            if parts[0].startswith('word'):
+                wd = {}
+                wd['word'] = parts[0].split(': ')[1]
+                wd['start'] = float(parts[1].split(': ')[1])
+                wd['duration'] = float(parts[2].split(': ')[1])
+                wd['phones'] = []
+                words.append(wd)
+            elif parts[0].startswith('phone'):
+                wd = words[-1]
+                phones = wd['phones']
+                ph = {}
+                ph['phone'] = parts[0].split(': ')[1]
+                ph['duration'] = float(parts[1].split(': ')[1])
+                phones.append(ph)
+        return words
 
     def peek_final(self):
         self._cmd("peek-final")
@@ -339,7 +362,7 @@ def transcribe(k, infile):
 
         if idx > 0 and idx % 15 == 0:
             sys.stderr.write('endpoint!\n')
-            ret = k.get_final()
+            ret = k.get_prons()
             _add_words(ret, seg_offset*2)
 
             k.reset()
@@ -358,7 +381,7 @@ def transcribe(k, infile):
         idx += 1
 
     sys.stderr.write('done with audio!\n')
-    ret = k.get_final()
+    ret = k.get_prons()
     _add_words(ret, seg_offset*2)
     k.stop()
     return {"words": words}

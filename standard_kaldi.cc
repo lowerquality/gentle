@@ -298,6 +298,51 @@ int main(int argc, char *argv[]) {
 
       fprintf(stdout, "done with words\n");
     }
+    else if(strcmp(cmd,"get-prons\n") == 0) {
+      if (decoder.NumFramesDecoded() == 0) {
+        fprintf(stdout, "done with words\n");
+        continue;
+      }
+
+      decoder.FinalizeDecoding();
+
+      Lattice lat;
+      decoder.GetBestPath(true, &lat);
+      CompactLattice clat;
+      ConvertLattice(lat, &clat);
+
+      // Compute prons alignment (see: kaldi/latbin/nbest-to-prons.cc)
+      CompactLattice aligned_clat;
+
+      std::vector<int32> words, times, lengths;
+      std::vector<std::vector<int32> > prons;
+      std::vector<std::vector<int32> > phone_lengths;
+      
+      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
+
+      CompactLatticeToWordProns(trans_model, clat, &words, &times, &lengths,
+                                &prons, &phone_lengths);
+
+      for (size_t i = 0; i < words.size(); i++) {
+        if (words[i] == 0)  {
+          // Don't output anything for <eps> links, which correspond to silence....
+          continue;
+        }
+        fprintf(stdout, "word: %s / start: %f / duration: %f\n",
+                word_syms->Find(words[i]).c_str(),
+                times[i] * frame_shift,
+                lengths[i] * frame_shift);
+
+        // Print out the phonemes for this word
+        for(size_t j=0; j<phone_lengths[i].size(); j++) {
+          fprintf(stdout, "phone: %s / duration: %f\n",
+                  phone_syms->Find(prons[i][j]).c_str(),
+                  phone_lengths[i][j] * frame_shift);
+        }
+      }
+
+      fprintf(stdout, "done with words\n");
+    }
   else if(strcmp(cmd,"peek-final\n") == 0) {
     // Same as `get-final,', but does not finalize decoding
 

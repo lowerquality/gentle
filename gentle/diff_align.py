@@ -30,7 +30,8 @@ def align(alignment, ms):
             for idx in range(a_end - a_start):
                 out.append({
                     "word": display_seq[b_start + idx],
-                    "k_word": a[a_start + idx],                
+                    "k_word": a[a_start + idx],
+                    "phones": alignment[a_start + idx]["phones"],
                     "start": alignment[a_start + idx]["start"],
                     "duration": alignment[a_start + idx]["duration"]})
         elif code in ['insert', 'replace']:
@@ -42,12 +43,14 @@ def align(alignment, ms):
                 for idx in range(a_end - a_start):
                     out.append({
                         "fail": a[a_start + idx],
+                        "phones": alignment[a_start + idx]["phones"],                        
                         "start": alignment[a_start + idx]["start"],
                         "duration": alignment[a_start + idx]["duration"]})
         elif code == 'delete':
             for idx in range(a_end - a_start):
                 out.append({
                     "fail": a[a_start + idx],
+                    "phones": alignment[a_start + idx]["phones"],
                     "start": alignment[a_start + idx]["start"],
                     "duration": alignment[a_start + idx]["duration"]})
     return out
