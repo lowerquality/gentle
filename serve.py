@@ -11,7 +11,7 @@ import subprocess
 
 from gentle.language_model_transcribe import lm_transcribe, write_csv
 
-DATADIR = 'data'
+DATADIR = 'webdata'
 
 def _next_id():
     uid = None
