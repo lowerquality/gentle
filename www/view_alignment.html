@@ -1,4 +1,7 @@
-<html><head><meta charset="utf-8" /></script><style>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
 
 p {
     width: 80%;
@@ -13,7 +16,17 @@ p.fail {
     color: rgb(150,150,150);
 }
 
-</style></head><body><script>
+    </style>
+  </head>
+  <body>
+    <div id="header">
+      <a href="/" class="home">Gentle</a>
+      <audio id="audio" src="a.wav" controls="true"></audio>
+      <a href="align.json">Download JSON</a> | <a href="align.csv">Download CSV</a>
+    </div>
+    <div id="transcript"></div>
+
+    <script>
 
 function get(url, cb) {
     var xhr = new XMLHttpRequest();
@@ -29,8 +42,7 @@ function get_json(url, cb) {
     });
 }
 
-var $a = document.createElement("audio");
-$a.src = "a.wav";
+var $a = document.getElementById("audio");
 window.onkeydown = function(ev) {
     if(ev.keyCode == 32) {
         ev.preventDefault();
@@ -38,24 +50,26 @@ window.onkeydown = function(ev) {
     }
 }
 
+var $trans = document.getElementById("transcript");
+
 var $cur_p, $fail_p;
 function do_break() {
     $cur_p = document.createElement("p");
-    document.body.appendChild($cur_p);
+    $trans.appendChild($cur_p);
 
     $fail_p = document.createElement("p");
     $fail_p.className = "fail";
     $fail_p.style.top = $cur_p.offsetTop;
-    document.body.appendChild($fail_p);
+    $trans.appendChild($fail_p);
 }
 
-document.body.innerHTML = "Loading...";
+$trans.innerHTML = "Loading...";
 
 var res;
 get_json("align.json", function(ret) {
     res = ret['words'];
     
-    document.body.innerHTML = "";
+    $trans.innerHTML = "";
     do_break();
     
     ret['words'].forEach(function(wd) {

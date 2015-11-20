@@ -7,8 +7,8 @@ import os
 import uuid
 import json
 import shutil
+import subprocess
 
-from gentle.ffmpeg import to_wav
 from gentle.language_model_transcribe import lm_transcribe, write_csv
 
 DATADIR = 'data'
@@ -18,6 +18,13 @@ def _next_id():
     while uid is None or os.path.exists(os.path.join(DATADIR, uid)):
         uid = uuid.uuid4().get_hex()[:8]
     return uid
+
+# The `ffmpeg.to_wav` function doesn't set headers properly for web
+# browser playback.
+def to_wav(infile, outfile):
+    subprocess.call(['ffmpeg', '-i', infile,
+                     '-ac', '1', '-ar', '8000',
+                     outfile])
 
 class Uploader(Resource):
     def render_POST(self, req):
@@ -42,12 +49,11 @@ class Uploader(Resource):
     def transcribe(self, uid, req=None):
         outdir = os.path.join(DATADIR, uid)
 
-        # XXX: 8khz wav doesn't work in safari; 44100 seems to work cross-browser.
-        open(os.path.join(outdir, 'a.wav'), 'w').write(
-            to_wav(os.path.join(outdir, 'upload'), nchannels=1, R=44100).read())
+        wavfile = os.path.join(outdir, 'a.wav')        
+        to_wav(os.path.join(outdir, 'upload'), wavfile)
 
         # Run transcription
-        ret = lm_transcribe(os.path.join(outdir, 'upload'),
+        ret = lm_transcribe(wavfile,
                             open(os.path.join(outdir, 'transcript.txt')).read(),
                             # XXX
                             'PROTO_LANGDIR',
