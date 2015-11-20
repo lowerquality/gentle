@@ -1,14 +1,14 @@
 <html><head><meta charset="utf-8" /></script><style>
 
 p {
-    width: 50%;
+    width: 80%;
 }
 p.fail {
     color: rgb(255,150,150);
     position: absolute;
-    left: 50%;
+    left: 80%;
+    width: 20%;
 }
-
 .dud {
     color: rgb(150,150,150);
 }
@@ -30,7 +30,7 @@ function get_json(url, cb) {
 }
 
 var $a = document.createElement("audio");
-$a.src = "ch2.mp3";
+$a.src = "a.wav";
 window.onkeydown = function(ev) {
     if(ev.keyCode == 32) {
         ev.preventDefault();
@@ -52,16 +52,16 @@ function do_break() {
 document.body.innerHTML = "Loading...";
 
 var res;
-get_json("ch2-aligned.json", function(ret) {
-    res = ret;
+get_json("align.json", function(ret) {
+    res = ret['words'];
     
     document.body.innerHTML = "";
     do_break();
     
-    ret.forEach(function(wd) {
+    ret['words'].forEach(function(wd) {
 
         var $wd = document.createElement("span");
-        $wd.innerHTML = (wd.word || wd.fail) + " ";
+        $wd.innerHTML = (wd.word || wd.alignedWord) + " ";
 
         $wd.onclick = function() {
             if(wd.start !== undefined) {
@@ -71,7 +71,7 @@ get_json("ch2-aligned.json", function(ret) {
             }
         }
 
-        if(wd.fail) {
+        if(wd['case'] == 'not-found-in-transcript') {
             $fail_p.appendChild($wd);
         }
         else {
