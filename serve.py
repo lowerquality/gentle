@@ -19,8 +19,6 @@ def _next_id():
         uid = uuid.uuid4().get_hex()[:8]
     return uid
 
-
-
 class Uploader(Resource):
     def render_POST(self, req):
         uid = _next_id()
@@ -36,18 +34,20 @@ class Uploader(Resource):
 
         reactor.callInThread(self.transcribe, uid, req=req)
 
-        return uid
+        req.redirect("/status.html#%s" % (uid))
+        req.finish()
+
+        return NOT_DONE_YET
 
     def transcribe(self, uid, req=None):
         outdir = os.path.join(DATADIR, uid)
 
-        # Convert to 8khz wav
-        wavpath = os.path.join(outdir, 'a.wav')
-        open(wavpath, 'w').write(
-            to_wav(os.path.join(outdir, 'upload')).read())
+        # XXX: 8khz wav doesn't work in safari; 44100 seems to work cross-browser.
+        open(os.path.join(outdir, 'a.wav'), 'w').write(
+            to_wav(os.path.join(outdir, 'upload'), nchannels=1, R=44100).read())
 
         # Run transcription
-        ret = lm_transcribe(wavpath,
+        ret = lm_transcribe(os.path.join(outdir, 'upload'),
                             open(os.path.join(outdir, 'transcript.txt')).read(),
                             # XXX
                             'PROTO_LANGDIR',
@@ -72,6 +72,7 @@ if __name__=='__main__':
     f = File(DATADIR)
 
     f.putChild('', File('www/index.html'))
+    f.putChild('status.html', File('www/status.html'))
     
     up = Uploader()
 

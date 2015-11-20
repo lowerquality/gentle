@@ -1,0 +1,42 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Gentle Reminder</title>
+  </head>
+  <body>
+    <script>
+
+var UID = window.location.hash.slice(1);
+
+function get_status(cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/" + UID + "/index.html", true);
+    xhr.onreadystatechange = function() {
+        if(xhr.readyState > 1) {
+            cb(xhr.status);
+            xhr.abort();
+        }
+    }
+    xhr.send();
+}
+
+function ping() {
+    document.body.innerHTML = "Checking status..."
+    get_status(function(code) {
+        if(code == 404) {
+            document.body.innerHTML = "Processing..."
+        }
+        else if(code == 200) {
+            window.location = "http://" + window.location.host + "/" + UID + "/";
+        }
+        window.setTimeout(ping, 2000);
+    })
+}
+
+ping();
+      
+    </script>
+  </body>
+</html>
+
+   
