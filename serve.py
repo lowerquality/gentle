@@ -3,11 +3,12 @@ from twisted.web.resource import Resource
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.internet import reactor
 
-import os
-import uuid
 import json
+import os
 import shutil
 import subprocess
+import sys
+import uuid
 
 from gentle.language_model_transcribe import lm_transcribe, write_csv
 
@@ -72,6 +73,9 @@ class Uploader(Resource):
         print 'done with transcription.'
     
 if __name__=='__main__':
+    interface = '0.0.0.0'
+    port = 8765
+
     if not os.path.exists(DATADIR):
         os.makedirs(DATADIR)
     
@@ -85,5 +89,6 @@ if __name__=='__main__':
     f.putChild('transcribe', up)
     
     s = Site(f)
-    reactor.listenTCP(8765, s, interface='0.0.0.0')
+    reactor.listenTCP(port, s, interface=interface)
+    sys.stderr.write('listening at %s:%d\n' % (interface, port))
     reactor.run()
