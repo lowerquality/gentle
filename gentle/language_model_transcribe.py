@@ -15,7 +15,7 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
     vocab = metasentence.load_vocabulary(vocab_path)
 
     ms = metasentence.MetaSentence(transcript, vocab)
-    gen_model_dir = language_model.getLanguageModel(ms.get_kaldi_sequence(), proto_langdir)
+    gen_model_dir = language_model.get_language_model(ms.get_kaldi_sequence(), proto_langdir)
 
     sys.stderr.write('generated model %s\n' % gen_model_dir)
 

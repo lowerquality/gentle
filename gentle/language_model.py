@@ -6,7 +6,7 @@ import tempfile
 
 MKGRAPH_PATH = "./mkgraph"
 
-def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
+def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text
 
     `proto_langdir` is a path to a directory containing prototype model data
@@ -33,7 +33,6 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     txt_fst_file = os.path.join(lang_model_dir, 'G.txt')
     open(txt_fst_file, 'w').write(txt_fst)
     
-    # TODO(maxhawkins): can this path have spaces?
     words_file = os.path.join(proto_langdir, "graphdir/words.txt")
     subprocess.check_output([MKGRAPH_PATH,
                      os.path.join(lang_model_dir, 'langdir'),
@@ -47,4 +46,4 @@ def getLanguageModel(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
 
 if __name__=='__main__':
     import sys
-    getLanguageModel(open(sys.argv[1]).read())
+    get_language_model(open(sys.argv[1]).read())
