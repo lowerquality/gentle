@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Install OS-specific dependencies
-if [[ `uname` == 'Darwin' ]]; then
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+	sh dependencies_ubuntu.sh
+elif [[ "$OSTYPE" == "darwin"* ]]; then
     sh dependencies_osx.sh
-elif [[ `uname` == 'Linux' ]]; then
-    sh dependencies_ubuntu.sh
 fi
 
 # Build Kaldi
