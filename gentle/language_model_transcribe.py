@@ -1,6 +1,8 @@
 import csv
 import os
 import json
+import os
+import shutil
 import sys
 
 import diff_align
@@ -17,12 +19,15 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
 
     sys.stderr.write('generated model %s\n' % gen_model_dir)
 
-    gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
-    k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
+    try:
+        gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
+        k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
 
-    trans = standard_kaldi.transcribe(k, audio_f)
+        trans = standard_kaldi.transcribe(k, audio_f)
 
-    ret = diff_align.align(trans["words"], ms)
+        ret = diff_align.align(trans["words"], ms)
+    finally:
+        shutil.rmtree(gen_model_dir)
 
     return ret
 
