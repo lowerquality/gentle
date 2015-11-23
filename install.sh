@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Build Kaldi
 cd kaldi/tools
 make # -j 8
@@ -12,7 +14,7 @@ make
 
 # Install OS-specific dependencies
 if [[ `uname` == 'Darwin' ]]; then
-    sh dependencies_os.sh
+    sh dependencies_osx.sh
 elif [[ `uname` == 'Linux' ]]; then
     sh dependencies_ubuntu.sh
 fi
