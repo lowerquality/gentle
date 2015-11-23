@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Install OS-specific dependencies
+if [[ `uname` == 'Darwin' ]]; then
+    sh dependencies_osx.sh
+elif [[ `uname` == 'Linux' ]]; then
+    sh dependencies_ubuntu.sh
+fi
+
 # Build Kaldi
 cd kaldi/tools
 make # -j 8
@@ -11,13 +18,6 @@ cd ../../
 
 # Build "standard_kaldi" python wrapper
 make
-
-# Install OS-specific dependencies
-if [[ `uname` == 'Darwin' ]]; then
-    sh dependencies_osx.sh
-elif [[ `uname` == 'Linux' ]]; then
-    sh dependencies_ubuntu.sh
-fi
 
 # Download models
 wget http://lowerquality.com/gentle/kaldi-models-0.02.zip
