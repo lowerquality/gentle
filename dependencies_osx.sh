@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo easy_install pip
+brew install ffmpeg libtool automake autoconf wget
 
-brew install ffmpeg libtool automake autoconf subversion wget
+sudo easy_install pip
 sudo pip install .
