@@ -1,3 +1,4 @@
+# coding=utf-8
 import re
 
 def load_vocabulary(words_file):
@@ -6,6 +7,8 @@ def load_vocabulary(words_file):
 def kaldi_normalize(txt, vocab):
     # lowercase
     norm = txt.lower()
+    # Turn fancy apostrophes into simpler apostrophes
+    norm = norm.replace("’", "'")
     # preserve in-vocab hyphenated phrases
     if norm in vocab:
         return [norm]
