@@ -24,6 +24,7 @@ def _next_id():
 def to_wav(infile, outfile):
     subprocess.call(['ffmpeg', '-i', infile,
                      '-ac', '1', '-ar', '8000',
+                     '-acodec', 'pcm_s16le',
                      outfile])
 
 class Uploader(Resource):
