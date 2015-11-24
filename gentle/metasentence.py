@@ -4,25 +4,16 @@ import re
 def load_vocabulary(words_file):
     return set([X.split(' ')[0] for X in open(words_file).read().split('\n')])
 
-def kaldi_normalize(txt, vocab):
+def kaldi_normalize(word, vocab):
     # lowercase
-    norm = txt.lower()
+    norm = word.lower()
     # Turn fancy apostrophes into simpler apostrophes
     norm = norm.replace("’", "'")
-    # preserve in-vocab hyphenated phrases
-    if norm in vocab:
-        return [norm]
-    # turn hyphens into spaces
-    norm = norm.replace('-', ' ')
-    # remove all punctuation
-    norm = re.sub(r'[^a-z0-9\s\']', ' ', norm)
-    seq = norm.split()
-    # filter out empty words
-    seq = [x.strip() for x in seq if len(x.strip())>0]
-    # replace [oov] words
-    seq = [x if x in vocab else '[oov]' for x in seq]
-
-    return seq
+    if len(norm) == 0:
+        return []
+    if not norm in vocab:
+        norm = '[oov]'
+    return [norm]
 
 class MetaSentence:
     """Maintain two parallel representations of a sentence: one for
@@ -37,7 +28,7 @@ class MetaSentence:
 
     def _gen_kaldi_seq(self, sentence):
         self._seq = []
-        for m in re.finditer(r'[^ \n]+', sentence):
+        for m in re.finditer(r'(\w|\’\w|\'\w)+', sentence):
             start, end = m.span()
             word = m.group()
             if len(word.strip()) == 0:
