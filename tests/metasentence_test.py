@@ -4,11 +4,6 @@ from nose.tools import assert_equals
 from gentle.metasentence import kaldi_normalize, MetaSentence
 
 def test_metasentence_tokenization():
-	vocab = [
-		'test',
-		'duchamp\'s',
-	]
-
 	tests = [
 		['', [], 'blank'],
 		[' ', [], 'just space'],
@@ -25,11 +20,12 @@ def test_metasentence_tokenization():
 		['duchamp’s', [(0, 9)], 'preserves fancy apostrope'],
 		['‘test’', [(1, 5)], 'ignores fancy single quote'],
 		['test’ ', [(0, 4)], 'ignores fancy single quote'],
+		['¡¡ωσω!!', [(2, 5)], 'fancy text'],
 	]
 
 	for test in tests:
 		input, want, name = test
-		ms = MetaSentence(input, vocab)
+		ms = MetaSentence(input, [])
 		got = ms.get_text_offsets()
 		assert_equals(got, want)
 

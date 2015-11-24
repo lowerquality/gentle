@@ -24,14 +24,14 @@ class MetaSentence:
     """
 
     def __init__(self, sentence, vocab):
-        self.raw_sentence = sentence
+        self.raw_sentence = sentence.decode('utf-8')
         self.vocab = vocab
 
-        self._tokenize(sentence)
+        self._tokenize()
 
-    def _tokenize(self, sentence):
+    def _tokenize(self):
         self._seq = []
-        for m in re.finditer(ur'(\w|\’\w|\'\w)+', sentence.decode('utf-8'), re.UNICODE):
+        for m in re.finditer(ur'(\w|\’\w|\'\w)+', self.raw_sentence, re.UNICODE):
             start, end = m.span()
             word = m.group().encode('utf-8')
             token = kaldi_normalize(word, self.vocab)
@@ -48,7 +48,7 @@ class MetaSentence:
         display_sequence = []
         for x in self._seq:
             start, end = x["start"], x["end"]
-            word = self.raw_sentence[start:end]
+            word = self.raw_sentence[start:end].encode('utf-8')
             display_sequence.append(word)
         return display_sequence
 
