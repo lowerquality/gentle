@@ -54,15 +54,20 @@ class Uploader(Resource):
         wavfile = os.path.join(outdir, 'a.wav')        
         to_wav(os.path.join(outdir, 'upload'), wavfile)
 
+        transcript = open(os.path.join(outdir, 'transcript.txt')).read()
+
         # Run transcription
         ret = lm_transcribe(wavfile,
-                            open(os.path.join(outdir, 'transcript.txt')).read(),
+                            transcript,
                             # XXX
                             'PROTO_LANGDIR',
                             'data')
 
         # Save output to JSON and CSV
-        json.dump({"words": ret}, open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
+        json.dump({
+            "words": ret,
+            "transcript": transcript,
+        }, open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
         write_csv(ret, open(os.path.join(outdir, 'align.csv'), 'w'))
 
         # Finally, copy over the HTML

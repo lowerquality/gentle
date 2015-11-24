@@ -1,7 +1,26 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_equals
 
-from gentle.metasentence import kaldi_normalize
+from gentle.metasentence import kaldi_normalize, MetaSentence
+
+def test_metasentence_tokenization():
+	vocab = ['test']
+
+	tests = [
+		['', []],
+		['test', [(0, 4)]],
+		['  test', [(2, 6)]],
+		['test  ', [(0, 4)]],
+		['test test', [(0, 4), (5, 9)]],
+		['test\ntest', [(0, 4), (5, 9)]],
+		['\n\ntest', [(2, 6)]],
+	]
+
+	for test in tests:
+		input, want = test
+		ms = MetaSentence(input, vocab)
+		got = ms.get_text_offsets()
+		assert_equals(got, want)
 
 def test_kaldi_normalization():
 	vocab = [

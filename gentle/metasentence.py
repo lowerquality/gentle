@@ -37,23 +37,34 @@ class MetaSentence:
 
     def _gen_kaldi_seq(self, sentence):
         self._seq = []
-        parts = sentence.replace('\n', '\n ').split(' ')
-        for part in parts:
-            if len(part.strip()) == 0:
+        for m in re.finditer(r'[^ \n]+', sentence):
+            start, end = m.span()
+            word = m.group()
+            if len(word.strip()) == 0:
                 continue
+            token = kaldi_normalize(word, self.vocab)
             self._seq.append({
-                "display": part,
-                "kaldi": kaldi_normalize(part, self.vocab)
+                "start": start,
+                "end": end,
+                "token": token,
             })
 
     def get_kaldi_sequence(self):
-        return reduce(lambda acc,y: acc+y["kaldi"], self._seq, [])
+        return reduce(lambda acc,y: acc+y["token"], self._seq, [])
 
     def get_matched_kaldi_sequence(self):
-        return ['-'.join(X["kaldi"]) for X in self._seq]
+        return ['-'.join(X["token"]) for X in self._seq]
 
     def get_display_sequence(self):
-        return [X["display"] for X in self._seq]
+        display_sequence = []
+        for x in self._seq:
+            start, end = x["start"], x["end"]
+            word = self.raw_sentence[start:end]
+            display_sequence.append(word)
+        return display_sequence
+
+    def get_text_offsets(self):
+        return [(x["start"], x["end"]) for x in self._seq]
 
     def align_from_kaldi(self, kaldi_alignment):
         """Return the display sentence, based on the alignment of the kaldi
