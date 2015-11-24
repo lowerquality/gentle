@@ -2,7 +2,7 @@ import threading
 from twisted.internet import reactor
 import wx
 
-from gentle.paths import get_resource, get_datadir, ensure_kaldi_config
+from gentle.paths import get_resource, get_datadir
 import serve
 
 class MainWindow(wx.Frame):
@@ -50,9 +50,9 @@ class MainWindow(wx.Frame):
         print "Done!"
         self.Destroy()
 
-ensure_kaldi_config(get_resource("data/nnet_a_gpu_online"), get_datadir("data"))
-
-app = wx.App(False)
-frame = MainWindow(None, "Gentle")
+# app = wx.App(False)
+# frame = MainWindow(None, "Gentle")
 #frame.Show(True)
-app.MainLoop()
+# app.MainLoop()
+
+serve.serve(installSignalHandlers=1)

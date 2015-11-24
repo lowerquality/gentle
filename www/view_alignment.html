@@ -2,45 +2,58 @@
   <head>
     <meta charset="utf-8" />
     <style>
-
+html, body {
+    margin: 0;
+    padding: 0;
+}
 #header {
     position: fixed;
     top: 0;
     left: 0;
-    height: 40px;
+    height: 50px;
+    line-height: 50px;
     width: 100%;
-    border-bottom: 1px solid black;
-    background-color: #ccc;
+    background-color: #999;
+    box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.5);
+    font-family: Helvetica, sans-serif;
+}
+#header, #header a {
+    color: white;
 }
 .download {
     float: right;
-    margin: 10px;
+    background: #999;
+    padding: 0 15px;
 }
 .home {
+    background: #666;
     font-size: 125%;
-    margin: 10px;
-    margin-right: 40px;
+    padding-left: 25px;
+    padding-right: 30px;
+    margin-right: 20px;
     float: left;
-    color: black;
     text-decoration: none;
-    font-family: Helvetica, sans-serif;
+    font-weight: lighter;
+    text-transform: lowercase;
 }
 #audio {
+    margin-top: 9px;
     width: 50%;
+    display: inline-block;
 }
-
 #transcript {
-    margin-top: 50px;
+    margin: 0 15px;
+    margin-top: 70px;
+    white-space: pre-wrap;
+    line-height: 2em;
+    max-width: 600px;
 }
-
 .active {
     color: magenta;
 }
-
 .dud {
     color: #999;
 }
-
     </style>
   </head>
   <body>
@@ -77,26 +90,25 @@ window.onkeydown = function(ev) {
 
 var $trans = document.getElementById("transcript");
 
-var $cur_p;
-function do_break() {
-    $cur_p = document.createElement("p");
-    $trans.appendChild($cur_p);
-}
-
 var wds = [];
 var cur_wd;
 
 function highlight_word() {
-    if(cur_wd) {
-        cur_wd.$div.classList.remove("active");
-    }
     var t = $a.currentTime;
     // XXX: O(N); use binary search
     var hits = wds.filter(function(x) { return x.start <= t && x.end >= t; }, wds);
-    if(hits.length > 0) {
-        cur_wd = hits[0];
-        cur_wd.$div.classList.add("active");
+    var next_wd = hits[0];
+
+    if(cur_wd != next_wd) {
+        var active = document.querySelectorAll('.active');
+        for(var i = 0; i < active.length; i++) {
+            active[i].classList.remove('active');
+        }
+        if(next_wd && next_wd.$div) {
+            next_wd.$div.classList.add('active');
+        }
     }
+    cur_wd = next_wd;
 
     window.setTimeout(highlight_word, 1000/10);
 }
@@ -107,42 +119,49 @@ $trans.innerHTML = "Loading...";
 
 get_json("align.json", function(ret) {
     wds = ret['words'];
+    transcript = ret['transcript'];
     
     $trans.innerHTML = "";
-    do_break();
-    
+
+    var currentOffset = 0;
+
     wds.forEach(function(wd) {
+        if(wd['case'] == 'not-found-in-transcript') {
+            // TODO: show phonemes somewhere
+            return;
+        }
 
-        var $wd = document.createElement("span");
-        $wd.innerHTML = (wd.word || wd.alignedWord) + " ";
+        // Add non-linked text
+        if(wd.startOffset > currentOffset) {
+            var txt = transcript.slice(currentOffset, wd.startOffset);
+            var $plaintext = document.createTextNode(txt);
+            $trans.appendChild($plaintext);
+            currentOffset = wd.startOffset;
+        }
+
+        var $wd = document.createElement('span');
+        var txt = transcript.slice(wd.startOffset, wd.endOffset);
+        var $wdText = document.createTextNode(txt);
+        $wd.appendChild($wdText);
         wd.$div = $wd;
-
+        if(wd.start == undefined) {
+            $wd.className = 'dud';
+        }
         $wd.onclick = function() {
             if(wd.start !== undefined) {
                 console.log(wd.start);
                 $a.currentTime = wd.start;
                 $a.play();
             }
-        }
-
-        if(wd['case'] == 'not-found-in-transcript') {
-            // TODO: show phonemes somewhere
-        }
-        else {
-            if(wd.start == undefined) {
-                $wd.className = "dud";
-            }
-            $cur_p.appendChild($wd);
-
-            // newline to break
-            if(wd.word[wd.word.length-1]=='\n') {
-                do_break();
-            }
-
-            
-        }
-        
+        };
+        $trans.appendChild($wd);
+        currentOffset = wd.endOffset;
     });
+
+    var txt = transcript.slice(currentOffset, transcript.length);
+    var $plaintext = document.createTextNode(txt);
+    $trans.appendChild($plaintext);
+    currentOffset = transcript.length;
 
 });
 

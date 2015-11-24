@@ -52,18 +52,31 @@ class Uploader(Resource):
     def transcribe(self, uid, req=None):
         outdir = os.path.join(DATADIR, uid)
 
+        print 'outdir', outdir
+
         wavfile = os.path.join(outdir, 'a.wav')        
         to_wav(os.path.join(outdir, 'upload'), wavfile)
+
+        print 'wavfile', wavfile
+
+        transcript = open(os.path.join(outdir, 'transcript.txt')).read()
+
+        print 'transcript', transcript
 
         # Run transcription
         ret = lm_transcribe(wavfile,
                             open(os.path.join(outdir, 'transcript.txt')).read(),
                             # XXX: should be configurable
                             get_resource('PROTO_LANGDIR'),
-                            get_datadir('data'))
+                            get_resource('data/nnet_a_gpu_online'))
+
+        print 'ret', ret
 
         # Save output to JSON and CSV
-        json.dump({"words": ret}, open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
+        json.dump({
+            "words": ret,
+            "transcript": transcript,
+        }, open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
         write_csv(ret, open(os.path.join(outdir, 'align.csv'), 'w'))
 
         # Finally, copy over the HTML
