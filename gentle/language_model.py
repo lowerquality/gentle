@@ -1,10 +1,11 @@
+from gentle.paths import get_binary
 from generate_wp import language_model_from_word_sequence
 import os
 import subprocess
 import sys
 import tempfile
 
-MKGRAPH_PATH = "./mkgraph"
+MKGRAPH_PATH = get_binary("mkgraph")
 
 def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text

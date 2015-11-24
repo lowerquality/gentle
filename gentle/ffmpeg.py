@@ -1,6 +1,7 @@
+from gentle.paths import get_binary
 import subprocess
 
-FFMPEG = "ffmpeg"
+FFMPEG = get_binary("ffmpeg")
 
 def to_wav(path, R=8000, depth=16, nchannels=1, start=0):
     '''

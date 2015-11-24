@@ -10,9 +10,10 @@ import subprocess
 import sys
 import uuid
 
+from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import lm_transcribe, write_csv
 
-DATADIR = 'webdata'
+DATADIR = get_datadir('webdata')
 
 def _next_id():
     uid = None
@@ -23,7 +24,7 @@ def _next_id():
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
 # browser playback.
 def to_wav(infile, outfile):
-    subprocess.call(['ffmpeg', '-i', infile,
+    subprocess.call([get_binary('ffmpeg'), '-i', infile,
                      '-ac', '1', '-ar', '8000',
                      '-acodec', 'pcm_s16le',
                      outfile])
@@ -57,33 +58,31 @@ class Uploader(Resource):
         # Run transcription
         ret = lm_transcribe(wavfile,
                             open(os.path.join(outdir, 'transcript.txt')).read(),
-                            # XXX
-                            'PROTO_LANGDIR',
-                            'data')
+                            # XXX: should be configurable
+                            get_resource('PROTO_LANGDIR'),
+                            get_datadir('data'))
 
         # Save output to JSON and CSV
         json.dump({"words": ret}, open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
         write_csv(ret, open(os.path.join(outdir, 'align.csv'), 'w'))
 
         # Finally, copy over the HTML
-        shutil.copy('www/view_alignment.html', os.path.join(outdir, 'index.html'))
+        shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
 
         # ...and remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
         print 'done with transcription.'
-    
-if __name__=='__main__':
-    interface = '0.0.0.0'
-    port = 8765
+
+def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
 
     if not os.path.exists(DATADIR):
         os.makedirs(DATADIR)
     
     f = File(DATADIR)
 
-    f.putChild('', File('www/index.html'))
-    f.putChild('status.html', File('www/status.html'))
+    f.putChild('', File(get_resource('www/index.html')))
+    f.putChild('status.html', File(get_resource('www/status.html')))
     
     up = Uploader()
 
@@ -92,4 +91,11 @@ if __name__=='__main__':
     s = Site(f)
     reactor.listenTCP(port, s, interface=interface)
     sys.stderr.write('listening at %s:%d\n' % (interface, port))
-    reactor.run()
+    reactor.run(installSignalHandlers=installSignalHandlers)
+    
+    
+if __name__=='__main__':
+    interface = '0.0.0.0'
+    port = 8765
+
+    serve(port, interface, installSignalHandlers=1)
