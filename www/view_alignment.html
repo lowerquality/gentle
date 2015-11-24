@@ -87,16 +87,21 @@ var wds = [];
 var cur_wd;
 
 function highlight_word() {
-    if(cur_wd) {
-        cur_wd.$div.classList.remove("active");
-    }
     var t = $a.currentTime;
     // XXX: O(N); use binary search
     var hits = wds.filter(function(x) { return x.start <= t && x.end >= t; }, wds);
-    if(hits.length > 0) {
-        cur_wd = hits[0];
-        cur_wd.$div.classList.add("active");
+    var next_wd = hits[0];
+
+    if(cur_wd != next_wd) {
+        var active = document.querySelectorAll('.active');
+        for(var i = 0; i < active.length; i++) {
+            active[i].classList.remove('active');
+        }
+        if(next_wd && next_wd.$div) {
+            next_wd.$div.classList.add('active');
+        }
     }
+    cur_wd = next_wd;
 
     window.setTimeout(highlight_word, 1000/10);
 }
