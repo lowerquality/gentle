@@ -12,9 +12,10 @@ def align(alignment, ms):
 
     # Compute an diff to turn the transcription results into the original sequence
     a = [X["word"] for X in alignment]
-    b = ms.get_matched_kaldi_sequence()
+    b = ms.get_kaldi_sequence()
 
     display_seq = ms.get_display_sequence()
+    txt_offsets = ms.get_text_offsets()
 
     s = difflib.SequenceMatcher(a=a, b=b)
 
@@ -24,8 +25,11 @@ def align(alignment, ms):
 
         if code == 'equal':
             for idx in range(a_end - a_start):
+                start_offset, end_offset = txt_offsets[b_start + idx]
                 out.append({
                     "case": "success",
+                    "startOffset": start_offset,
+                    "endOffset": end_offset,
                     "word": display_seq[b_start + idx],
                     "alignedWord": a[a_start + idx],
                     "phones": alignment[a_start + idx]["phones"],
@@ -34,8 +38,11 @@ def align(alignment, ms):
         elif code in ['insert', 'replace']:
             # Could not align.
             for idx in range(b_end - b_start):
+                start_offset, end_offset = txt_offsets[b_start + idx]
                 out.append({
                     "case": "not-found-in-audio",
+                    "startOffset": start_offset,
+                    "endOffset": end_offset,
                     "word": display_seq[b_start + idx]})
             if code == 'replace':
                 for idx in range(a_end - a_start):
