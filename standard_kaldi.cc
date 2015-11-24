@@ -16,8 +16,61 @@
 #include "hmm/hmm-utils.h"
 #include "thread/kaldi-thread.h"
 
+const int arate = 8000;
+
 void usage() {
   fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
+}
+
+void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
+  std::string ivector_model_dir) {
+  // online_nnet2_decoding.conf
+  info.feature_type = "mfcc";
+
+  // ivector_extractor.conf
+  info.use_ivectors = true;
+  ReadKaldiObject(
+    ivector_model_dir + "/final.mat",
+    &info.ivector_extractor_info.lda_mat);
+  ReadKaldiObject(
+    ivector_model_dir + "/global_cmvn.stats",
+    &info.ivector_extractor_info.global_cmvn_stats);
+  ReadKaldiObject(
+    ivector_model_dir + "/final.dubm",
+    &info.ivector_extractor_info.diag_ubm);
+  ReadKaldiObject(
+    ivector_model_dir + "/final.ie",
+    &info.ivector_extractor_info.extractor);
+  info.ivector_extractor_info.greedy_ivector_extractor = true;
+  info.ivector_extractor_info.ivector_period = 10;
+  info.ivector_extractor_info.max_count = 0.0;
+  info.ivector_extractor_info.max_remembered_frames = 1000;
+  info.ivector_extractor_info.min_post = 0.025;
+  info.ivector_extractor_info.num_cg_iters = 15;
+  info.ivector_extractor_info.num_gselect = 5;
+  info.ivector_extractor_info.posterior_scale = 0.1;
+  info.ivector_extractor_info.use_most_recent_ivector = true;
+
+  // splice.conf
+  info.ivector_extractor_info.splice_opts.left_context = 3;
+  info.ivector_extractor_info.splice_opts.right_context = 3;
+
+  // mfcc.conf
+  info.mfcc_opts.frame_opts.samp_freq = arate;
+  info.mfcc_opts.use_energy = false;
+
+  info.ivector_extractor_info.Check();
+}
+
+void ConfigDecoding(kaldi::OnlineNnet2DecodingConfig &config) {
+  config.decodable_opts.acoustic_scale = 0.1;
+  config.decoder_opts.lattice_beam = 6.0;
+  config.decoder_opts.beam = 15.0;
+  config.decoder_opts.max_active = 7000;
+}
+
+void ConfigEndpoint(kaldi::OnlineEndpointConfig &config) {
+  config.silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
 }
 
 int main(int argc, char *argv[]) {
@@ -33,8 +86,7 @@ int main(int argc, char *argv[]) {
   const string fst_rxfilename = argv[2];
   const string proto_lang_dir = argv[3];
 
-  const string config_path = nnet_dir + "/conf/online_nnet2_decoding.conf";
-
+  const string ivector_model_dir = nnet_dir + "/ivector_extractor";
   const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
   const string word_syms_rxfilename = proto_lang_dir + "/langdir/words.txt";
   const string phone_syms_rxfilename = proto_lang_dir + "/langdir/phones.txt";  
@@ -42,45 +94,19 @@ int main(int argc, char *argv[]) {
 
   setbuf(stdout, NULL);
 
-  const int arate = 8000;
-
-  OnlineNnet2FeaturePipelineConfig feature_config;  
-  OnlineNnet2DecodingConfig nnet2_decoding_config;
-  OnlineEndpointConfig endpoint_config;
-
   std::cerr << "Loading...\n";
-  
-  kaldi::ParseOptions po("");
-  
-  feature_config.Register(&po);
-  nnet2_decoding_config.Register(&po);
-  endpoint_config.Register(&po);
 
-  string config_arg = "--config=" + config_path;
+  OnlineNnet2FeaturePipelineInfo feature_info;
+  ConfigFeatureInfo(feature_info, ivector_model_dir);
+  OnlineNnet2DecodingConfig nnet2_decoding_config;
+  ConfigDecoding(nnet2_decoding_config);
+  OnlineEndpointConfig endpoint_config;
+  ConfigEndpoint(endpoint_config);
 
-  // HACK(maxhawkins): omg
-  const char* args[] = {
-    "",
-    "--max-active=7000",
-    "--beam=15.0",
-    "--lattice-beam=6.0",
-    "--acoustic-scale=0.1",
-    config_arg.c_str()
-  };
-  po.Read(6, args);
 
   WordBoundaryInfoNewOpts opts; // use default opts
   WordBoundaryInfo* word_boundary_info = new WordBoundaryInfo(opts, word_boundary_filename);
   
-  OnlineNnet2FeaturePipelineInfo feature_info(feature_config);
-
-  // !online (what does that mean?)
-  feature_info.ivector_extractor_info.use_most_recent_ivector = true;
-  feature_info.ivector_extractor_info.greedy_ivector_extractor = true;
-
-  // Hardcode MFCC sample rate (?!)
-  // HACKKK!K!
-  feature_info.mfcc_opts.frame_opts.samp_freq = arate;
 
   BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
   fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
