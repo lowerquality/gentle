@@ -31,15 +31,13 @@ class MetaSentence:
 
     def _tokenize(self, sentence):
         self._seq = []
-        for m in re.finditer(r'(\w|\’\w|\'\w)+', sentence):
+        for m in re.finditer(ur'(\w|\’\w|\'\w)+', sentence.decode('utf-8'), re.UNICODE):
             start, end = m.span()
-            word = m.group()
-            if len(word.strip()) == 0:
-                continue
+            word = m.group().encode('utf-8')
             token = kaldi_normalize(word, self.vocab)
             self._seq.append({
-                "start": start,
-                "end": end,
+                "start": start, # as unicode codepoint offset
+                "end": end, # as unicode codepoint offset
                 "token": token,
             })
 
