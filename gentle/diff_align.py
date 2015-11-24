@@ -12,7 +12,7 @@ def align(alignment, ms):
 
     # Compute an diff to turn the transcription results into the original sequence
     a = [X["word"] for X in alignment]
-    b = ms.get_matched_kaldi_sequence()
+    b = ms.get_kaldi_sequence()
 
     display_seq = ms.get_display_sequence()
     txt_offsets = ms.get_text_offsets()

@@ -5,15 +5,18 @@ def load_vocabulary(words_file):
     return set([X.split(' ')[0] for X in open(words_file).read().split('\n')])
 
 def kaldi_normalize(word, vocab):
+    """
+    Take a token extracted from a transcript by MetaSentence and
+    transform it to use the same format as Kaldi's vocabulary files.
+    Removes fancy punctuation and strips out-of-vocabulary words.
+    """
     # lowercase
     norm = word.lower()
     # Turn fancy apostrophes into simpler apostrophes
     norm = norm.replace("’", "'")
-    if len(norm) == 0:
-        return []
-    if not norm in vocab:
+    if len(norm) > 0 and not norm in vocab:
         norm = '[oov]'
-    return [norm]
+    return norm
 
 class MetaSentence:
     """Maintain two parallel representations of a sentence: one for
@@ -24,9 +27,9 @@ class MetaSentence:
         self.raw_sentence = sentence
         self.vocab = vocab
 
-        self._gen_kaldi_seq(sentence)
+        self._tokenize(sentence)
 
-    def _gen_kaldi_seq(self, sentence):
+    def _tokenize(self, sentence):
         self._seq = []
         for m in re.finditer(r'(\w|\’\w|\'\w)+', sentence):
             start, end = m.span()
@@ -41,10 +44,7 @@ class MetaSentence:
             })
 
     def get_kaldi_sequence(self):
-        return reduce(lambda acc,y: acc+y["token"], self._seq, [])
-
-    def get_matched_kaldi_sequence(self):
-        return ['-'.join(X["token"]) for X in self._seq]
+        return [x["token"] for x in self._seq]
 
     def get_display_sequence(self):
         display_sequence = []
