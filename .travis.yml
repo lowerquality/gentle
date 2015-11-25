@@ -1,0 +1,10 @@
+sudo: required
+
+language: python
+
+services:
+  - docker
+
+before_install:
+  - docker build -t lowerquality/gentle .
+  - docker run --rm lowerquality/gentle sh -c "cd /gentle && ./tests/e2e_test.sh"
