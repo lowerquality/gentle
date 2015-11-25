@@ -10,7 +10,7 @@ ADD . /gentle
 RUN MAKEFLAGS=' -j8' cd /gentle && \
 	./install_kaldi.sh && \
 	make
-RUN ./install_models.sh
+RUN cd /gentle && ./install_models.sh
 
 EXPOSE 8765
 
