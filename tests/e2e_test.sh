@@ -12,7 +12,7 @@ cd "$DIR/.."
 
 echo "Running test..."
 
-TMPDIR=$(mktemp -dt "gentle_test")
+TMPDIR=$(mktemp -dt "gentle_test_XXX")
 
 ERR=$(python gentle/language_model_transcribe.py tests/data/lucier.mp3 tests/data/lucier.txt $TMPDIR/got.json 2>&1)
 if [ $? -ne 0 ]; then

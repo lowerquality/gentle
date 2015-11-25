@@ -47,7 +47,7 @@ if __name__=='__main__':
         description='Align a transcript to audio by generating a new language model.')
     parser.add_argument('--proto_langdir', default="PROTO_LANGDIR",
                        help='path to the prototype language directory')
-    parser.add_argument('--nnet_dir', default="data",
+    parser.add_argument('--nnet_dir', default="data/nnet_a_gpu_online",
                        help='path to the kaldi neural net model directory')
     parser.add_argument('audio_file', help='input audio file in any format supported by FFMPEG')
     parser.add_argument('input_file', type=argparse.FileType('r'),
