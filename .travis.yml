@@ -5,6 +5,8 @@ language: python
 services:
   - docker
 
-before_install:
+install:
   - docker build -t lowerquality/gentle .
+
+script:
   - docker run --rm lowerquality/gentle sh -c "cd /gentle && ./tests/e2e_test.sh"
