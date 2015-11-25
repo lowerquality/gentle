@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 import json
 import os
@@ -15,9 +16,12 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
     vocab = metasentence.load_vocabulary(vocab_path)
 
     ms = metasentence.MetaSentence(transcript, vocab)
-    gen_model_dir = language_model.get_language_model(ms.get_kaldi_sequence(), proto_langdir)
 
-    sys.stderr.write('generated model %s\n' % gen_model_dir)
+    ks = ms.get_kaldi_sequence()
+
+    gen_model_dir = language_model.get_language_model(ks, proto_langdir)
+
+    logging.info('generated model %s', gen_model_dir)
 
     try:
         gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')

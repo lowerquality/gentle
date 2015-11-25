@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -27,7 +28,7 @@ class Kaldi:
             self._p.stdin.write(data)
         except IOError, e:
             _, stderr = self._p.communicate()
-            sys.stderr.write(stderr)
+            logging.error(stderr)
             raise IOError("Lost connection with standard_kaldi subprocess")
 
     def _cmd(self, c):
@@ -77,7 +78,7 @@ class Kaldi:
             if line.startswith("Transition-state"):
                 m = re.match(r'Transition-state (\d+): phone = ([^ ]*) hmm-state = (\d) pdf = (\d+)', line)
                 if not m:
-                    sys.stderr.write('err %s' % line)
+                    logging.error('err %s', line)
                     continue
                 cur_trans_state = {"phone": m.group(2),
                                    "hmm-state": int(m.group(3)),
@@ -85,7 +86,7 @@ class Kaldi:
             else:
                 m = re.match(r'Transition-id = (\d+) p = (\d\.\d+) \[([^\]]+)\]', line)
                 if not m:
-                    sys.stderr.write('err %s' % line)
+                    logging.error('err %s', line)
                     continue
 
                 transitions[int(m.group(1))] = {"state": cur_trans_state,
@@ -252,10 +253,10 @@ class Kaldi:
         self._cmd("continue");
 
     def stop(self):
-        sys.stderr.write('stopping...\n')
+        logging.info('stopping...')
         self._cmd("stop")
         self._p.wait()
-        sys.stderr.write('stopped\n')
+        logging.info('stopped\n')
 
     def __del__(self):
         self.stop()
@@ -277,12 +278,12 @@ def lattice(k, infile):
         chunk_size = 16000 # frames (2sec)
         chunk = input_wav.readframes(chunk_size)
 
-        sys.stderr.write('%d %d\n', idx, len(chunk))
+        logging.info('%d %d', idx, len(chunk))
 
         k.push_chunk(chunk)
 
         if idx > 0 and idx % 15 == 0:
-            sys.stderr.write('endpoint!\n')
+            logging.info('endpoint!\n')
             ret = k.get_final()
             _add_lattice(ret, seg_offset*2)
 
@@ -297,7 +298,7 @@ def lattice(k, infile):
 
         idx += 1
 
-    sys.stderr.write('done with audio!\n')
+    logging.info('done with audio!')
     ret = k.get_final()
     _add_lattice(ret, seg_offset*2)
     k.stop()
@@ -338,15 +339,15 @@ def transcribe(k, infile):
         if len(arr) > 0:
             lst = arr[-1]
             if lst["start"] > offset:
-                sys.stderr.write('trimming %s\n' % lst)
+                logging.info('trimming %s', lst)
                 arr.pop()
 
         for w in wds:
             w["start"] += offset
             if lst is not None and (w["start"] - lst["start"]) < -0.05:
-                sys.stderr.write('skipping %s %f\n' % (w, (w["start"] - lst["start"])))
+                logging.info('skipping %s %f\n' % (w, (w["start"] - lst["start"])))
             elif lst is not None:
-                sys.stderr.write('adding %s %f\n' % (w, (w["start"] - lst["start"])))
+                logging.info('adding %s %f\n' % (w, (w["start"] - lst["start"])))
             arr.append(w)
 
     def _add_words(wds, offset):
@@ -361,7 +362,7 @@ def transcribe(k, infile):
         k.push_chunk(chunk)
 
         if idx > 0 and idx % 15 == 0:
-            sys.stderr.write('endpoint!\n')
+            logging.info('endpoint!\n')
             ret = k.get_prons()
             _add_words(ret, seg_offset*2)
 
@@ -373,14 +374,15 @@ def transcribe(k, infile):
 
         if idx > 0 and idx % 5 == 0:
             # ...just to show some progress
-            sys.stderr.write('%s\n' % k.get_partial())
+            logging.info('%s\n' % k.get_partial())
+            # XXX: expose in a callback?
 
         if len(chunk) != (chunk_size * input_wav.getsampwidth()):
             break
 
         idx += 1
 
-    sys.stderr.write('done with audio!\n')
+    logging.info('done with audio!')
     ret = k.get_prons()
     _add_words(ret, seg_offset*2)
     k.stop()

@@ -1,5 +1,6 @@
 from gentle.paths import get_binary
 from generate_wp import language_model_from_word_sequence
+import logging
 import os
 import subprocess
 import sys
@@ -16,7 +17,7 @@ def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
 
     # Create a language model directory
     lang_model_dir = tempfile.mkdtemp()
-    sys.stderr.write('saving language model to %s\n' % lang_model_dir)
+    logging.info('saving language model to %s', lang_model_dir)
 
     # Symlink in necessary files from the prototype directory
     for dirpath, dirnames, filenames in os.walk(proto_langdir, followlinks=True):

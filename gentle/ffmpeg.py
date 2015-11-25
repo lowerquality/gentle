@@ -13,6 +13,7 @@ def to_wav(path, R=8000, depth=16, nchannels=1, start=0):
     cmd = [FFMPEG,
            '-ss', "%f" % (start),
            '-i', path,
+           '-loglevel', 'panic',
            '-ss', "%f" % (start),
            '-vn',
            '-ar', str(R),

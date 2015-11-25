@@ -4,6 +4,7 @@ from twisted.web.server import Site, NOT_DONE_YET
 from twisted.internet import reactor
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -24,7 +25,9 @@ def _next_id():
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
 # browser playback.
 def to_wav(infile, outfile):
-    subprocess.call([get_binary('ffmpeg'), '-i', infile,
+    subprocess.call([get_binary('ffmpeg'),
+                     '-loglevel', 'panic',
+                     '-i', infile,
                      '-ac', '1', '-ar', '8000',
                      '-acodec', 'pcm_s16le',
                      outfile])
@@ -52,16 +55,10 @@ class Uploader(Resource):
     def transcribe(self, uid, req=None):
         outdir = os.path.join(DATADIR, uid)
 
-        print 'outdir', outdir
-
         wavfile = os.path.join(outdir, 'a.wav')        
         to_wav(os.path.join(outdir, 'upload'), wavfile)
 
-        print 'wavfile', wavfile
-
         transcript = open(os.path.join(outdir, 'transcript.txt')).read()
-
-        print 'transcript', transcript
 
         # Run transcription
         ret = lm_transcribe(wavfile,
@@ -69,8 +66,6 @@ class Uploader(Resource):
                             # XXX: should be configurable
                             get_resource('PROTO_LANGDIR'),
                             get_resource('data/nnet_a_gpu_online'))
-
-        print 'ret', ret
 
         # Save output to JSON and CSV
         json.dump({
@@ -85,7 +80,7 @@ class Uploader(Resource):
         # ...and remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
-        print 'done with transcription.'
+        logging.info('done with transcription.')
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
 
@@ -103,12 +98,14 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
     
     s = Site(f)
     reactor.listenTCP(port, s, interface=interface)
-    sys.stderr.write('listening at %s:%d\n' % (interface, port))
+
     reactor.run(installSignalHandlers=installSignalHandlers)
     
     
 if __name__=='__main__':
     interface = '0.0.0.0'
     port = 8765
+
+    print 'listening at %s:%d\n' % (interface, port)
 
     serve(port, interface, installSignalHandlers=1)
