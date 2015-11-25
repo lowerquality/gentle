@@ -61,7 +61,7 @@ class Uploader(Resource):
                             transcript,
                             # XXX
                             'PROTO_LANGDIR',
-                            'data')
+                            'data/nnet_a_gpu_online')
 
         # Save output to JSON and CSV
         json.dump({
