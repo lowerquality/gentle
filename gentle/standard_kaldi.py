@@ -15,9 +15,9 @@ class Kaldi:
         hclg_path='data/graph/HCLG.fst',
         proto_langdir='PROTO_LANGDIR'):
         self.proto_langdir = proto_langdir
+        devnull = open(os.devnull, 'w')
         self._p = subprocess.Popen([EXECUTABLE_PATH, nnet_dir, hclg_path, proto_langdir],
-                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=devnull)
 
         self._transitions = None
         self._words = None
