@@ -155,7 +155,7 @@ if __name__=='__main__':
         description='Align a transcript to audio by generating a new language model.')
     parser.add_argument('--host', default="0.0.0.0",
                        help='host to run http server on')
-    parser.add_argument('--port', default=8080, type=int,
+    parser.add_argument('--port', default=8765, type=int,
                         help='port number to run http server on')
     parser.add_argument('--log', default="WARNING",
                         help='the log level (DEBUG, INFO, WARNING, ERROR, or CRITICAL)')
