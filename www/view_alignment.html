@@ -48,12 +48,13 @@ html, body {
     white-space: pre-wrap;
     line-height: 2em;
     max-width: 600px;
+    color: #999;
+}
+.success:hover {
+    text-decoration: underline;
 }
 .active {
     color: magenta;
-}
-.dud {
-    color: #999;
 }
     </style>
   </head>
@@ -144,8 +145,8 @@ get_json("align.json", function(ret) {
         var $wdText = document.createTextNode(txt);
         $wd.appendChild($wdText);
         wd.$div = $wd;
-        if(wd.start == undefined) {
-            $wd.className = 'dud';
+        if(wd.start !== undefined) {
+            $wd.className = 'success';
         }
         $wd.onclick = function() {
             if(wd.start !== undefined) {
