@@ -7,12 +7,19 @@ import shutil
 import sys
 
 import diff_align
+from paths import get_resource
 import language_model
 import metasentence
 import standard_kaldi
 
 def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
                   partial_cb=None, partial_kwargs={}):
+
+    if len(transcript.strip()) == 0:
+        # Fall back on normal transcription if no transcript is provided
+        logging.info("Falling back on normal transcription")
+        return _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwargs)
+    
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
     vocab = metasentence.load_vocabulary(vocab_path)
 
@@ -22,26 +29,60 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
 
     gen_model_dir = language_model.get_language_model(ks, proto_langdir)
 
-    logging.info('generated model %s', gen_model_dir)
+    gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
+    k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
 
-    try:
-        gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
-        k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
+    trans = standard_kaldi.transcribe(k, audio_f,
+                                      partial_results_cb=partial_cb,
+                                      partial_results_kwargs=partial_kwargs)
 
-        trans = standard_kaldi.transcribe(k, audio_f,
-                                          partial_results_cb=partial_cb,
-                                          partial_results_kwargs=partial_kwargs)
+    ret = diff_align.align(trans["words"], ms)
 
-        ret = diff_align.align(trans["words"], ms)
-    finally:
-        shutil.rmtree(gen_model_dir)
+    shutil.rmtree(gen_model_dir)
 
-    return ret
+    return {
+        "transcript": transcript,
+        "words": ret
+    }
+
+def _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwargs):
+    hclg_path = get_resource("data/graph/HCLG.fst")
+    if not os.path.exists(hclg_path):
+        logging.warn("No general-purpose language model available")
+        return {"transcript": "", "words": []}
+    
+    k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)
+    trans = standard_kaldi.transcribe(k, audio_f,
+                                      partial_results_cb=partial_cb,
+                                      partial_results_kwargs=partial_kwargs)
+    # Spoof the `diff_align` output format
+    transcript = ""
+    words = []
+
+    for t_wd in trans["words"]:
+        wd = {
+            "case": "success",
+            "startOffset": len(transcript),
+            "endOffset": len(transcript) + len(t_wd["word"]),
+            "word": t_wd["word"],
+            "alignedWord": t_wd["word"],
+            "phones": t_wd["phones"],
+            "start": t_wd["start"],
+            "end": t_wd["start"] + t_wd["duration"]}
+        words.append(wd)
+
+        transcript += wd["word"] + " "
+
+    return {
+        "transcript": transcript,
+        "words": words
+    }
+
 
 def write_csv(alignment, outf):
     w = csv.writer(outf)
     w.writerows(
-        [ [X["word"], X.get("alignedWord"), X.get("start"), X.get("end")] for X in alignment if X.get("case") in ("success", "not-found-in-audio")])
+        [ [X["word"], X.get("alignedWord"), X.get("start"), X.get("end")] for X in alignment["words"] if X.get("case") in ("success", "not-found-in-audio")])
 
 if __name__=='__main__':
     import argparse

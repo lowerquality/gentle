@@ -103,7 +103,7 @@ class Uploader(Resource):
         self.status.set_status(uid, "Starting transcription", "")
         # Run transcription
         ret = lm_transcribe(wavfile,
-                            open(os.path.join(outdir, 'transcript.txt')).read(),
+                            transcript,
                             # XXX: should be configurable
                             get_resource('PROTO_LANGDIR'),
                             get_resource('data/nnet_a_gpu_online'),
@@ -111,10 +111,8 @@ class Uploader(Resource):
                             partial_kwargs={"uid": uid})
 
         # Save output to JSON and CSV
-        json.dump({
-            "words": ret,
-            "transcript": transcript,
-        }, open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
+        json.dump(ret,
+                  open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
         write_csv(ret, open(os.path.join(outdir, 'align.csv'), 'w'))
 
         # Finally, copy over the HTML
