@@ -42,6 +42,9 @@ quitb.move(0,50)
 
 w.show()
 
+w.raise_()
+w.activateWindow()
+ 
 app.exec_()
 
 logging.info("Waiting for server to quit.")
