@@ -111,10 +111,9 @@ function highlight_word() {
     }
     cur_wd = next_wd;
 
-    window.setTimeout(highlight_word, 1000/10);
+    window.requestAnimationFrame(highlight_word);
 }
-
-highlight_word();
+window.requestAnimationFrame(highlight_word);
 
 $trans.innerHTML = "Loading...";
 
