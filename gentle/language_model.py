@@ -50,7 +50,10 @@ def make_bigram_lm_fst(word_sequence):
     return output
 
 def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
-    """Generates a language model to fit the text
+    """Generates a language model to fit the text.
+
+    Returns the filename of the generated language model FST.
+    The caller is resposible for removing the generated file.
 
     `proto_langdir` is a path to a directory containing prototype model data
     `kaldi_seq` is a list of words within kaldi's vocabulary.
@@ -62,22 +65,21 @@ def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     txt_fst_file.write(txt_fst)
     txt_fst_file.close()
     
-    out_dir = tempfile.mkdtemp()
-
+    hclg_filename = tempfile.mktemp(suffix='_HCLG.fst')
     try:
         subprocess.check_output([MKGRAPH_PATH,
                          os.path.join(proto_langdir, 'langdir'),
                          os.path.join(proto_langdir, 'modeldir'),
                          txt_fst_file.name,
                          os.path.join(proto_langdir, "graphdir/words.txt"),
-                         os.path.join(out_dir, 'HCLG.fst')])
+                         hclg_filename])
     except Exception, e:
-        shutil.rmtree(out_dir)
+        os.unlink(hclg_filename)
         raise e
     finally:
         os.unlink(txt_fst_file.name)
 
-    return out_dir
+    return hclg_filename
 
 if __name__=='__main__':
     import sys
