@@ -4,10 +4,11 @@ import re
 import subprocess
 import sys
 import wave
+from paths import get_binary
 
 import ffmpeg
 
-EXECUTABLE_PATH = "./standard_kaldi"
+EXECUTABLE_PATH = get_binary("standard_kaldi")
 
 class Kaldi:
     def __init__(self,

@@ -126,7 +126,8 @@ class Uploader(Resource):
         logging.info('done with transcription.')
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
-
+    logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
+    
     if not os.path.exists(DATADIR):
         os.makedirs(DATADIR)
     
@@ -143,7 +144,9 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
     f.putChild('transcribe', up)
     
     s = Site(f)
+    logging.info("about to listen")
     reactor.listenTCP(port, s, interface=interface)
+    logging.info("listening")
 
     reactor.run(installSignalHandlers=installSignalHandlers)
     

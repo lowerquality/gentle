@@ -18,29 +18,32 @@ def get_open_port():
 
 PORT = get_open_port()
 
-def open_browser():
-    webbrowser.open("http://localhost:%d" % (PORT))
-    
 # Start a thread for the web server.
 webthread = threading.Thread(target=serve.serve, args=(PORT,))
 webthread.start()
 
+def open_browser():
+    webbrowser.open("http://localhost:%d/" % (PORT))
+    
 app = QApplication(sys.argv)
 w = QWidget()
 w.resize(250, 150)
 w.setWindowTitle('Gentle')
 
+def quit_server():
+    app.exit()
+
 btn = QPushButton('Open in browser', w)
 btn.clicked.connect(open_browser)
 
 quitb = QPushButton('Quit', w)
-quitb.clicked.connect(app.quit)
+quitb.clicked.connect(quit_server)
 quitb.move(0,50)
 
 w.show()
 
 app.exec_()
 
-reactor.callFromThread(reactor.stop)
 logging.info("Waiting for server to quit.")
+reactor.callFromThread(reactor.stop)
 webthread.join()

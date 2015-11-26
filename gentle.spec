@@ -3,10 +3,16 @@
 block_cipher = None
 import os
 
+data_files = []
+for dirpath in ['www', 'data', 'PROTO_LANGDIR']:
+    data_files.append((dirpath, dirpath))
+for exepath in ['ffmpeg', 'standard_kaldi', 'mkgraph']:
+    data_files.append((exepath, ''))
+
 a = Analysis(['gentle.py'],
              pathex=[os.path.abspath(os.curdir)],
              binaries=None,
-             datas=[(X,X) for X in ['www', 'data', 'PROTO_LANGDIR', 'ffmpeg', 'standard_kaldi', 'mkgraph']],
+             datas=data_files,
              hiddenimports=[],
              hookspath=None,
              runtime_hooks=None,
@@ -22,7 +28,7 @@ exe = EXE(pyz,
           name='gentle',
           debug=False,
           strip=None,
-          upx=True,
+          upx=False,
           console=False )
 coll = COLLECT(exe,
                a.binaries,
@@ -33,5 +39,9 @@ coll = COLLECT(exe,
                name='gentle')
 app = BUNDLE(coll,
              name='gentle.app',
-             icon='logo.icns',
-             bundle_identifier=None)
+             icon=None,
+             bundle_identifier=None,
+             info_plist={
+                 'NSHighResolutionCapable': 'True'
+             },
+)
