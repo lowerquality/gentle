@@ -2,20 +2,60 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      body { font-family: sans-serif; }
+      body {font-family: sans-serif; padding-top: 70px; }
       textarea { width: 500px; height: 20em; }
       input, textarea { margin: 1em 0; }
+      #header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          height: 50px;
+          line-height: 50px;
+          width: 100%;
+          background-color: #999;
+          box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.5);
+          font-family: Helvetica, sans-serif;
+      }
+      #header, #header a {
+          color: white;
+      }
+      .home {
+          margin: 0;
+          font-size: 125%;
+          font-weight: lighter;
+          text-transform: lowercase;
+      }
+      .home a {
+          margin: 0;
+          background: #666;
+          padding-left: 25px;
+          padding-right: 30px;
+          margin-right: 20px;
+          float: left;
+          text-decoration: none;
+      }
+      .home:hover a {
+          background: #555;
+      }
+      #align-button {
+        background: #CCC;
+        border: 0;
+        font-size: 18px;
+        padding: 10px 30px;
+      }
     </style>
   </head>
   <body>
-    <h2>Gentle</h2>
+    <div id="header">
+      <h1 class="home"><a href="/">Gentle</a></h1>
+    </div>
     <form action="/transcribe" method="POST" enctype="multipart/form-data">
       Audio:<br>
       <input type=file name=audio><br>
       <br>
       Transcript:<br>
       <textarea name="transcript"></textarea><br>
-      <input type=submit value=Align>
+      <input id="align-button" type=submit value=Align>
     </form>
   </body>
 </html>

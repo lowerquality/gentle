@@ -26,15 +26,22 @@ html, body {
     padding: 0 15px;
 }
 .home {
-    background: #666;
-    font-size: 125%;
-    padding-left: 25px;
-    padding-right: 30px;
-    margin-right: 20px;
-    float: left;
-    text-decoration: none;
-    font-weight: lighter;
-    text-transform: lowercase;
+  margin: 0;
+  font-size: 125%;
+  font-weight: lighter;
+  text-transform: lowercase;
+}
+.home a {
+  margin: 0;
+  background: #666;
+  padding-left: 25px;
+  padding-right: 30px;
+  margin-right: 20px;
+  float: left;
+  text-decoration: none;
+}
+.home:hover a {
+  background: #555;
 }
 #audio {
     margin-top: 9px;
@@ -48,20 +55,24 @@ html, body {
     white-space: pre-wrap;
     line-height: 2em;
     max-width: 600px;
+    color: #999;
+}
+.success {
+    color: black;
+}
+.success:hover {
+    text-decoration: underline;
 }
 .active {
     color: magenta;
-}
-.dud {
-    color: #999;
 }
     </style>
   </head>
   <body>
     <div id="header">
-      <a href="/" class="home">Gentle</a>
+      <h1 class="home"><a href="/">Gentle</a></h1>
       <audio id="audio" src="a.wav" controls="true"></audio>
-      <a href="align.json" class="download">Download JSON</a><a href="align.csv" class="download">Download CSV</a>
+      <a href="align.json" download="align.json" class="download">Download JSON</a><a href="align.csv" class="download">Download CSV</a>
     </div>
     <div id="transcript"></div>
 
@@ -97,8 +108,10 @@ var cur_wd;
 function highlight_word() {
     var t = $a.currentTime;
     // XXX: O(N); use binary search
-    var hits = wds.filter(function(x) { return x.start <= t && x.end >= t; }, wds);
-    var next_wd = hits[0];
+    var hits = wds.filter(function(x) {
+        return (t - x.start) > 0.01 && (x.end - t) > 0.01;
+    }, wds);
+    var next_wd = hits[hits.length - 1];
 
     if(cur_wd != next_wd) {
         var active = document.querySelectorAll('.active');
@@ -111,10 +124,9 @@ function highlight_word() {
     }
     cur_wd = next_wd;
 
-    window.setTimeout(highlight_word, 1000/10);
+    window.requestAnimationFrame(highlight_word);
 }
-
-highlight_word();
+window.requestAnimationFrame(highlight_word);
 
 $trans.innerHTML = "Loading...";
 
@@ -145,8 +157,8 @@ get_json("align.json", function(ret) {
         var $wdText = document.createTextNode(txt);
         $wd.appendChild($wdText);
         wd.$div = $wd;
-        if(wd.start == undefined) {
-            $wd.className = 'dud';
+        if(wd.start !== undefined) {
+            $wd.className = 'success';
         }
         $wd.onclick = function() {
             if(wd.start !== undefined) {
