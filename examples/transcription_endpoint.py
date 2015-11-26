@@ -2,7 +2,7 @@ import os
 import sys
 import tempfile
 
-from gentle.language_model_transcribe import lm_transcribe
+from gentle.transcribe import lm_transcribe
 
 
 from flask import jsonify, request, Flask, render_template
