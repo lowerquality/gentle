@@ -2,10 +2,10 @@ import logging
 import threading
 from twisted.internet import reactor
 import webbrowser
-import wx
+from PyQt4.QtGui import QApplication, QWidget, QPushButton
 
-from gentle.paths import get_resource, get_datadir
 import serve
+import sys
 
 def get_open_port():
     import socket
@@ -18,61 +18,29 @@ def get_open_port():
 
 PORT = get_open_port()
 
-class MainWindow(wx.Frame):
-    def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(200,100))
-
-        panel = wx.Panel(self)
-        self.browse = wx.Button(panel, label="Open in web browser", pos=(0, 0))
-        self.Bind(wx.EVT_BUTTON, self.OnBrowseClick, self.browse)
-
-        self.quitb = wx.Button(panel, label="Quit", pos=(0, 30))
-        self.Bind(wx.EVT_BUTTON, self.OnClose, self.quitb)
-
-        self.CreateStatusBar()
-
-        # Setting up the menu.
-        filemenu= wx.Menu()
-
-        menuItem = filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
-        filemenu.AppendSeparator()
-        m_close = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
-        
-        self.Bind(wx.EVT_MENU, self.OnClose, m_close)
-        self.Bind(wx.EVT_MENU, self.OnAbout, menuItem)
+def open_browser():
+    webbrowser.open("http://localhost:%d" % (PORT))
     
-        # Creating the menubar.
-        menuBar = wx.MenuBar()
-        menuBar.Append(filemenu,"&File")
-        self.SetMenuBar(menuBar)
-        self.Show(True)
+# Start a thread for the web server.
+webthread = threading.Thread(target=serve.serve, args=(PORT,))
+webthread.start()
 
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
+app = QApplication(sys.argv)
+w = QWidget()
+w.resize(250, 150)
+w.setWindowTitle('Gentle')
 
-        logging.info('about to start a web server...')
+btn = QPushButton('Open in browser', w)
+btn.clicked.connect(open_browser)
 
-        # Start a thread for the web server.
-        self.webthread = threading.Thread(target=serve.serve, args=(PORT,))
-        self.webthread.start()
+quitb = QPushButton('Quit', w)
+quitb.clicked.connect(app.quit)
+quitb.move(0,50)
 
-    def OnAbout(self, event):
-        logging.info("clicked on ABOUT")
+w.show()
 
-        # Create a little modal dialog box
-        dlg = wx.MessageDialog(self, "Robust yet lenient forced aligner", "Gentle", wx.OK)
-        dlg.ShowModal()
-        dlg.Destroy()
+app.exec_()
 
-    def OnClose(self, event):
-        logging.info("Quitting gentle.")
-        reactor.callFromThread(reactor.stop)
-        logging.info("Waiting for server to quit.")
-        self.webthread.join()
-        self.Destroy()
-
-    def OnBrowseClick(self, event):
-        webbrowser.open("http://localhost:%d" % (PORT))
-
-app = wx.App(False)
-frame = MainWindow(None, "Gentle")
-app.MainLoop()
+reactor.callFromThread(reactor.stop)
+logging.info("Waiting for server to quit.")
+webthread.join()
