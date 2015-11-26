@@ -7,6 +7,17 @@ import wx
 from gentle.paths import get_resource, get_datadir
 import serve
 
+def get_open_port():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("",0))
+    s.listen(1)
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+PORT = get_open_port()
+
 class MainWindow(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(200,100))
@@ -41,7 +52,7 @@ class MainWindow(wx.Frame):
         logging.info('about to start a web server...')
 
         # Start a thread for the web server.
-        self.webthread = threading.Thread(target=serve.serve)
+        self.webthread = threading.Thread(target=serve.serve, args=(PORT,))
         self.webthread.start()
 
     def OnAbout(self, event):
@@ -60,7 +71,7 @@ class MainWindow(wx.Frame):
         self.Destroy()
 
     def OnBrowseClick(self, event):
-        webbrowser.open("http://localhost:8765")
+        webbrowser.open("http://localhost:%d" % (PORT))
 
 app = wx.App(False)
 frame = MainWindow(None, "Gentle")
