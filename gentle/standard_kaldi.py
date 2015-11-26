@@ -229,6 +229,18 @@ class Kaldi:
                 ph['phone'] = parts[0].split(': ')[1]
                 ph['duration'] = float(parts[1].split(': ')[1])
                 phones.append(ph)
+
+        # Strip silence from ends of words
+        for wd in words:
+            if len(wd['phones']) > 0 and wd['phones'][0]['phone'] == 'sil':
+                p = wd['phones'].pop(0)
+                wd['start'] += p['duration']
+                wd['duration'] -= p['duration']
+
+            if len(wd['phones']) > 0 and wd['phones'][-1]['phone'] == 'sil':
+                p = wd['phones'].pop()
+                wd['duration'] -= p['duration']
+        
         return words
 
     def peek_final(self):
