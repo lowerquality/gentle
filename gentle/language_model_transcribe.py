@@ -27,7 +27,7 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
 
     ks = ms.get_kaldi_sequence()
 
-    gen_hclg_filename = language_model.get_language_model(ks, proto_langdir)
+    gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 

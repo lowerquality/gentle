@@ -49,7 +49,7 @@ def make_bigram_lm_fst(word_sequence):
 
     return output
 
-def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
+def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """Generates a language model to fit the text.
 
     Returns the filename of the generated language model FST.
@@ -83,4 +83,4 @@ def get_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
 
 if __name__=='__main__':
     import sys
-    get_language_model(open(sys.argv[1]).read())
+    make_bigram_language_model(open(sys.argv[1]).read())
