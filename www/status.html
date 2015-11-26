@@ -22,6 +22,11 @@ function ping() {
     get_status(function(ret) {
         if(ret["status"]  == "Done") {
             window.location = "http://" + window.location.host + "/" + UID + "/";
+            return;
+        }
+        else if(ret["status"] == "Error") {
+            document.body.innerHTML = "<b>" + ret.status + ": " + ret.text + "</b>";
+            return;
         }
         else if(ret["status"] == "Transcribing") {
             var words = JSON.parse(ret["text"]);

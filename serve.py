@@ -25,7 +25,7 @@ def _next_id():
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
 # browser playback.
 def to_wav(infile, outfile):
-    subprocess.call([get_binary('ffmpeg'),
+    return subprocess.call([get_binary('ffmpeg'),
                      '-loglevel', 'panic',
                      '-i', infile,
                      '-ac', '1', '-ar', '8000',
@@ -94,7 +94,9 @@ class Uploader(Resource):
         wavfile = os.path.join(outdir, 'a.wav')
         self.status.set_status(uid, "Encoding", "")
         
-        to_wav(os.path.join(outdir, 'upload'), wavfile)
+        if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
+            self.status.set_status(uid, "Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
+            return
 
         transcript = open(os.path.join(outdir, 'transcript.txt')).read()
 
