@@ -346,8 +346,7 @@ def transcribe(k, infile):
             w["start"] += offset
             if lst is not None and (w["start"] - lst["start"]) < -0.05:
                 logging.info('skipping %s %f\n' % (w, (w["start"] - lst["start"])))
-            elif lst is not None:
-                logging.info('adding %s %f\n' % (w, (w["start"] - lst["start"])))
+                continue
             arr.append(w)
 
     def _add_words(wds, offset):
