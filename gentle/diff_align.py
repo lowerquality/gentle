@@ -1,12 +1,11 @@
-import metasentence
-import language_model
-import standard_kaldi
-
 import difflib
-
 import json
 import os
 import sys
+
+import metasentence
+import language_model
+import standard_kaldi
 
 def align(alignment, ms):
 
