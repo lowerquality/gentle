@@ -27,18 +27,17 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
 
     ks = ms.get_kaldi_sequence()
 
-    gen_model_dir = language_model.get_language_model(ks, proto_langdir)
+    gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
+    try:
+        k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
-    gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
-    k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
+        trans = standard_kaldi.transcribe(k, audio_f,
+                                          partial_results_cb=partial_cb,
+                                          partial_results_kwargs=partial_kwargs)
 
-    trans = standard_kaldi.transcribe(k, audio_f,
-                                      partial_results_cb=partial_cb,
-                                      partial_results_kwargs=partial_kwargs)
-
-    ret = diff_align.align(trans["words"], ms)
-
-    shutil.rmtree(gen_model_dir)
+        ret = diff_align.align(trans["words"], ms)
+    finally:
+        os.unlink(gen_hclg_filename)
 
     return {
         "transcript": transcript,

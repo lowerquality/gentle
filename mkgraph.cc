@@ -13,11 +13,11 @@ int main(int argc, char *argv[]) {
 	using namespace fst;
 	using fst::script::ArcSort;
 	try {
-		const char *usage = "Usage: ./mkgraph [options] <lang-dir> <model-dir> <grammar-fst> <words-txt> <out-fst>\n";
+		const char *usage = "Usage: ./mkgraph [options] <proto-dir> <grammar-fst> <out-fst>\n";
 		
 		ParseOptions po(usage);
 		po.Read(argc, argv);
-		if (po.NumArgs() != 5) {
+		if (po.NumArgs() != 3) {
 			po.PrintUsage();
 			return 1;
 		}
@@ -27,17 +27,16 @@ int main(int argc, char *argv[]) {
 		float self_loop_scale = 0.1;
 		bool reverse = false;
 
-		std::string lang_dir = po.GetArg(1),
-					model_dir = po.GetArg(2),
-					grammar_fst_filename = po.GetArg(3),
-					words_filename = po.GetArg(4),
-					out_filename = po.GetArg(5);
+		std::string proto_dir = po.GetArg(1),
+					grammar_fst_filename = po.GetArg(2),
+					out_filename = po.GetArg(3);
 
-		std::string lang_fst_filename = lang_dir + "/L.fst",
-			lang_disambig_fst_filename = lang_dir + "/L_disambig.fst",
-			disambig_phones_filename = lang_dir + "/phones/disambig.int",
-			model_filename = model_dir + "/final.mdl",
-			tree_filename = model_dir + "/tree";
+		std::string lang_fst_filename = proto_dir + "/langdir/L.fst",
+			lang_disambig_fst_filename = proto_dir + "/langdir/L_disambig.fst",
+			disambig_phones_filename = proto_dir + "/langdir/phones/disambig.int",
+			model_filename = proto_dir + "/modeldir/final.mdl",
+			tree_filename = proto_dir + "/modeldir/tree",
+			words_filename = proto_dir + "/graphdir/words.txt";
 
 		if (!std::ifstream(lang_fst_filename.c_str())) {
 			std::cerr << "expected " << lang_fst_filename << " to exist" << std::endl;
