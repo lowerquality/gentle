@@ -2,8 +2,47 @@
   <head>
     <meta charset="utf-8" />
     <title>Gentle Reminder</title>
+    <style>
+        body {font-family: sans-serif; padding-top: 70px; }
+        #header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 50px;
+            line-height: 50px;
+            width: 100%;
+            background-color: #999;
+            box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.5);
+            font-family: Helvetica, sans-serif;
+        }
+        #header, #header a {
+            color: white;
+        }
+        .home {
+            margin: 0;
+            font-size: 125%;
+            font-weight: lighter;
+            text-transform: lowercase;
+        }
+        .home a {
+            margin: 0;
+            background: #666;
+            padding-left: 25px;
+            padding-right: 30px;
+            margin-right: 20px;
+            float: left;
+            text-decoration: none;
+        }
+        .home:hover a {
+            background: #555;
+        }
+    </style>
   </head>
   <body>
+    <div id="header">
+      <h1 class="home"><a href="/">Gentle</a></h1>
+    </div>
+    <div id="status"></div>
     <script>
 
 var UID = window.location.hash.slice(1);
@@ -17,15 +56,17 @@ function get_status(cb) {
     xhr.send();
 }
 
+var $status = document.getElementById('status');
+
 function ping() {
-    document.body.innerHTML = "Checking status..."
+    $status.innerHTML = "Checking status..."
     get_status(function(ret) {
         if(ret["status"]  == "Done") {
             window.location = "http://" + window.location.host + "/" + UID + "/";
             return;
         }
         else if(ret["status"] == "Error") {
-            document.body.innerHTML = "<b>" + ret.status + ": " + ret.text + "</b>";
+            $status.innerHTML = "<b>" + ret.status + ": " + ret.text + "</b>";
             return;
         }
         else if(ret["status"] == "Transcribing") {
@@ -35,10 +76,10 @@ function ping() {
                 return acc + " " + x.word;
             }, "");
 
-            document.body.innerHTML = "Transcribing (through " + cur_t + " seconds) <br>" + cur_stream;
+            $status.innerHTML = "Transcribing (through " + cur_t + " seconds) <br>" + cur_stream;
         }
         else {
-            document.body.innerHTML = ret.status + "...";
+            $status.innerHTML = ret.status + "...";
         }
         window.setTimeout(ping, 2000);
     })

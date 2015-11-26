@@ -26,15 +26,22 @@ html, body {
     padding: 0 15px;
 }
 .home {
-    background: #666;
-    font-size: 125%;
-    padding-left: 25px;
-    padding-right: 30px;
-    margin-right: 20px;
-    float: left;
-    text-decoration: none;
-    font-weight: lighter;
-    text-transform: lowercase;
+  margin: 0;
+  font-size: 125%;
+  font-weight: lighter;
+  text-transform: lowercase;
+}
+.home a {
+  margin: 0;
+  background: #666;
+  padding-left: 25px;
+  padding-right: 30px;
+  margin-right: 20px;
+  float: left;
+  text-decoration: none;
+}
+.home:hover a {
+  background: #555;
 }
 #audio {
     margin-top: 9px;
@@ -50,6 +57,9 @@ html, body {
     max-width: 600px;
     color: #999;
 }
+.success {
+    color: black;
+}
 .success:hover {
     text-decoration: underline;
 }
@@ -60,7 +70,7 @@ html, body {
   </head>
   <body>
     <div id="header">
-      <a href="/" class="home">Gentle</a>
+      <h1 class="home"><a href="/">Gentle</a></h1>
       <audio id="audio" src="a.wav" controls="true"></audio>
       <a href="align.json" download="align.json" class="download">Download JSON</a><a href="align.csv" class="download">Download CSV</a>
     </div>
