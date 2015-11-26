@@ -3,9 +3,11 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import wave
-from paths import get_binary
+from StringIO import StringIO
 
+from paths import get_binary
 import ffmpeg
 
 EXECUTABLE_PATH = get_binary("standard_kaldi")
@@ -333,7 +335,14 @@ def read_wav(infile):
         if input_wav.getsampwidth() != 2:
             raise ValueError("input wav must have 16 bit depth")
     except:
-        input_wav = wave.open(ffmpeg.to_wav(infile), 'r')
+        tmp = tempfile.mktemp(suffix='.wav')
+        try:
+            ffmpeg.to_wav(infile, tmp)
+            with open(tmp) as f:
+                wav_buf = StringIO(f.read())
+        finally:
+            os.unlink(tmp)
+        input_wav = wave.open(wav_buf, 'r')
     return input_wav
 
 

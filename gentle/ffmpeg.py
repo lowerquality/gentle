@@ -4,24 +4,19 @@ from paths import get_binary
 
 FFMPEG = get_binary("ffmpeg")
 
-def to_wav(path, R=8000, depth=16, nchannels=1, start=0):
+def to_wav(inpath, outpath, R=8000, depth=16, nchannels=1, start=0):
     '''
     Use FFMPEG to convert a media file to a wav file with the given
     sample format.
-
-    Returns an IO object so the results can be streamed.
     '''
-    cmd = [FFMPEG,
-           '-ss', "%f" % (start),
-           '-i', path,
-           '-loglevel', 'panic',
-           '-ss', "%f" % (start),
-           '-vn',
-           '-ar', str(R),
-           '-ac', str(nchannels),
-           '-f', 'wav',
-           '-acodec', 'pcm_s16le',
-           '-']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=open('/dev/null', 'w'))
-    
-    return p.stdout
+    subprocess.check_output([FFMPEG,
+      '-ss', "%f" % (start),
+      '-i', inpath,
+      '-loglevel', 'panic',
+      '-ss', "%f" % (start),
+      '-vn',
+      '-ar', str(R),
+      '-ac', str(nchannels),
+      '-f', 'wav',
+      '-acodec', 'pcm_s16le',
+      outpath])

@@ -13,6 +13,7 @@ import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.transcribe import lm_transcribe, write_csv
+from gentle.ffmpeg import to_wav
 
 DATADIR = get_datadir('webdata')
 
@@ -21,16 +22,6 @@ def _next_id():
     while uid is None or os.path.exists(os.path.join(DATADIR, uid)):
         uid = uuid.uuid4().get_hex()[:8]
     return uid
-
-# The `ffmpeg.to_wav` function doesn't set headers properly for web
-# browser playback.
-def to_wav(infile, outfile):
-    return subprocess.call([get_binary('ffmpeg'),
-                     '-loglevel', 'panic',
-                     '-i', infile,
-                     '-ac', '1', '-ar', '8000',
-                     '-acodec', 'pcm_s16le',
-                     outfile])
 
 class Status(Resource):
     def __init__(self):
@@ -94,7 +85,9 @@ class Uploader(Resource):
         wavfile = os.path.join(outdir, 'a.wav')
         self.status.set_status(uid, "Encoding", "")
         
-        if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
+        try:
+            to_wav(os.path.join(outdir, 'upload'), wavfile)
+        except Exception, e:
             self.status.set_status(uid, "Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
             return
 
