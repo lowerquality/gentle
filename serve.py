@@ -149,9 +149,17 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
     
     
 if __name__=='__main__':
-    interface = '0.0.0.0'
-    port = 8765
+    import argparse
 
-    print 'listening at %s:%d\n' % (interface, port)
+    parser = argparse.ArgumentParser(
+        description='Align a transcript to audio by generating a new language model.')
+    parser.add_argument('--host', default="0.0.0.0",
+                       help='host to run http server on')
+    parser.add_argument('--port', default=8080, type=int,
+                        help='port number to run http server on')
 
-    serve(port, interface, installSignalHandlers=1)
+    args = parser.parse_args()
+
+    print 'listening at %s:%d\n' % (args.host, args.port)
+
+    serve(args.port, args.host, installSignalHandlers=1)
