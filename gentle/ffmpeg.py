@@ -1,5 +1,6 @@
-from gentle.paths import get_binary
 import subprocess
+
+from paths import get_binary
 
 FFMPEG = get_binary("ffmpeg")
 

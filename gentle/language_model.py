@@ -1,10 +1,11 @@
-from gentle.paths import get_binary
-from generate_wp import language_model_from_word_sequence
 import logging
 import os
 import subprocess
 import sys
 import tempfile
+
+from paths import get_binary
+from generate_wp import language_model_from_word_sequence
 
 MKGRAPH_PATH = get_binary("mkgraph")
 
