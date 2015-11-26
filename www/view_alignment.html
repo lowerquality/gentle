@@ -98,8 +98,10 @@ var cur_wd;
 function highlight_word() {
     var t = $a.currentTime;
     // XXX: O(N); use binary search
-    var hits = wds.filter(function(x) { return x.start <= t && x.end >= t; }, wds);
-    var next_wd = hits[0];
+    var hits = wds.filter(function(x) {
+        return (t - x.start) > 0.01 && (x.end - t) > 0.01;
+    }, wds);
+    var next_wd = hits[hits.length - 1];
 
     if(cur_wd != next_wd) {
         var active = document.querySelectorAll('.active');
