@@ -324,7 +324,8 @@ def read_wav(infile):
     return input_wav
 
 
-def transcribe(k, infile):
+def transcribe(k, infile, batch_size=10,
+               partial_results_cb=None, partial_results_kwargs={}):
     words = []
 
     input_wav = read_wav(infile)
@@ -351,6 +352,8 @@ def transcribe(k, infile):
 
     def _add_words(wds, offset):
         _add_words_arr(wds, words, offset)
+        if partial_results_cb is not None:
+            partial_results_cb(wds, **partial_results_kwargs)
 
     idx = 0
     seg_offset = 0
@@ -360,7 +363,7 @@ def transcribe(k, infile):
 
         k.push_chunk(chunk)
 
-        if idx > 0 and idx % 15 == 0:
+        if idx > 0 and idx % batch_size == 0:
             logging.info('endpoint!\n')
             ret = k.get_prons()
             _add_words(ret, seg_offset*2)
@@ -371,10 +374,10 @@ def transcribe(k, infile):
             # Push same chunk again
             k.push_chunk(chunk)
 
-        if idx > 0 and idx % 5 == 0:
-            # ...just to show some progress
-            logging.info('%s\n' % k.get_partial())
-            # XXX: expose in a callback?
+        # if idx > 0 and idx % 5 == 0:
+        #     # ...just to show some progress
+        #     logging.info('%s\n' % k.get_partial())
+        #     # XXX: expose in a callback?
 
         if len(chunk) != (chunk_size * input_wav.getsampwidth()):
             break

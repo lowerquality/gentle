@@ -10,25 +10,30 @@ var UID = window.location.hash.slice(1);
 
 function get_status(cb) {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/" + UID + "/index.html", true);
-    xhr.onreadystatechange = function() {
-        if(xhr.readyState > 1 && cb) {
-            cb(xhr.status);
-            cb = null;
-            xhr.abort();
-        }
+    xhr.open("GET", "/status/" + UID, true);
+    xhr.onload = function() {
+        cb(JSON.parse(this.responseText));
     }
     xhr.send();
 }
 
 function ping() {
     document.body.innerHTML = "Checking status..."
-    get_status(function(code) {
-        if(code == 404) {
-            document.body.innerHTML = "Processing..."
-        }
-        else if(code == 200) {
+    get_status(function(ret) {
+        if(ret["status"]  == "Done") {
             window.location = "http://" + window.location.host + "/" + UID + "/";
+        }
+        else if(ret["status"] == "Transcribing") {
+            var words = JSON.parse(ret["text"]);
+            var cur_t = Math.floor(words[words.length-1].start);
+            var cur_stream = words.reduce(function(acc,x) {
+                return acc + " " + x.word;
+            }, "");
+
+            document.body.innerHTML = "Transcribing (through " + cur_t + " seconds) <br>" + cur_stream;
+        }
+        else {
+            document.body.innerHTML = ret.status + "...";
         }
         window.setTimeout(ping, 2000);
     })

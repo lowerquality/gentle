@@ -11,7 +11,8 @@ import language_model
 import metasentence
 import standard_kaldi
 
-def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
+def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
+                  partial_cb=None, partial_kwargs={}):
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
     vocab = metasentence.load_vocabulary(vocab_path)
 
@@ -27,7 +28,9 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
         gen_hclg_path = os.path.join(gen_model_dir, 'graphdir', 'HCLG.fst')
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_path, proto_langdir)
 
-        trans = standard_kaldi.transcribe(k, audio_f)
+        trans = standard_kaldi.transcribe(k, audio_f,
+                                          partial_results_cb=partial_cb,
+                                          partial_results_kwargs=partial_kwargs)
 
         ret = diff_align.align(trans["words"], ms)
     finally:

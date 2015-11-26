@@ -32,9 +32,40 @@ def to_wav(infile, outfile):
                      '-acodec', 'pcm_s16le',
                      outfile])
 
+class Status(Resource):
+    def __init__(self):
+        Resource.__init__(self)
+        self.uploads = {}
+        
+    def new_upload(self, uid):
+        self.uploads[uid] = TranscriptionStatus()
+        self.putChild(uid, self.uploads[uid])
+
+    def set_status(self, uid, status, text):
+        self.uploads[uid].cur_status = status
+        self.uploads[uid].status_text = text
+
+class TranscriptionStatus(Resource):
+    def __init__(self):
+        Resource.__init__(self)
+        self.cur_status = "Started"
+        self.status_text = ""
+
+    def render_GET(self, req):
+        return json.dumps({
+            "status": self.cur_status,
+            "text": self.status_text})
+
 class Uploader(Resource):
+    def __init__(self, status):
+        Resource.__init__(self)
+        self.status = status
+    
     def render_POST(self, req):
         uid = _next_id()
+
+        self.status.new_upload(uid)
+        
         outdir = os.path.join(DATADIR, uid)
         os.makedirs(outdir)
 
@@ -52,20 +83,30 @@ class Uploader(Resource):
 
         return NOT_DONE_YET
 
+    def onpartial(self, res, uid):
+        logging.info("partial results for %s, %s", uid, str(res))
+
+        self.status.set_status(uid, "Transcribing", json.dumps(res))
+
     def transcribe(self, uid, req=None):
         outdir = os.path.join(DATADIR, uid)
 
-        wavfile = os.path.join(outdir, 'a.wav')        
+        wavfile = os.path.join(outdir, 'a.wav')
+        self.status.set_status(uid, "Encoding", "")
+        
         to_wav(os.path.join(outdir, 'upload'), wavfile)
 
         transcript = open(os.path.join(outdir, 'transcript.txt')).read()
 
+        self.status.set_status(uid, "Starting transcription", "")
         # Run transcription
         ret = lm_transcribe(wavfile,
                             open(os.path.join(outdir, 'transcript.txt')).read(),
                             # XXX: should be configurable
                             get_resource('PROTO_LANGDIR'),
-                            get_resource('data/nnet_a_gpu_online'))
+                            get_resource('data/nnet_a_gpu_online'),
+                            partial_cb=self.onpartial,
+                            partial_kwargs={"uid": uid})
 
         # Save output to JSON and CSV
         json.dump({
@@ -80,6 +121,8 @@ class Uploader(Resource):
         # ...and remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
+        self.status.set_status(uid, "Done", "")        
+
         logging.info('done with transcription.')
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
@@ -91,8 +134,11 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
 
     f.putChild('', File(get_resource('www/index.html')))
     f.putChild('status.html', File(get_resource('www/status.html')))
+
+    stats = Status()
+    f.putChild("status", stats)
     
-    up = Uploader()
+    up = Uploader(stats)
 
     f.putChild('transcribe', up)
     
