@@ -68,11 +68,9 @@ def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     hclg_filename = tempfile.mktemp(suffix='_HCLG.fst')
     try:
         subprocess.check_output([MKGRAPH_PATH,
-                         os.path.join(proto_langdir, 'langdir'),
-                         os.path.join(proto_langdir, 'modeldir'),
-                         txt_fst_file.name,
-                         os.path.join(proto_langdir, "graphdir/words.txt"),
-                         hclg_filename])
+                        proto_langdir,
+                        txt_fst_file.name,
+                        hclg_filename])
     except Exception, e:
         os.unlink(hclg_filename)
         raise e
