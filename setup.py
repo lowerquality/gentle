@@ -1,4 +1,5 @@
 from setuptools import setup
+from gentle import __version__
 
 setup(
     app=['gentle.py'],
@@ -8,7 +9,7 @@ setup(
         'resources': 'standard_kaldi,mkgraph,ffmpeg,www,data,PROTO_LANGDIR'
     }},
     name='gentle',
-    version='0.1',
+    version=__version__,
     description='Robust yet lenient forced-aligner built on Kaldi.',
     url='http://lowerquality.com/gentle',
     author='Robert M Ochshorn',
