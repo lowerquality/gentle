@@ -72,7 +72,10 @@ def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
                         txt_fst_file.name,
                         hclg_filename])
     except Exception, e:
-        os.unlink(hclg_filename)
+        try:
+            os.unlink(hclg_filename)
+        except:
+            pass
         raise e
     finally:
         os.unlink(txt_fst_file.name)
