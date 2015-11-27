@@ -32,39 +32,37 @@ def to_wav(infile, outfile):
                      '-acodec', 'pcm_s16le',
                      outfile])
 
-class Status(Resource):
-    def __init__(self):
-        Resource.__init__(self)
-        self.uploads = {}
-        
-    def new_upload(self, uid):
-        self.uploads[uid] = TranscriptionStatus()
-        self.putChild(uid, self.uploads[uid])
-
-    def set_status(self, uid, status, text):
-        self.uploads[uid].cur_status = status
-        self.uploads[uid].status_text = text
-
-class TranscriptionStatus(Resource):
-    def __init__(self):
-        Resource.__init__(self)
-        self.cur_status = "Started"
-        self.status_text = ""
-
-    def render_GET(self, req):
-        return json.dumps({
-            "status": self.cur_status,
-            "text": self.status_text})
-
-class Uploader(Resource):
-    def __init__(self, status):
-        Resource.__init__(self)
+class Status():
+    def __init__(self, status='STARTED', text=''):
         self.status = status
+        self.text = text
+
+class StatusesController(Resource):
+    def __init__(self, status_store):
+        Resource.__init__(self)
+        self.status_store = status_store
+    def getChild(self, uid, request):
+        return StatusController(uid, self.status_store)
+
+class StatusController(Resource):
+    def __init__(self, uid, status_store):
+        Resource.__init__(self)
+        self.uid = uid
+        self.status_store = status_store
+    def render_GET(self, req):
+        status = self.status_store[self.uid]
+        return json.dumps({
+            "status": status.status,
+            "text": status.text
+        })
+
+class TranscriptionController(Resource):
+    def __init__(self, status_store):
+        Resource.__init__(self)
+        self.status_store = status_store
     
     def render_POST(self, req):
         uid = _next_id()
-
-        self.status.new_upload(uid)
         
         outdir = os.path.join(DATADIR, uid)
         os.makedirs(outdir)
@@ -86,21 +84,21 @@ class Uploader(Resource):
     def onpartial(self, res, uid):
         logging.info("partial results for %s, %s", uid, str(res))
 
-        self.status.set_status(uid, "Transcribing", json.dumps(res))
+        self.status_store[uid] = Status("Transcribing", json.dumps(res))
 
     def transcribe(self, uid, req=None):
         outdir = os.path.join(DATADIR, uid)
 
         wavfile = os.path.join(outdir, 'a.wav')
-        self.status.set_status(uid, "Encoding", "")
+        self.status_store[uid] = Status("Encoding", "")
         
         if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
-            self.status.set_status(uid, "Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
+            self.status_store[uid] = Status("Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
             return
 
         transcript = open(os.path.join(outdir, 'transcript.txt')).read()
 
-        self.status.set_status(uid, "Starting transcription", "")
+        self.status_store[uid] = Status("Starting transcription", "")
         # Run transcription
         ret = lm_transcribe(wavfile,
                             transcript,
@@ -121,7 +119,7 @@ class Uploader(Resource):
         # ...and remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
-        self.status.set_status(uid, "Done", "")        
+        self.status_store[uid] = Status("Done", "")
 
         logging.info('done with transcription.')
 
@@ -135,13 +133,14 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
 
     f.putChild('', File(get_resource('www/index.html')))
     f.putChild('status.html', File(get_resource('www/status.html')))
-
-    stats = Status()
-    f.putChild("status", stats)
     
-    up = Uploader(stats)
+    status_store = {}
 
-    f.putChild('transcribe', up)
+    stats = StatusesController(status_store)
+    f.putChild('status', stats)
+
+    trans = TranscriptionController(status_store)
+    f.putChild('transcribe', trans)
     
     s = Site(f)
     logging.info("about to listen")
