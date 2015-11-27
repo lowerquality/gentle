@@ -2,8 +2,8 @@
 
 # Prepare Kaldi
 cd kaldi/tools
-make # -j 8
+make atlas openfst
 cd ../src
 ./configure --static --static-math=yes --static-fst=yes --use-cuda=no
-make depend # -j 8
+make depend
 cd ../../
