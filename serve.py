@@ -13,6 +13,7 @@ import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import lm_transcribe, write_csv
+import gentle
 
 DATADIR = get_datadir('webdata')
 
@@ -168,6 +169,7 @@ if __name__=='__main__':
     log_level = args.log.upper()
     logging.getLogger().setLevel(log_level)
 
-    print 'listening at %s:%d\n' % (args.host, args.port)
+    logging.info('gentle %s' % (gentle.__version__))
+    logging.info('listening at %s:%d\n' % (args.host, args.port))
 
     serve(args.port, args.host, installSignalHandlers=1)
