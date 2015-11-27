@@ -49,7 +49,7 @@ var UID = window.location.hash.slice(1);
 
 function get_status(cb) {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/status/" + UID, true);
+    xhr.open("GET", "/transcriptions/" + UID + "/status", true);
     xhr.onload = function() {
         cb(JSON.parse(this.responseText));
     }
@@ -62,7 +62,7 @@ function ping() {
     $status.innerHTML = "Checking status..."
     get_status(function(ret) {
         if(ret["status"]  == "Done") {
-            window.location = "http://" + window.location.host + "/" + UID + "/";
+            window.location = "http://" + window.location.host + "/transcriptions/" + UID + "/";
             return;
         }
         else if(ret["status"] == "Error") {

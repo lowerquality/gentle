@@ -33,16 +33,9 @@ def to_wav(infile, outfile):
                      outfile])
 
 class Status():
-    def __init__(self, status='STARTED', text=''):
+    def __init__(self, status='Started', text=''):
         self.status = status
         self.text = text
-
-class StatusesController(Resource):
-    def __init__(self, status_store):
-        Resource.__init__(self)
-        self.status_store = status_store
-    def getChild(self, uid, request):
-        return StatusController(uid, self.status_store)
 
 class StatusController(Resource):
     def __init__(self, uid, status_store):
@@ -50,21 +43,29 @@ class StatusController(Resource):
         self.uid = uid
         self.status_store = status_store
     def render_GET(self, req):
-        status = self.status_store[self.uid]
+        status = self.status_store.get(self.uid, Status())
         return json.dumps({
             "status": status.status,
             "text": status.text
         })
 
-class TranscriptionController(Resource):
+class TranscriptionsController(Resource):
     def __init__(self, status_store):
         Resource.__init__(self)
         self.status_store = status_store
     
+    def getChild(self, uid, req):
+        result_dir = os.path.join(DATADIR, 'transcriptions', uid)
+        trans_ctrl = File(result_dir)
+
+        stats_ctrl = StatusController(uid, self.status_store)
+        trans_ctrl.putChild('status', stats_ctrl)
+        return trans_ctrl
+
     def render_POST(self, req):
         uid = _next_id()
         
-        outdir = os.path.join(DATADIR, uid)
+        outdir = os.path.join(DATADIR, 'transcriptions', uid)
         os.makedirs(outdir)
 
         open(os.path.join(outdir, 'transcript.txt'), 'w').write(
@@ -87,7 +88,7 @@ class TranscriptionController(Resource):
         self.status_store[uid] = Status("Transcribing", json.dumps(res))
 
     def transcribe(self, uid, req=None):
-        outdir = os.path.join(DATADIR, uid)
+        outdir = os.path.join(DATADIR, 'transcriptions', uid)
 
         wavfile = os.path.join(outdir, 'a.wav')
         self.status_store[uid] = Status("Encoding", "")
@@ -136,11 +137,8 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
     
     status_store = {}
 
-    stats = StatusesController(status_store)
-    f.putChild('status', stats)
-
-    trans = TranscriptionController(status_store)
-    f.putChild('transcribe', trans)
+    trans = TranscriptionsController(status_store)
+    f.putChild('transcriptions', trans)
     
     s = Site(f)
     logging.info("about to listen")
