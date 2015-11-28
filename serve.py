@@ -14,14 +14,6 @@ import uuid
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import lm_transcribe, write_csv
 
-DATADIR = get_datadir('webdata')
-
-def _next_id():
-    uid = None
-    while uid is None or os.path.exists(os.path.join(DATADIR, uid)):
-        uid = uuid.uuid4().get_hex()[:8]
-    return uid
-
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
 # browser playback.
 def to_wav(infile, outfile):
@@ -49,42 +41,23 @@ class StatusController(Resource):
             "text": status.text
         })
 
-class TranscriptionsController(Resource):
-    def __init__(self, status_store):
-        Resource.__init__(self)
+class Transcriber():
+    def __init__(self, data_dir, status_store):
+        self.data_dir = data_dir
         self.status_store = status_store
-    
-    def getChild(self, uid, req):
-        result_dir = os.path.join(DATADIR, 'transcriptions', uid)
-        trans_ctrl = File(result_dir)
 
-        stats_ctrl = StatusController(uid, self.status_store)
-        trans_ctrl.putChild('status', stats_ctrl)
-        return trans_ctrl
+    def out_dir(self, uid):
+        return os.path.join(self.data_dir, 'transcriptions', uid)
 
-    def render_POST(self, req):
-        uid = _next_id()
-
-        tran = req.args['transcript'][0]
-        audio = req.args['audio'][0]
-        if 'async' in req.args and req.args['async'][0] == 'false':
-            result = self.transcribe(uid, tran, audio)
-            return json.dumps(result)
-
-        reactor.callInThread(self.transcribe, uid, tran, audio)
-
-        req.redirect("/status.html#%s" % (uid))
-        req.finish()
-
-        return NOT_DONE_YET
-
-    def onpartial(self, res, uid):
-        logging.info("partial results for %s, %s", uid, str(res))
-
-        self.status_store[uid] = Status("Transcribing", json.dumps(res))
+    # TODO(maxhawkins): refactor so this is returned by transcribe()
+    def next_id(self):
+        uid = None
+        while uid is None or os.path.exists(os.path.join(self.data_dir, uid)):
+            uid = uuid.uuid4().get_hex()[:8]
+        return uid
 
     def transcribe(self, uid, tran, audio):
-        outdir = os.path.join(DATADIR, 'transcriptions', uid)
+        outdir = os.path.join(self.data_dir, 'transcriptions', uid)
         os.makedirs(outdir)
 
         tran_path = os.path.join(outdir, 'transcript.txt')
@@ -104,14 +77,19 @@ class TranscriptionsController(Resource):
         transcript = open(os.path.join(outdir, 'transcript.txt')).read()
 
         self.status_store[uid] = Status("Starting transcription", "")
+
+        def onpartial(res):
+            logging.info("partial results for %s, %s", uid, str(res))
+
+            self.status_store[uid] = Status("Transcribing", json.dumps(res))
+
         # Run transcription
         ret = lm_transcribe(wavfile,
-                            transcript,
-                            # XXX: should be configurable
-                            get_resource('PROTO_LANGDIR'),
-                            get_resource('data/nnet_a_gpu_online'),
-                            partial_cb=self.onpartial,
-                            partial_kwargs={"uid": uid})
+            transcript,
+            # XXX: should be configurable
+            get_resource('PROTO_LANGDIR'),
+            get_resource('data/nnet_a_gpu_online'),
+            partial_cb=onpartial)
 
         # Save output to JSON and CSV
         json.dump(ret,
@@ -130,21 +108,52 @@ class TranscriptionsController(Resource):
 
         return ret
 
-def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
+class TranscriptionsController(Resource):
+    def __init__(self, status_store, transcriber):
+        Resource.__init__(self)
+        self.status_store = status_store
+        self.transcriber = transcriber
+    
+    def getChild(self, uid, req):
+        out_dir = self.transcriber.out_dir(uid)
+        trans_ctrl = File(out_dir)
+
+        stats_ctrl = StatusController(uid, self.status_store)
+        trans_ctrl.putChild('status', stats_ctrl)
+        return trans_ctrl
+
+    def render_POST(self, req):
+        uid = self.transcriber.next_id()
+
+        tran = req.args['transcript'][0]
+        audio = req.args['audio'][0]
+        if 'async' in req.args and req.args['async'][0] == 'false':
+            result = self.transcriber.transcribe(uid, tran, audio)
+            return json.dumps(result)
+
+        reactor.callInThread(self.transcriber.transcribe, uid, tran, audio)
+
+        req.redirect("/status.html#%s" % (uid))
+        req.finish()
+
+        return NOT_DONE_YET
+
+def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
     
-    if not os.path.exists(DATADIR):
-        os.makedirs(DATADIR)
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
     
-    f = File(DATADIR)
+    f = File(data_dir)
 
     f.putChild('', File(get_resource('www/index.html')))
     f.putChild('status.html', File(get_resource('www/status.html')))
     
     status_store = {}
 
-    trans = TranscriptionsController(status_store)
-    f.putChild('transcriptions', trans)
+    trans = Transcriber(data_dir, status_store)
+    trans_ctrl = TranscriptionsController(status_store, trans)
+    f.putChild('transcriptions', trans_ctrl)
     
     s = Site(f)
     logging.info("about to listen")
