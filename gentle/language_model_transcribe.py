@@ -111,5 +111,5 @@ if __name__=='__main__':
     if args.output_file.name.endswith('.csv'):
         write_csv(ret, args.output_file)
     else:
-        json.dump({"words": ret}, args.output_file, indent=2)
+        json.dump(ret, args.output_file, indent=2)
     
