@@ -64,18 +64,14 @@ class TranscriptionsController(Resource):
 
     def render_POST(self, req):
         uid = _next_id()
-        
-        outdir = os.path.join(DATADIR, 'transcriptions', uid)
-        os.makedirs(outdir)
 
-        open(os.path.join(outdir, 'transcript.txt'), 'w').write(
-            req.args['transcript'][0])
+        tran = req.args['transcript'][0]
+        audio = req.args['audio'][0]
+        if 'async' in req.args and req.args['async'][0] == 'false':
+            result = self.transcribe(uid, tran, audio)
+            return json.dumps(result)
 
-        data = req.args['audio'][0]
-        open(os.path.join(outdir, 'upload'), 'w').write(
-            data)
-
-        reactor.callInThread(self.transcribe, uid, req=req)
+        reactor.callInThread(self.transcribe, uid, tran, audio)
 
         req.redirect("/status.html#%s" % (uid))
         req.finish()
@@ -87,15 +83,23 @@ class TranscriptionsController(Resource):
 
         self.status_store[uid] = Status("Transcribing", json.dumps(res))
 
-    def transcribe(self, uid, req=None):
+    def transcribe(self, uid, tran, audio):
         outdir = os.path.join(DATADIR, 'transcriptions', uid)
+        os.makedirs(outdir)
+
+        tran_path = os.path.join(outdir, 'transcript.txt')
+        with open(tran_path, 'w') as f:
+            f.write(tran)
+        audio_path = os.path.join(outdir, 'upload')
+        with open(audio_path, 'w') as f:
+            f.write(audio)
 
         wavfile = os.path.join(outdir, 'a.wav')
         self.status_store[uid] = Status("Encoding", "")
         
         if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
             self.status_store[uid] = Status("Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
-            return
+            return 
 
         transcript = open(os.path.join(outdir, 'transcript.txt')).read()
 
@@ -123,6 +127,8 @@ class TranscriptionsController(Resource):
         self.status_store[uid] = Status("Done", "")
 
         logging.info('done with transcription.')
+
+        return ret
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
