@@ -14,6 +14,8 @@ setup(
     author='Robert M Ochshorn',
     license='MIT',
     packages=['gentle'],
-    install_requires=['twisted', 'wxPython'],
-    setup_requires=['py2app'],
+    install_requires=['twisted'],
+    extras_require = {
+        'gui':  ["pyqt4"]
+    }
 )
