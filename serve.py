@@ -13,6 +13,7 @@ import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import lm_transcribe, write_csv
+import gentle
 
 DATADIR = get_datadir('webdata')
 
@@ -160,14 +161,15 @@ if __name__=='__main__':
                        help='host to run http server on')
     parser.add_argument('--port', default=8765, type=int,
                         help='port number to run http server on')
-    parser.add_argument('--log', default="WARNING",
+    parser.add_argument('--log', default="INFO",
                         help='the log level (DEBUG, INFO, WARNING, ERROR, or CRITICAL)')
 
     args = parser.parse_args()
 
     log_level = args.log.upper()
-    logging.basicConfig(level=log_level)
+    logging.getLogger().setLevel(log_level)
 
-    print 'listening at %s:%d\n' % (args.host, args.port)
+    logging.info('gentle %s' % (gentle.__version__))
+    logging.info('listening at %s:%d\n' % (args.host, args.port))
 
     serve(args.port, args.host, installSignalHandlers=1)
