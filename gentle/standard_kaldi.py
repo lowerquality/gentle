@@ -8,7 +8,7 @@ from paths import get_binary
 
 import ffmpeg
 
-EXECUTABLE_PATH = get_binary("standard_kaldi")
+EXECUTABLE_PATH = get_binary("ext/standard_kaldi")
 
 class Kaldi:
     def __init__(self,

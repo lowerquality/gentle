@@ -9,7 +9,7 @@ RUN DEBIAN_FRONTEND=noninteractive && \
 ADD . /gentle
 RUN MAKEFLAGS=' -j8' cd /gentle && \
 	./install_kaldi.sh && \
-	make
+	cd ext && make
 RUN cd /gentle && ./install_models.sh
 
 EXPOSE 8765

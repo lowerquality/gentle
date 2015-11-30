@@ -6,7 +6,7 @@ import os
 data_files = []
 for dirpath in ['www', 'data', 'PROTO_LANGDIR']:
     data_files.append((dirpath, dirpath))
-for exepath in ['ffmpeg', 'standard_kaldi', 'mkgraph']:
+for exepath in ['ffmpeg', 'ext/standard_kaldi', 'ext/mkgraph']:
     data_files.append((exepath, ''))
 
 a = Analysis(['gentle.py'],
