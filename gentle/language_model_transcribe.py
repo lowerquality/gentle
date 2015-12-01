@@ -78,12 +78,6 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwa
         "words": words
     }
 
-
-def write_csv(alignment, outf):
-    w = csv.writer(outf)
-    w.writerows(
-        [ [X["word"], X.get("alignedWord"), X.get("start"), X.get("end")] for X in alignment["words"] if X.get("case") in ("success", "not-found-in-audio")])
-
 if __name__=='__main__':
     import argparse
 
@@ -118,8 +112,11 @@ if __name__=='__main__':
         out_format = 'json'
 
     ret = lm_transcribe(args.audio_file, intxt, args.proto_langdir, args.nnet_dir)
+    
     if out_format == 'csv':
-        write_csv(ret, args.output_file)
+        csv = transcription.to_csv(ret)
+        outfile.write(csv)
     else:
-        json.dump(ret, args.output_file, indent=2)
+        js = transcription.to_json(ret, indent=2)
+        outfile.write(js)
     

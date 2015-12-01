@@ -12,7 +12,8 @@ import sys
 import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
-from gentle.language_model_transcribe import lm_transcribe, write_csv
+from gentle.language_model_transcribe import lm_transcribe
+from gentle.transcription import to_csv
 import gentle
 
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
@@ -95,7 +96,8 @@ class Transcriber():
         # Save output to JSON and CSV
         json.dump(ret,
                   open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
-        write_csv(ret, open(os.path.join(outdir, 'align.csv'), 'w'))
+        with open(os.path.join(outdir, 'align.csv'), 'w') as f:
+            f.write(to_csv(ret))
 
         # Finally, copy over the HTML
         shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
