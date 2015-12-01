@@ -7,6 +7,9 @@ import sys
 def get_binary(name):
     binpath = name
     if hasattr(sys, "frozen"):
+        # HACK
+        if name == 'ffmpeg':
+            name = 'ext/ffmpeg'
         binpath = os.path.abspath(os.path.join(sys._MEIPASS, '..', 'Resources', name))
     elif os.path.exists(name):
         binpath = "./%s" % (name)
