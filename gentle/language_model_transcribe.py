@@ -87,7 +87,7 @@ if __name__=='__main__':
                        help='path to the prototype language directory')
     parser.add_argument('--nnet_dir', default="data/nnet_a_gpu_online",
                        help='path to the kaldi neural net model directory')
-    parser.add_argument('--format', default="json", choices=["json", "csv"],
+    parser.add_argument('--format', default="json", choices=["json", "csv", "ctm"],
                         help="the file output format, the output file has no extension")
     parser.add_argument('audio_file', help='input audio file in any format supported by FFMPEG')
     parser.add_argument('input_file', type=argparse.FileType('r'),
@@ -110,13 +110,16 @@ if __name__=='__main__':
         out_format = 'csv'
     elif outfile.name.endswith('.json'):
         out_format = 'json'
+    elif outfile.name.endswith('.ctm'):
+        out_format = 'ctm'
 
     ret = lm_transcribe(args.audio_file, intxt, args.proto_langdir, args.nnet_dir)
     
     if out_format == 'csv':
-        csv = transcription.to_csv(ret)
-        outfile.write(csv)
+        formatted = transcription.to_csv(ret)
+    elif out_format == 'ctm':
+        formatted = transcription.to_ctm(ret)
     else:
-        js = transcription.to_json(ret, indent=2)
-        outfile.write(js)
+        formatted = transcription.to_json(ret, indent=2)
+    outfile.write(formatted)
     
