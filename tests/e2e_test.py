@@ -2,9 +2,12 @@
 
 from nose.tools import assert_equals
 import json
+import os
+import unittest
 
 from gentle.language_model_transcribe import lm_transcribe
 
+@unittest.skipIf(os.environ.get('SHORT') == 'true', 'skipping for short test')
 def test_metasentence_tokenization():
 	with open("tests/data/lucier_golden.json") as f:
 		golden = json.load(f)
