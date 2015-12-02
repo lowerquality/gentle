@@ -2,7 +2,8 @@
 import re
 
 def load_vocabulary(words_file):
-    return set([X.split(' ')[0] for X in open(words_file).read().split('\n')])
+    with open(words_file) as f:
+        return set([x.split(' ')[0] for x in f])
 
 def kaldi_normalize(word, vocab):
     """

@@ -102,7 +102,7 @@ if __name__=='__main__':
 
     if args.input_file.name.endswith('.json'):
         intxt = ''
-        for line in json.load(open(args.input_file)):
+        for line in json.load(args.input_file):
             intxt += line['line'] + '\n\n'
     else:
         intxt = args.input_file.read()

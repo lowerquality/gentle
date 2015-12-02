@@ -75,7 +75,8 @@ class Transcriber():
             self.status_store[uid] = Status("Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
             return 
 
-        transcript = open(os.path.join(outdir, 'transcript.txt')).read()
+        with open(os.path.join(outdir, 'transcript.txt')) as f:
+            transcript = f.read()
 
         self.status_store[uid] = Status("Starting transcription", "")
 
@@ -93,9 +94,10 @@ class Transcriber():
             partial_cb=onpartial)
 
         # Save output to JSON and CSV
-        json.dump(ret,
-                  open(os.path.join(outdir, 'align.json'), 'w'), indent=2)
-        write_csv(ret, open(os.path.join(outdir, 'align.csv'), 'w'))
+        with open(os.path.join(outdir, 'align.json'), 'w') as f:
+            json.dump(ret, f, indent=2)
+        with open(os.path.join(outdir, 'align.csv', 'w') as f:
+            write_csv(ret, f)
 
         # Finally, copy over the HTML
         shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
