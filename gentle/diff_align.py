@@ -7,6 +7,9 @@ import metasentence
 import language_model
 import standard_kaldi
 
+# TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
+# programming algorithm used in sclite's alignment process:
+# http://www1.icsi.berkeley.edu/Speech/docs/sctk-1.2/sclite.htm#time-mediated
 def align(alignment, ms):
 
     # Compute an diff to turn the transcription results into the original sequence
