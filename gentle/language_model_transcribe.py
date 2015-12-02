@@ -21,7 +21,8 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
         return _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwargs)
     
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
-    vocab = metasentence.load_vocabulary(vocab_path)
+    with open(vocab_path) as f:
+        vocab = metasentence.load_vocabulary(f)
 
     ms = metasentence.MetaSentence(transcript, vocab)
 

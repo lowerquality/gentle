@@ -96,7 +96,7 @@ class Transcriber():
         # Save output to JSON and CSV
         with open(os.path.join(outdir, 'align.json'), 'w') as f:
             json.dump(ret, f, indent=2)
-        with open(os.path.join(outdir, 'align.csv', 'w') as f:
+        with open(os.path.join(outdir, 'align.csv'), 'w') as f:
             write_csv(ret, f)
 
         # Finally, copy over the HTML

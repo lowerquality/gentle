@@ -67,7 +67,8 @@ if __name__=='__main__':
     JSON_FILE = sys.argv[2]
     OUTPUT_FILE = sys.argv[3]
 
-    vocab = metasentence.load_vocabulary('data/graph/words.txt')
+    with open('data/graph/words.txt') as f:
+        vocab = metasentence.load_vocabulary(f)
 
     ms = metasentence.MetaSentence(open(TEXT_FILE).read(), vocab)
     alignment = json.load(open(JSON_FILE))['words']
