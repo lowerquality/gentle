@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from nose.tools import assert_equals
 import json
 import os
 import unittest
 
+from nose.tools import assert_greater, assert_less
+
 from gentle.language_model_transcribe import lm_transcribe
+from gentle.alignment_score import alignment_score
 
 @unittest.skipIf(os.environ.get('SHORT') == 'true', 'skipping for short test')
 def test_metasentence_tokenization():
@@ -18,4 +20,7 @@ def test_metasentence_tokenization():
 		transcript,
 		"PROTO_LANGDIR",
 		"data/nnet_a_gpu_online")
-	assert_equals(golden, ret)
+	
+	score = alignment_score(golden['words'], ret['words'])
+	assert_greater(score['correct'], 0.9)
+	assert_less(score['error'], 0.1)
