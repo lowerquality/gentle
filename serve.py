@@ -98,7 +98,7 @@ class Transcriber():
         with open(os.path.join(outdir, 'align.json'), 'w') as f:
             json.dump(ret, f, indent=2)
         with open(os.path.join(outdir, 'align.csv'), 'w') as f:
-            write_csv(ret, f)
+            f.write(to_csv(ret))
 
         # Finally, copy over the HTML
         shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
