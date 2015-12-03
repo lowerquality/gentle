@@ -2,7 +2,8 @@
 import re
 
 def load_vocabulary(words_file):
-    return set([X.split(' ')[0] for X in open(words_file).read().split('\n')])
+    '''Load vocabulary words from an OpenFST SymbolTable formatted text file'''
+    return set(x.split(' ')[0] for x in words_file if x != '')
 
 def kaldi_normalize(word, vocab):
     """
