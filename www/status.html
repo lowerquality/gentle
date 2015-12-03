@@ -71,12 +71,14 @@ function ping() {
         }
         else if(ret["status"] == "Transcribing") {
             var words = JSON.parse(ret["text"]);
-            var cur_t = Math.floor(words[words.length-1].start);
-            var cur_stream = words.reduce(function(acc,x) {
-                return acc + " " + x.word;
-            }, "");
+            if(words.length > 0) {
+                var cur_t = Math.floor(words[words.length-1].start);
+                var cur_stream = words.reduce(function(acc,x) {
+                    return acc + " " + x.word;
+                }, "");
 
-            $status.innerHTML = "Transcribing (through " + cur_t + " seconds) <br>" + cur_stream;
+                $status.innerHTML = "Transcribing (through " + cur_t + " seconds) <br>" + cur_stream;
+            }
         }
         else {
             $status.innerHTML = ret.status + "...";
