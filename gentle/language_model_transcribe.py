@@ -6,11 +6,12 @@ import os
 import shutil
 import sys
 
-import diff_align
 from paths import get_resource
+import diff_align
 import language_model
 import metasentence
 import standard_kaldi
+import transcription
 
 def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
                   partial_cb=None, partial_kwargs={}):
@@ -77,12 +78,6 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwa
         "words": words
     }
 
-
-def write_csv(alignment, outf):
-    w = csv.writer(outf)
-    w.writerows(
-        [ [X["word"], X.get("alignedWord"), X.get("start"), X.get("end")] for X in alignment["words"] if X.get("case") in ("success", "not-found-in-audio")])
-
 if __name__=='__main__':
     import argparse
 
@@ -92,6 +87,8 @@ if __name__=='__main__':
                        help='path to the prototype language directory')
     parser.add_argument('--nnet_dir', default="data/nnet_a_gpu_online",
                        help='path to the kaldi neural net model directory')
+    parser.add_argument('--format', default="json", choices=["json", "csv", "ctm"],
+                        help="the file output format, the output file has no extension")
     parser.add_argument('audio_file', help='input audio file in any format supported by FFMPEG')
     parser.add_argument('input_file', type=argparse.FileType('r'),
                         help='input transcript as plain text or json')
@@ -107,9 +104,22 @@ if __name__=='__main__':
     else:
         intxt = args.input_file.read()
 
+    outfile = args.output_file
+    out_format = args.format
+    if outfile.name.endswith('.csv'):
+        out_format = 'csv'
+    elif outfile.name.endswith('.json'):
+        out_format = 'json'
+    elif outfile.name.endswith('.ctm'):
+        out_format = 'ctm'
+
     ret = lm_transcribe(args.audio_file, intxt, args.proto_langdir, args.nnet_dir)
-    if args.output_file.name.endswith('.csv'):
-        write_csv(ret, args.output_file)
+    
+    if out_format == 'csv':
+        formatted = transcription.to_csv(ret)
+    elif out_format == 'ctm':
+        formatted = transcription.to_ctm(ret)
     else:
-        json.dump(ret, args.output_file, indent=2)
+        formatted = transcription.to_json(ret, indent=2)
+    outfile.write(formatted)
     
