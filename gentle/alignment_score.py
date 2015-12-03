@@ -1,6 +1,8 @@
 import collections
 import difflib
 
+from diff_align import word_diff
+
 def alignment_score(hypothesis, reference):
 	'''Generates a metric comparing the quality of a generated alignment
 	to a reference alignment.
@@ -21,14 +23,9 @@ def alignment_score(hypothesis, reference):
 	ref_words = list(aligned_words(reference))
 	hyp_words = list(aligned_words(hypothesis))
 
-	# TODO(maxhawkins): refactor diff_align so we can use it here
-	matcher = difflib.SequenceMatcher(a=ref_words, b=hyp_words)		
 	counts = collections.defaultdict(float)
-	for op, s1, e1, s2, e2 in matcher.get_opcodes():
-		if op == 'delete':
-			counts[op] += e1 - s1
-		else:
-			counts[op] += e2 - s2
+	for op, _, _ in word_diff(ref_words, hyp_words):
+		counts[op] += 1
 
 	score =  {
 		'inserted': counts['insert'],
