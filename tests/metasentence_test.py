@@ -1,7 +1,18 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_equals
 
-from gentle.metasentence import kaldi_normalize, MetaSentence
+from gentle.metasentence import kaldi_normalize, MetaSentence, load_vocabulary
+
+def test_load_vocabulary():
+	tests = [
+		[['<eps> 0'], set(['<eps>'])],
+		[['<eps> 0', ''], set(['<eps>'])],
+		[['a 66', 'zulu 124944'], set(['a', 'zulu'])],
+	]
+	for test in tests:
+		input, want = test
+		got = load_vocabulary(input)
+		assert_equals(got, want)
 
 def test_metasentence_tokenization():
 	tests = [

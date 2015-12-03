@@ -22,7 +22,8 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
         return _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwargs)
     
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
-    vocab = metasentence.load_vocabulary(vocab_path)
+    with open(vocab_path) as f:
+        vocab = metasentence.load_vocabulary(f)
 
     ms = metasentence.MetaSentence(transcript, vocab)
 
@@ -99,7 +100,7 @@ if __name__=='__main__':
 
     if args.input_file.name.endswith('.json'):
         intxt = ''
-        for line in json.load(open(args.input_file)):
+        for line in json.load(args.input_file):
             intxt += line['line'] + '\n\n'
     else:
         intxt = args.input_file.read()
