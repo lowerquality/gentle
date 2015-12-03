@@ -23,14 +23,18 @@ class Kaldi:
 
         self._transitions = None
         self._words = None
+        self._stopped = False
         
     def _write(self, data):
         """Send data to the subprocess, print stderr and raise if it crashes"""
+        if self._stopped:
+            # TODO(maxhawkins): I don't like how this API self-destructs after
+            # use. The subprocess should stay open until the user specifically
+            # deletes it.
+            raise RuntimeError('wrote to stopped standard_kaldi process')
         try:
             self._p.stdin.write(data)
         except IOError, e:
-            _, stderr = self._p.communicate()
-            logging.error(stderr)
             raise IOError("Lost connection with standard_kaldi subprocess")
 
     def _cmd(self, c):
@@ -261,9 +265,11 @@ class Kaldi:
         self._cmd("stop")
         self._p.wait()
         logging.info('stopped\n')
+        self._stopped = True
 
     def __del__(self):
-        self.stop()
+        if not self._stopped:
+            self.stop()
 
 def lattice(k, infile):
     # TODO: Merge into a single ID -> Arc dictionary
