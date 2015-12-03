@@ -39,3 +39,22 @@ def alignment_score(hypothesis, reference):
 
 	return score
 
+if __name__=='__main__':
+	import argparse
+	import json
+
+	parser = argparse.ArgumentParser(
+		description='Generate statistics about the quality of an alignment.')
+	parser.add_argument('hypothesis', type=argparse.FileType('r'),
+		help='generated transcript for testing')
+	parser.add_argument('reference', type=argparse.FileType('r'),
+		help='ground truth transcript to compare with')
+
+	args = parser.parse_args()
+
+	hypothesis = json.load(args.hypothesis)['words']
+	reference = json.load(args.reference)['words']
+
+	score = alignment_score(hypothesis, reference)
+	for label, s in score.iteritems():
+		print '%15s:  %.2f' % (label, s)
