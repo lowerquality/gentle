@@ -1,6 +1,6 @@
 import logging
 
-def tweak(words, max_offset=0.2):
+def tweak(words, max_phoneme_offset=3):
     # Strip silence from ends of words
     for wd in words:
         if len(wd['phones']) > 0 and wd['phones'][0]['phone'] == 'sil':
@@ -71,11 +71,11 @@ def tweak(words, max_offset=0.2):
                 for idx,ph in enumerate(wd['phones']):
                     if idx > 0 and ph['phone'].endswith('_B'):
                         next_phonemes = wd['phones'][idx:]
-                        offset_duration = sum([X['duration'] for X in next_phonemes])
-                        if offset_duration > max_offset:
+                        if len(next_phonemes) > max_phoneme_offset:
                             logging.info("Skipping long offset adjustment (%d): %s", len(next_phonemes), str(wd))
                             next_phonemes = []
                             continue
+                        offset_duration = sum([X['duration'] for X in next_phonemes])
                         wd['phones'] = wd['phones'][:idx]
                         wd['duration'] -= offset_duration
                         logging.info('Word contains the next beginning (%d)', idx)
