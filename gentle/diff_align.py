@@ -29,7 +29,7 @@ def align(alignment, ms):
         if a < len(hypothesis):
             hyp_word = hypothesis[a]
             hyp_token = alignment[a]
-            phones = hyp_token["phones"]
+            phones = hyp_token.get("phones", [])
             start = hyp_token["start"]
             end = hyp_token["start"] + hyp_token["duration"]
         if b < len(reference):
