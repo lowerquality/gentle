@@ -1,2 +1,7 @@
-standard_kaldi
-mkgraph
+PROTO_LANGDIR/
+data/
+ext/standard_kaldi
+ext/mkgraph
+*.pyc
+*~
+webdata/
