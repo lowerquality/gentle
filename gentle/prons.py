@@ -1,6 +1,6 @@
 import logging
 
-def tweak(words, max_phoneme_offset=3):
+def tweak(words, max_phoneme_offset=99):
     # Strip silence from ends of words
     for wd in words:
         if len(wd['phones']) > 0 and wd['phones'][0]['phone'] == 'sil':
