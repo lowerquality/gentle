@@ -23,4 +23,4 @@ def test_e2e():
 	
 	score = alignment_score(golden['words'], ret['words'])
 	assert_greater(score['correct'], 0.85)
-	assert_less(score['error'], 0.3)
+	assert_less(score['error'], 0.35)

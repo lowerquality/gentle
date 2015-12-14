@@ -130,20 +130,29 @@ int main(int argc, char *argv[]) {
 
   std::cerr << "Loaded!\n";
 
-  OnlineIvectorExtractorAdaptationState adaptation_state(feature_info.ivector_extractor_info);
-
-  OnlineNnet2FeaturePipeline feature_pipeline(feature_info);
-  feature_pipeline.SetAdaptationState(adaptation_state);
-
   OnlineSilenceWeighting silence_weighting(
                                            trans_model,
                                            feature_info.silence_weighting_config);
-  
-  SingleUtteranceNnet2Decoder decoder(nnet2_decoding_config,
-                                      trans_model,
-                                      nnet,
-                                      *decode_fst,
-                                      &feature_pipeline);
+
+  std::unique_ptr<OnlineIvectorExtractorAdaptationState> adaptation_state;
+  std::unique_ptr<OnlineNnet2FeaturePipeline> feature_pipeline;
+  std::unique_ptr<SingleUtteranceNnet2Decoder> decoder;
+
+  auto reset_decoder = [&]() {
+    // Reset the decoding pipeline.
+    feature_pipeline.reset(new OnlineNnet2FeaturePipeline(feature_info));
+    OnlineIvectorExtractorAdaptationState adaptation_state(
+      feature_info.ivector_extractor_info);
+    feature_pipeline->SetAdaptationState(adaptation_state);
+    decoder.reset(new SingleUtteranceNnet2Decoder(
+      nnet2_decoding_config,
+      trans_model,
+      nnet,
+      *decode_fst,
+      // TODO(maxahawkins): does this take ownership?
+      feature_pipeline.get()));
+  };
+  reset_decoder();
   
   char cmd[1024];
 
@@ -159,23 +168,7 @@ int main(int argc, char *argv[]) {
       //
       // =Reply=
       // 1. No reply
-      
-      // TODO(rmo): maxhawkins' `reset' semantics seems like a c++11 thing.
-      // XXX: This seems inelegant. Maybe we should encapsulate as in gstreamer?
-      feature_pipeline.~OnlineNnet2FeaturePipeline();
-      new (&feature_pipeline) OnlineNnet2FeaturePipeline(feature_info);
-      decoder.~SingleUtteranceNnet2Decoder();
-      new (&decoder) SingleUtteranceNnet2Decoder(nnet2_decoding_config,
-                                                trans_model,
-                                                nnet,
-                                                *decode_fst,
-                                                // TODO(maxahawkins): does this take ownership?
-                                                // TODO(rmo): what does `ownership' mean? (and `get' is c++11?)
-                                            &feature_pipeline);
-
-      adaptation_state.~OnlineIvectorExtractorAdaptationState();
-      new (&adaptation_state) OnlineIvectorExtractorAdaptationState(feature_info.ivector_extractor_info);
-      feature_pipeline.SetAdaptationState(adaptation_state);
+      reset_decoder();
     }
     else if(strcmp(cmd,"push-chunk\n") == 0) {
       // Add a chunk of audio to the decoding pipeline.
@@ -191,8 +184,8 @@ int main(int argc, char *argv[]) {
         fgets(chunk_len_str, sizeof(chunk_len_str), stdin);
         int chunk_len = atoi(chunk_len_str);
 
-        char *audio_chunk = new char[chunk_len];
-        fread(audio_chunk, sizeof(char), chunk_len, stdin);
+        std::vector<char> audio_chunk(chunk_len, 0);
+        std::cin.read(&audio_chunk[0], chunk_len);
 
         int sample_count = chunk_len / 2;
 
@@ -202,21 +195,19 @@ int main(int argc, char *argv[]) {
           wave_part(i) = sample;
         }
 
-        feature_pipeline.AcceptWaveform(arate, wave_part);
+        feature_pipeline->AcceptWaveform(arate, wave_part);
 
         // What does this do?
         std::vector<std::pair<int32, BaseFloat> > delta_weights;
         if (silence_weighting.Active()) {
-          silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-          silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
+          silence_weighting.ComputeCurrentTraceback(decoder->Decoder());
+          silence_weighting.GetDeltaWeights(feature_pipeline->NumFramesReady(),
                                             &delta_weights);
-          feature_pipeline.UpdateFrameWeights(delta_weights);
+          feature_pipeline->UpdateFrameWeights(delta_weights);
         }
 
       
-        decoder.AdvanceDecoding();
-
-        delete[] audio_chunk;
+        decoder->AdvanceDecoding();
 
         fprintf(stdout, "ok\n");
       }
@@ -227,8 +218,12 @@ int main(int argc, char *argv[]) {
       //
       // =Reply=
       // 1. One line containing every word in the current lattice
+      if (decoder->NumFramesDecoded() == 0) {
+        continue;
+      }
+
       Lattice lat;
-      decoder.GetBestPath(false, &lat);
+      decoder->GetBestPath(false, &lat);
 
       // Let's see what words are in here..
 
@@ -255,15 +250,15 @@ int main(int argc, char *argv[]) {
       // 1. "phone: / duration:" for every phoneme
       // 2. "word: / start: / duration:" for every word
       // 3. "done with words\n" on completion
-      if (decoder.NumFramesDecoded() == 0) {
+      if (decoder->NumFramesDecoded() == 0) {
         fprintf(stdout, "done with words\n");
         continue;
       }
 
-      decoder.FinalizeDecoding();
+      decoder->FinalizeDecoding();
 
       Lattice lat;
-      decoder.GetBestPath(true, &lat);
+      decoder->GetBestPath(true, &lat);
       CompactLattice clat;
       ConvertLattice(lat, &clat);
 
@@ -298,6 +293,8 @@ int main(int argc, char *argv[]) {
       }
 
       fprintf(stdout, "done with words\n");
+    } else {
+      fprintf(stdout, "unknown command\n");
     }
   }
 
