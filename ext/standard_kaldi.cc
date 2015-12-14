@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
 
   WordBoundaryInfoNewOpts opts; // use default opts
-  WordBoundaryInfo* word_boundary_info = new WordBoundaryInfo(opts, word_boundary_filename);
+  WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
   
 
   BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
@@ -152,11 +152,15 @@ int main(int argc, char *argv[]) {
     fgets(cmd, sizeof(cmd), stdin);
 
     if(strcmp(cmd,"stop\n") == 0) {
+      // Quit the program.
       break;
     }
     
     else if(strcmp(cmd,"reset\n") == 0) {
       // Reset all decoding state.
+      //
+      // =Reply=
+      // 1. No reply
       
       // TODO(rmo): maxhawkins' `reset' semantics seems like a c++11 thing.
       // XXX: This seems inelegant. Maybe we should encapsulate as in gstreamer?
@@ -176,6 +180,8 @@ int main(int argc, char *argv[]) {
       feature_pipeline.SetAdaptationState(adaptation_state);
     }
     else if(strcmp(cmd,"push-chunk\n") == 0) {
+      // Add a chunk of audio to the decoding pipeline.
+      //
       // =Request=
       // 1. chunk size in bytes (as ascii string)
       // 2. newline
@@ -218,6 +224,11 @@ int main(int argc, char *argv[]) {
       }
     }
     else if(strcmp(cmd,"get-partial\n") == 0) {
+      // Dump the provisional (non-word-aligned) transcript for
+      // the current lattice.
+      //
+      // =Reply=
+      // 1. One line containing every word in the current lattice
       Lattice lat;
       decoder.GetBestPath(false, &lat);
 
@@ -239,6 +250,13 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "%s\n", sentence.str().c_str());
     }
     else if(strcmp(cmd,"get-final\n") == 0) {
+      // Dump the final, phone-aligned transcript for the
+      // current lattice.
+      //
+      // =Reply=
+      // 1. "phone: / duration:" for every phoneme
+      // 2. "word: / start: / duration:" for every word
+      // 3. "done with words\n" on completion
       if (decoder.NumFramesDecoded() == 0) {
         fprintf(stdout, "done with words\n");
         continue;
@@ -258,7 +276,7 @@ int main(int argc, char *argv[]) {
       std::vector<std::vector<int32> > prons;
       std::vector<std::vector<int32> > phone_lengths;
       
-      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
+      WordAlignLattice(clat, trans_model, word_boundary_info, 0, &aligned_clat);
 
       CompactLatticeToWordProns(trans_model, clat, &words, &times, &lengths,
                                 &prons, &phone_lengths);
