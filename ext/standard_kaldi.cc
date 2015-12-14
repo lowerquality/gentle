@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
       }
       fprintf(stdout, "%s\n", sentence.str().c_str());
     }
-    else if(strcmp(cmd,"get-prons\n") == 0) {
+    else if(strcmp(cmd,"get-final\n") == 0) {
       if (decoder.NumFramesDecoded() == 0) {
         fprintf(stdout, "done with words\n");
         continue;

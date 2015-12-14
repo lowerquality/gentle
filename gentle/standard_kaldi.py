@@ -61,9 +61,9 @@ class Kaldi(object):
         self._cmd("get-partial")
         return self._subprocess.stdout.readline()
 
-    def get_prons(self):
+    def get_final(self):
         '''Dump the final, phone-aligned transcript'''
-        self._cmd("get-prons")
+        self._cmd("get-final")
         words = []
         while True:
             line = self._subprocess.stdout.readline()
@@ -172,7 +172,7 @@ def transcribe(k, infile, batch_size=10,
 
         if idx > 0 and idx % batch_size == 0:
             logging.info('endpoint!\n')
-            ret = k.get_prons()
+            ret = k.get_final()
             _add_words(ret, seg_offset*2)
 
             k.reset()
@@ -192,7 +192,7 @@ def transcribe(k, infile, batch_size=10,
         idx += 1
 
     logging.info('done with audio!')
-    ret = k.get_prons()
+    ret = k.get_final()
     _add_words(ret, seg_offset*2)
     k.stop()
     return {"words": words}
