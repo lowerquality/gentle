@@ -175,20 +175,6 @@ int main(int argc, char *argv[]) {
       new (&adaptation_state) OnlineIvectorExtractorAdaptationState(feature_info.ivector_extractor_info);
       feature_pipeline.SetAdaptationState(adaptation_state);
     }
-    else if(strcmp(cmd,"continue\n") == 0) {
-      // Update iVectors and continue with current speaker
-      feature_pipeline.GetAdaptationState(&adaptation_state);
-
-      decoder.~SingleUtteranceNnet2Decoder();
-      new (&decoder) SingleUtteranceNnet2Decoder(nnet2_decoding_config,
-                                                trans_model,
-                                                nnet,
-                                                *decode_fst,
-                                                // TODO(maxahawkins): does this take ownership?
-                                                // TODO(rmo): what does `ownership' mean? (and `get' is c++11?)
-                                            &feature_pipeline);
-
-    }
     else if(strcmp(cmd,"push-chunk\n") == 0) {
       // =Request=
       // 1. chunk size in bytes (as ascii string)
@@ -231,46 +217,6 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "ok\n");
       }
     }
-    else if(strcmp(cmd, "get-transitions\n") == 0) {
-      // Dump transition information (for phoneme introspection)
-      std::vector<std::string> names(phone_syms->NumSymbols());
-      for (size_t i = 0; i < phone_syms->NumSymbols(); i++) {
-        names[i] = phone_syms->Find(i);
-      }
-
-      trans_model.Print(std::cout,
-                        names,
-                        NULL);
-
-      fprintf(stdout, "done with transitions\n");
-    }
-    else if(strcmp(cmd, "get-lattice\n") == 0) {
-      // Dump lattice
-      CompactLattice clat;
-      decoder.GetLattice(false, &clat);
-
-      WriteCompactLattice(std::cout,
-                          false,
-                          clat);
-      fprintf(stdout, "done with lattice\n");
-    }
-    else if(strcmp(cmd, "get-final-lattice\n") == 0) {
-      // Dump "final" lattice
-      decoder.FinalizeDecoding();
-
-      CompactLattice clat;
-      decoder.GetLattice(true, &clat);
-
-      // aligning the lattice makes it huge & unwieldy.
-      CompactLattice aligned_clat;      
-      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);      
-
-      WriteCompactLattice(std::cout,
-                          false,
-                          aligned_clat);
-
-      fprintf(stdout, "done with lattice\n");
-    }
     else if(strcmp(cmd,"get-partial\n") == 0) {
       Lattice lat;
       decoder.GetBestPath(false, &lat);
@@ -291,38 +237,6 @@ int main(int argc, char *argv[]) {
         sentence << s;
       }
       fprintf(stdout, "%s\n", sentence.str().c_str());
-    }
-    else if(strcmp(cmd,"get-final\n") == 0) {
-      if (decoder.NumFramesDecoded() == 0) {
-        fprintf(stdout, "done with words\n");
-        continue;
-      }
-
-      decoder.FinalizeDecoding();
-
-      Lattice lat;
-      decoder.GetBestPath(true, &lat);
-      CompactLattice clat;
-      ConvertLattice(lat, &clat);
-
-      // Compute word alignment
-      CompactLattice aligned_clat;
-      std::vector<int32> words, times, lengths;
-      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
-      CompactLatticeToWordAlignment(aligned_clat, &words, &times, &lengths);
-
-      for (size_t i = 0; i < words.size(); i++) {
-        if (words[i] == 0)  {
-          // Don't output anything for <eps> links, which correspond to silence....
-          continue;
-        }
-        fprintf(stdout, "word: %s / start: %f / duration: %f\n",
-                word_syms->Find(words[i]).c_str(),
-                times[i] * frame_shift,
-                lengths[i] * frame_shift);
-      }
-
-      fprintf(stdout, "done with words\n");
     }
     else if(strcmp(cmd,"get-prons\n") == 0) {
       if (decoder.NumFramesDecoded() == 0) {
@@ -369,33 +283,6 @@ int main(int argc, char *argv[]) {
 
       fprintf(stdout, "done with words\n");
     }
-  else if(strcmp(cmd,"peek-final\n") == 0) {
-    // Same as `get-final,', but does not finalize decoding
-
-    Lattice lat;
-    decoder.GetBestPath(false, &lat);
-    CompactLattice clat;
-    ConvertLattice(lat, &clat);
-
-    // Compute word alignment
-    CompactLattice aligned_clat;
-    std::vector<int32> words, times, lengths;
-    WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
-    CompactLatticeToWordAlignment(aligned_clat, &words, &times, &lengths);
-
-    for (size_t i = 0; i < words.size(); i++) {
-      if (words[i] == 0)  {
-        // Don't output anything for <eps> links, which correspond to silence....
-        continue;
-      }
-      fprintf(stdout, "word: %s / start: %f / duration: %f\n",
-              word_syms->Find(words[i]).c_str(),
-              times[i] * frame_shift,
-              lengths[i] * frame_shift);
-    }
-
-    fprintf(stdout, "done with words\n");
-  }
   }
 
 
