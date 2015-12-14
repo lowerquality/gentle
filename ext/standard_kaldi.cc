@@ -147,9 +147,7 @@ int main(int argc, char *argv[]) {
   
   char cmd[1024];
 
-  while(true) {
-    // Let the client decide what we should do...
-    fgets(cmd, sizeof(cmd), stdin);
+  while(fgets(cmd, sizeof(cmd), stdin)) {
 
     if(strcmp(cmd,"stop\n") == 0) {
       // Quit the program.
