@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import wave
+import tempfile
 
 from gentle.paths import get_binary
 from gentle import ffmpeg, prons
@@ -100,6 +101,90 @@ class Kaldi(object):
         logging.info('stopped\n')
         self._stopped = True
 
+    def transcribe(self, infile):
+        '''Read the given file as a wav and output a transcription'''
+        words = []
+        for words in self.transcribe_progress(infile):
+            pass
+        return words
+
+    def transcribe_progress(self, infile, batch_size=10):
+        '''Read the given file as a wav and output a transcription with progress.'''
+        words = []
+
+        yield {
+            "words": words,
+        }
+
+        input_wav = read_wav(infile)
+
+        def _add_words_arr(wds, arr, offset):
+            '''Add the output from the decoder to our data structure, accounting
+            for words that have been duplicated due to boundary conditions'''
+            # There may be some overlap between the end of the last
+            # transcription and the beginning of this one.
+            #
+            # First approach: remove the last item of `arr' and
+            # start afterwards.
+            lst = None
+            if len(arr) > 0:
+                lst = arr[-1]
+                if lst["start"] > offset:
+                    logging.info('trimming %s', lst)
+                    arr.pop()
+
+            for word in wds:
+                word["start"] += offset
+                if lst is not None and (word["start"] - lst["start"]) < -0.05:
+                    logging.info('skipping %s %f\n', word, (word["start"] - lst["start"]))
+                    continue
+                arr.append(word)
+
+        def _add_words(wds, offset):
+            '''Add the output from the decoder to our data structure and
+            optionally send the partial results to a status callback'''
+            _add_words_arr(wds, words, offset)
+
+        idx = 0
+        seg_offset = 0
+        while True:
+            chunk_size = 16000 # frames (2sec)
+            chunk = input_wav.readframes(chunk_size)
+
+            self.push_chunk(chunk)
+
+            if idx > 0 and idx % batch_size == 0:
+                logging.info('endpoint!\n')
+                ret = self.get_final()
+                _add_words(ret, seg_offset*2)
+                yield {
+                    "words": words,
+                }
+
+                self.reset()
+                seg_offset = idx
+
+                # Push same chunk again
+                self.push_chunk(chunk)
+
+            # if idx > 0 and idx % 5 == 0:
+            #     # ...just to show some progress
+            #     logging.info('%s\n' % k.get_partial())
+            #     # XXX: expose in a callback?
+
+            if len(chunk) != (chunk_size * input_wav.getsampwidth()):
+                break
+
+            idx += 1
+
+        logging.info('done with audio!')
+        ret = self.get_final()
+        _add_words(ret, seg_offset*2)
+        self.stop()
+        yield {
+            "words": words,
+        }
+
     def __del__(self):
         if not self._stopped:
             self.stop()
@@ -125,83 +210,11 @@ def read_wav(infile):
 
     return input_wav
 
-
-def transcribe(k, infile, batch_size=10,
-               partial_results_cb=None, partial_results_kwargs=None):
-    '''Read the given file as a wav and output a transcription'''
-    words = []
-
-    input_wav = read_wav(infile)
-
-    def _add_words_arr(wds, arr, offset):
-        '''Add the output from the decoder to our data structure, accounting
-        for words that have been duplicated due to boundary conditions'''
-        # There may be some overlap between the end of the last
-        # transcription and the beginning of this one.
-        #
-        # First approach: remove the last item of `arr' and
-        # start afterwards.
-        lst = None
-        if len(arr) > 0:
-            lst = arr[-1]
-            if lst["start"] > offset:
-                logging.info('trimming %s', lst)
-                arr.pop()
-
-        for word in wds:
-            word["start"] += offset
-            if lst is not None and (word["start"] - lst["start"]) < -0.05:
-                logging.info('skipping %s %f\n', word, (word["start"] - lst["start"]))
-                continue
-            arr.append(word)
-
-    def _add_words(wds, offset):
-        '''Add the output from the decoder to our data structure and
-        optionally send the partial results to a status callback'''
-        _add_words_arr(wds, words, offset)
-        if partial_results_cb is not None:
-            partial_results_cb(wds, **partial_results_kwargs)
-
-    idx = 0
-    seg_offset = 0
-    while True:
-        chunk_size = 16000 # frames (2sec)
-        chunk = input_wav.readframes(chunk_size)
-
-        k.push_chunk(chunk)
-
-        if idx > 0 and idx % batch_size == 0:
-            logging.info('endpoint!\n')
-            ret = k.get_final()
-            _add_words(ret, seg_offset*2)
-
-            k.reset()
-            seg_offset = idx
-
-            # Push same chunk again
-            k.push_chunk(chunk)
-
-        # if idx > 0 and idx % 5 == 0:
-        #     # ...just to show some progress
-        #     logging.info('%s\n' % k.get_partial())
-        #     # XXX: expose in a callback?
-
-        if len(chunk) != (chunk_size * input_wav.getsampwidth()):
-            break
-
-        idx += 1
-
-    logging.info('done with audio!')
-    ret = k.get_final()
-    _add_words(ret, seg_offset*2)
-    k.stop()
-    return {"words": words}
-
 def main():
     '''Transcribe the given input file using a standard_kaldi C++ subprocess.'''
     import sys
-
     import json
+
     infile = sys.argv[1]
     outfile = sys.argv[2]
 
@@ -213,7 +226,10 @@ def main():
     else:
         k = Kaldi()
 
-    words = transcribe(k, infile)
+    words = None
+    for words in k.transcribe_progress(infile, batch_size=1):
+        sys.stderr.write(".")
+    sys.stderr.write("\n")
     with open(outfile, 'w') as out:
         json.dump(words, out, indent=2)
 

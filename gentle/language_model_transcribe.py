@@ -13,13 +13,20 @@ import metasentence
 import standard_kaldi
 import transcription
 
-def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
-                  partial_cb=None, partial_kwargs={}):
+def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
+    ret = None
+    for ret in lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
+        pass
+    return ret
+
+def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
 
     if len(transcript.strip()) == 0:
         # Fall back on normal transcription if no transcript is provided
         logging.info("Falling back on normal transcription")
-        return _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwargs)
+        for ret in _normal_transcribe(audio_f, proto_langdir, nnet_dir):
+            yield ret
+        return
     
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
     with open(vocab_path) as f:
@@ -33,51 +40,49 @@ def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir,
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
-        trans = standard_kaldi.transcribe(k, audio_f,
-                                          partial_results_cb=partial_cb,
-                                          partial_results_kwargs=partial_kwargs)
-
-        ret = diff_align.align(trans["words"], ms)
+        ret = None
+        for trans in k.transcribe_progress(audio_f):
+            ret = diff_align.align(trans["words"], ms)
+            yield {
+                "transcript": transcript,
+                "words": ret,
+            }
     finally:
         os.unlink(gen_hclg_filename)
 
-    return {
-        "transcript": transcript,
-        "words": ret
-    }
-
-def _normal_transcribe(audio_f, proto_langdir, nnet_dir, partial_cb, partial_kwargs):
+def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
     hclg_path = get_resource("data/graph/HCLG.fst")
     if not os.path.exists(hclg_path):
         logging.warn("No general-purpose language model available")
-        return {"transcript": "", "words": []}
-    
+        yield {
+            "transcript": "",
+            "words": [],
+        }
+
     k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)
-    trans = standard_kaldi.transcribe(k, audio_f,
-                                      partial_results_cb=partial_cb,
-                                      partial_results_kwargs=partial_kwargs)
-    # Spoof the `diff_align` output format
-    transcript = ""
-    words = []
+    for trans in k.transcribe_progress(audio_f, batch_size=5):
+        # Spoof the `diff_align` output format
+        transcript = ""
+        words = []
 
-    for t_wd in trans["words"]:
-        wd = {
-            "case": "success",
-            "startOffset": len(transcript),
-            "endOffset": len(transcript) + len(t_wd["word"]),
-            "word": t_wd["word"],
-            "alignedWord": t_wd["word"],
-            "phones": t_wd["phones"],
-            "start": t_wd["start"],
-            "end": t_wd["start"] + t_wd["duration"]}
-        words.append(wd)
+        for t_wd in trans["words"]:
+            word = {
+                "case": "success",
+                "startOffset": len(transcript),
+                "endOffset": len(transcript) + len(t_wd["word"]),
+                "word": t_wd["word"],
+                "alignedWord": t_wd["word"],
+                "phones": t_wd["phones"],
+                "start": t_wd["start"],
+                "end": t_wd["start"] + t_wd["duration"]}
+            words.append(word)
 
-        transcript += wd["word"] + " "
+            transcript += word["word"] + " "
 
-    return {
-        "transcript": transcript,
-        "words": words
-    }
+        yield {
+            "transcript": transcript,
+            "words": words
+        }
 
 if __name__=='__main__':
     import argparse
@@ -114,7 +119,10 @@ if __name__=='__main__':
     elif outfile.name.endswith('.ctm'):
         out_format = 'ctm'
 
-    ret = lm_transcribe(args.audio_file, intxt, args.proto_langdir, args.nnet_dir)
+    ret = None
+    for ret in lm_transcribe_progress(args.audio_file, intxt, args.proto_langdir, args.nnet_dir):
+        sys.stderr.write('.')
+    sys.stderr.write('\n')
     
     if out_format == 'csv':
         formatted = transcription.to_csv(ret)
