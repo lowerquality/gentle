@@ -12,9 +12,6 @@ def alignment_score(hypothesis, reference):
 	and returns the number of words correct, inserted, deleted, and substituted
 	divided by the number of reference words.
 	'''
-	if len(reference) == 0:
-		raise ValueError('missing reference text')
-
 	def aligned_words(tran):
 		for t in tran:
 			if t['case'] == 'not-found-in-audio':
@@ -22,6 +19,9 @@ def alignment_score(hypothesis, reference):
 			yield t['alignedWord']
 	ref_words = list(aligned_words(reference))
 	hyp_words = list(aligned_words(hypothesis))
+
+	if len(ref_words) == 0:
+		raise ValueError('missing reference text')
 
 	counts = collections.defaultdict(float)
 	for op, _, _ in word_diff(ref_words, hyp_words):

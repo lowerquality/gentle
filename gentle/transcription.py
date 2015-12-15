@@ -36,6 +36,8 @@ def to_csv(tran):
 	'''Return a CSV representation of the aligned transcript. Format:
 	<word> <token> <start seconds> <end seconds>
 	'''
+	if not 'words' in tran:
+		return ''
 	buf = io.BytesIO()
 	w = csv.writer(buf)
 	for X in tran["words"]:

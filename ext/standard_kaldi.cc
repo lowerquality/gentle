@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
 
   WordBoundaryInfoNewOpts opts; // use default opts
-  WordBoundaryInfo* word_boundary_info = new WordBoundaryInfo(opts, word_boundary_filename);
+  WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
   
 
   BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
@@ -130,66 +130,49 @@ int main(int argc, char *argv[]) {
 
   std::cerr << "Loaded!\n";
 
-  OnlineIvectorExtractorAdaptationState adaptation_state(feature_info.ivector_extractor_info);
-
-  OnlineNnet2FeaturePipeline feature_pipeline(feature_info);
-  feature_pipeline.SetAdaptationState(adaptation_state);
-
   OnlineSilenceWeighting silence_weighting(
                                            trans_model,
                                            feature_info.silence_weighting_config);
-  
-  SingleUtteranceNnet2Decoder decoder(nnet2_decoding_config,
-                                      trans_model,
-                                      nnet,
-                                      *decode_fst,
-                                      &feature_pipeline);
+
+  std::unique_ptr<OnlineIvectorExtractorAdaptationState> adaptation_state;
+  std::unique_ptr<OnlineNnet2FeaturePipeline> feature_pipeline;
+  std::unique_ptr<SingleUtteranceNnet2Decoder> decoder;
+
+  auto reset_decoder = [&]() {
+    // Reset the decoding pipeline.
+    feature_pipeline.reset(new OnlineNnet2FeaturePipeline(feature_info));
+    OnlineIvectorExtractorAdaptationState adaptation_state(
+      feature_info.ivector_extractor_info);
+    feature_pipeline->SetAdaptationState(adaptation_state);
+    decoder.reset(new SingleUtteranceNnet2Decoder(
+      nnet2_decoding_config,
+      trans_model,
+      nnet,
+      *decode_fst,
+      // TODO(maxahawkins): does this take ownership?
+      feature_pipeline.get()));
+  };
+  reset_decoder();
   
   char cmd[1024];
 
-  while(true) {
-    // Let the client decide what we should do...
-    fgets(cmd, sizeof(cmd), stdin);
+  while(fgets(cmd, sizeof(cmd), stdin)) {
 
     if(strcmp(cmd,"stop\n") == 0) {
+      // Quit the program.
       break;
     }
     
     else if(strcmp(cmd,"reset\n") == 0) {
       // Reset all decoding state.
-      
-      // TODO(rmo): maxhawkins' `reset' semantics seems like a c++11 thing.
-      // XXX: This seems inelegant. Maybe we should encapsulate as in gstreamer?
-      feature_pipeline.~OnlineNnet2FeaturePipeline();
-      new (&feature_pipeline) OnlineNnet2FeaturePipeline(feature_info);
-      decoder.~SingleUtteranceNnet2Decoder();
-      new (&decoder) SingleUtteranceNnet2Decoder(nnet2_decoding_config,
-                                                trans_model,
-                                                nnet,
-                                                *decode_fst,
-                                                // TODO(maxahawkins): does this take ownership?
-                                                // TODO(rmo): what does `ownership' mean? (and `get' is c++11?)
-                                            &feature_pipeline);
-
-      adaptation_state.~OnlineIvectorExtractorAdaptationState();
-      new (&adaptation_state) OnlineIvectorExtractorAdaptationState(feature_info.ivector_extractor_info);
-      feature_pipeline.SetAdaptationState(adaptation_state);
-    }
-    else if(strcmp(cmd,"continue\n") == 0) {
-      // Update iVectors and continue with current speaker
-      feature_pipeline.GetAdaptationState(&adaptation_state);
-
-      decoder.~SingleUtteranceNnet2Decoder();
-      new (&decoder) SingleUtteranceNnet2Decoder(nnet2_decoding_config,
-                                                trans_model,
-                                                nnet,
-                                                *decode_fst,
-                                                // TODO(maxahawkins): does this take ownership?
-                                                // TODO(rmo): what does `ownership' mean? (and `get' is c++11?)
-                                            &feature_pipeline);
-
+      //
+      // =Reply=
+      // 1. No reply
+      reset_decoder();
     }
     else if(strcmp(cmd,"push-chunk\n") == 0) {
+      // Add a chunk of audio to the decoding pipeline.
+      //
       // =Request=
       // 1. chunk size in bytes (as ascii string)
       // 2. newline
@@ -201,8 +184,8 @@ int main(int argc, char *argv[]) {
         fgets(chunk_len_str, sizeof(chunk_len_str), stdin);
         int chunk_len = atoi(chunk_len_str);
 
-        char *audio_chunk = new char[chunk_len];
-        fread(audio_chunk, sizeof(char), chunk_len, stdin);
+        std::vector<char> audio_chunk(chunk_len, 0);
+        std::cin.read(&audio_chunk[0], chunk_len);
 
         int sample_count = chunk_len / 2;
 
@@ -212,68 +195,35 @@ int main(int argc, char *argv[]) {
           wave_part(i) = sample;
         }
 
-        feature_pipeline.AcceptWaveform(arate, wave_part);
+        feature_pipeline->AcceptWaveform(arate, wave_part);
 
         // What does this do?
         std::vector<std::pair<int32, BaseFloat> > delta_weights;
         if (silence_weighting.Active()) {
-          silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
-          silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
+          silence_weighting.ComputeCurrentTraceback(decoder->Decoder());
+          silence_weighting.GetDeltaWeights(feature_pipeline->NumFramesReady(),
                                             &delta_weights);
-          feature_pipeline.UpdateFrameWeights(delta_weights);
+          feature_pipeline->UpdateFrameWeights(delta_weights);
         }
 
       
-        decoder.AdvanceDecoding();
-
-        delete[] audio_chunk;
+        decoder->AdvanceDecoding();
 
         fprintf(stdout, "ok\n");
       }
     }
-    else if(strcmp(cmd, "get-transitions\n") == 0) {
-      // Dump transition information (for phoneme introspection)
-      std::vector<std::string> names(phone_syms->NumSymbols());
-      for (size_t i = 0; i < phone_syms->NumSymbols(); i++) {
-        names[i] = phone_syms->Find(i);
+    else if(strcmp(cmd,"get-partial\n") == 0) {
+      // Dump the provisional (non-word-aligned) transcript for
+      // the current lattice.
+      //
+      // =Reply=
+      // 1. One line containing every word in the current lattice
+      if (decoder->NumFramesDecoded() == 0) {
+        continue;
       }
 
-      trans_model.Print(std::cout,
-                        names,
-                        NULL);
-
-      fprintf(stdout, "done with transitions\n");
-    }
-    else if(strcmp(cmd, "get-lattice\n") == 0) {
-      // Dump lattice
-      CompactLattice clat;
-      decoder.GetLattice(false, &clat);
-
-      WriteCompactLattice(std::cout,
-                          false,
-                          clat);
-      fprintf(stdout, "done with lattice\n");
-    }
-    else if(strcmp(cmd, "get-final-lattice\n") == 0) {
-      // Dump "final" lattice
-      decoder.FinalizeDecoding();
-
-      CompactLattice clat;
-      decoder.GetLattice(true, &clat);
-
-      // aligning the lattice makes it huge & unwieldy.
-      CompactLattice aligned_clat;      
-      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);      
-
-      WriteCompactLattice(std::cout,
-                          false,
-                          aligned_clat);
-
-      fprintf(stdout, "done with lattice\n");
-    }
-    else if(strcmp(cmd,"get-partial\n") == 0) {
       Lattice lat;
-      decoder.GetBestPath(false, &lat);
+      decoder->GetBestPath(false, &lat);
 
       // Let's see what words are in here..
 
@@ -293,47 +243,22 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "%s\n", sentence.str().c_str());
     }
     else if(strcmp(cmd,"get-final\n") == 0) {
-      if (decoder.NumFramesDecoded() == 0) {
+      // Dump the final, phone-aligned transcript for the
+      // current lattice.
+      //
+      // =Reply=
+      // 1. "phone: / duration:" for every phoneme
+      // 2. "word: / start: / duration:" for every word
+      // 3. "done with words\n" on completion
+      if (decoder->NumFramesDecoded() == 0) {
         fprintf(stdout, "done with words\n");
         continue;
       }
 
-      decoder.FinalizeDecoding();
+      decoder->FinalizeDecoding();
 
       Lattice lat;
-      decoder.GetBestPath(true, &lat);
-      CompactLattice clat;
-      ConvertLattice(lat, &clat);
-
-      // Compute word alignment
-      CompactLattice aligned_clat;
-      std::vector<int32> words, times, lengths;
-      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
-      CompactLatticeToWordAlignment(aligned_clat, &words, &times, &lengths);
-
-      for (size_t i = 0; i < words.size(); i++) {
-        if (words[i] == 0)  {
-          // Don't output anything for <eps> links, which correspond to silence....
-          continue;
-        }
-        fprintf(stdout, "word: %s / start: %f / duration: %f\n",
-                word_syms->Find(words[i]).c_str(),
-                times[i] * frame_shift,
-                lengths[i] * frame_shift);
-      }
-
-      fprintf(stdout, "done with words\n");
-    }
-    else if(strcmp(cmd,"get-prons\n") == 0) {
-      if (decoder.NumFramesDecoded() == 0) {
-        fprintf(stdout, "done with words\n");
-        continue;
-      }
-
-      decoder.FinalizeDecoding();
-
-      Lattice lat;
-      decoder.GetBestPath(true, &lat);
+      decoder->GetBestPath(true, &lat);
       CompactLattice clat;
       ConvertLattice(lat, &clat);
 
@@ -344,7 +269,7 @@ int main(int argc, char *argv[]) {
       std::vector<std::vector<int32> > prons;
       std::vector<std::vector<int32> > phone_lengths;
       
-      WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
+      WordAlignLattice(clat, trans_model, word_boundary_info, 0, &aligned_clat);
 
       CompactLatticeToWordProns(trans_model, clat, &words, &times, &lengths,
                                 &prons, &phone_lengths);
@@ -368,34 +293,9 @@ int main(int argc, char *argv[]) {
       }
 
       fprintf(stdout, "done with words\n");
+    } else {
+      fprintf(stdout, "unknown command\n");
     }
-  else if(strcmp(cmd,"peek-final\n") == 0) {
-    // Same as `get-final,', but does not finalize decoding
-
-    Lattice lat;
-    decoder.GetBestPath(false, &lat);
-    CompactLattice clat;
-    ConvertLattice(lat, &clat);
-
-    // Compute word alignment
-    CompactLattice aligned_clat;
-    std::vector<int32> words, times, lengths;
-    WordAlignLattice(clat, trans_model, *word_boundary_info, 0, &aligned_clat);
-    CompactLatticeToWordAlignment(aligned_clat, &words, &times, &lengths);
-
-    for (size_t i = 0; i < words.size(); i++) {
-      if (words[i] == 0)  {
-        // Don't output anything for <eps> links, which correspond to silence....
-        continue;
-      }
-      fprintf(stdout, "word: %s / start: %f / duration: %f\n",
-              word_syms->Find(words[i]).c_str(),
-              times[i] * frame_shift,
-              lengths[i] * frame_shift);
-    }
-
-    fprintf(stdout, "done with words\n");
-  }
   }
 
 

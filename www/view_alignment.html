@@ -66,12 +66,16 @@ html, body {
 .active {
     color: magenta;
 }
+#preloader {
+    visibility: hidden;
+}
     </style>
   </head>
   <body>
     <div id="header">
       <h1 class="home"><a href="/">Gentle</a></h1>
       <audio id="audio" src="a.wav" controls="true"></audio>
+      <img src="/preloader.gif" id="preloader" alt="loading...">
       <a href="align.json" download="align.json" class="download">Download JSON</a><a href="align.csv" class="download">Download CSV</a>
     </div>
     <div id="transcript"></div>
@@ -101,6 +105,7 @@ window.onkeydown = function(ev) {
 }
 
 var $trans = document.getElementById("transcript");
+var $preloader = document.getElementById('preloader');
 
 var wds = [];
 var cur_wd;
@@ -130,11 +135,11 @@ window.requestAnimationFrame(highlight_word);
 
 $trans.innerHTML = "Loading...";
 
-get_json("align.json", function(ret) {
-    wds = ret['words'];
+function render(ret) {
+    wds = ret['words'] || [];
     transcript = ret['transcript'];
-    
-    $trans.innerHTML = "";
+
+    $trans.innerHTML = '';
 
     var currentOffset = 0;
 
@@ -175,7 +180,31 @@ get_json("align.json", function(ret) {
     var $plaintext = document.createTextNode(txt);
     $trans.appendChild($plaintext);
     currentOffset = transcript.length;
+}
 
-});
+function update() {
+    get_json('align.json', function(ret) {
+        if (ret.status == 'ERROR') {
+            $preloader.style.visibility = 'hidden';
+            $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
+        } else if (ret.status == 'TRANSCRIBING') {
+            $preloader.style.visibility = 'visible';
+            render(ret);
+            setTimeout(update, 2000);
+        } else if (ret.status == 'OK') {
+            $preloader.style.visibility = 'hidden';
+            render(ret);
+        } else if (ret.status == 'ENCODING') {
+            $preloader.style.visibility = 'visible';
+            $trans.innerHTML = 'Encoding, please wait...';
+            setTimeout(update, 2000);
+        } else {
+            $preloader.style.visibility = 'hidden';
+            $trans.innerHTML = ret.status + '...';
+        }
+
+    });
+}
+update();
 
 </script></body></html>

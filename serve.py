@@ -12,7 +12,7 @@ import sys
 import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
-from gentle.language_model_transcribe import lm_transcribe
+from gentle.language_model_transcribe import lm_transcribe_progress
 from gentle.transcription import to_csv
 import gentle
 
@@ -26,27 +26,9 @@ def to_wav(infile, outfile):
                      '-acodec', 'pcm_s16le',
                      outfile])
 
-class Status():
-    def __init__(self, status='Started', text=''):
-        self.status = status
-        self.text = text
-
-class StatusController(Resource):
-    def __init__(self, uid, status_store):
-        Resource.__init__(self)
-        self.uid = uid
-        self.status_store = status_store
-    def render_GET(self, req):
-        status = self.status_store.get(self.uid, Status())
-        return json.dumps({
-            "status": status.status,
-            "text": status.text
-        })
-
 class Transcriber():
-    def __init__(self, data_dir, status_store):
+    def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.status_store = status_store
 
     def out_dir(self, uid):
         return os.path.join(self.data_dir, 'transcriptions', uid)
@@ -58,72 +40,76 @@ class Transcriber():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def transcribe(self, uid, tran, audio):
+    def transcribe(self, uid, transcript, audio):
+        output = {
+            'status': 'STARTED',
+            'transcript': transcript,
+        }
+
+        def save():
+            with open(os.path.join(outdir, 'align.json'), 'w') as jsfile:
+                json.dump(output, jsfile, indent=2)
+            with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
+                csvfile.write(to_csv(output))
+
         outdir = os.path.join(self.data_dir, 'transcriptions', uid)
         os.makedirs(outdir)
-
-        tran_path = os.path.join(outdir, 'transcript.txt')
-        with open(tran_path, 'w') as f:
-            f.write(tran)
-        audio_path = os.path.join(outdir, 'upload')
-        with open(audio_path, 'w') as f:
-            f.write(audio)
-
-        wavfile = os.path.join(outdir, 'a.wav')
-        self.status_store[uid] = Status("Encoding", "")
-        
-        if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
-            self.status_store[uid] = Status("Error", "Encoding failed. Make sure that you've uploaded a valid media file.")
-            return 
-
-        with open(os.path.join(outdir, 'transcript.txt')) as f:
-            transcript = f.read()
-
-        self.status_store[uid] = Status("Starting transcription", "")
-
-        def onpartial(res):
-            logging.info("partial results for %s, %s", uid, str(res))
-
-            self.status_store[uid] = Status("Transcribing", json.dumps(res))
-
-        # Run transcription
-        ret = lm_transcribe(wavfile,
-            transcript,
-            # XXX: should be configurable
-            get_resource('PROTO_LANGDIR'),
-            get_resource('data/nnet_a_gpu_online'),
-            partial_cb=onpartial)
-
-        # Save output to JSON and CSV
-        with open(os.path.join(outdir, 'align.json'), 'w') as f:
-            json.dump(ret, f, indent=2)
-        with open(os.path.join(outdir, 'align.csv'), 'w') as f:
-            f.write(to_csv(ret))
 
         # Finally, copy over the HTML
         shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
 
+        tran_path = os.path.join(outdir, 'transcript.txt')
+        with open(tran_path, 'w') as tranfile:
+            tranfile.write(transcript)
+        audio_path = os.path.join(outdir, 'upload')
+        with open(audio_path, 'w') as wavfile:
+            wavfile.write(audio)
+
+        output['status'] = 'ENCODING'
+        with open(os.path.join(outdir, 'align.json'), 'w') as alignfile:
+            json.dump(output, alignfile, indent=2)
+
+        wavfile = os.path.join(outdir, 'a.wav')
+        if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
+            output['status'] = 'ERROR'
+            output['error'] = "Encoding failed. Make sure that you've uploaded a valid media file."
+            save()
+            return
+
+        output['status'] = 'TRANSCRIBING'
+        save()
+
+        # Run transcription
+        progress = lm_transcribe_progress(
+            wavfile,
+            transcript,
+            # XXX: should be configurable
+            get_resource('PROTO_LANGDIR'),
+            get_resource('data/nnet_a_gpu_online'))
+        result = None
+        for result in progress:
+            output['words'] = result['words']
+            output['transcript'] = result['transcript']
+            save()
+
         # ...and remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
-        self.status_store[uid] = Status("Done", "")
+        output['status'] = 'OK'
+        save()
 
         logging.info('done with transcription.')
 
-        return ret
+        return result
 
 class TranscriptionsController(Resource):
-    def __init__(self, status_store, transcriber):
+    def __init__(self, transcriber):
         Resource.__init__(self)
-        self.status_store = status_store
         self.transcriber = transcriber
     
     def getChild(self, uid, req):
         out_dir = self.transcriber.out_dir(uid)
         trans_ctrl = File(out_dir)
-
-        stats_ctrl = StatusController(uid, self.status_store)
-        trans_ctrl.putChild('status', stats_ctrl)
         return trans_ctrl
 
     def render_POST(self, req):
@@ -137,7 +123,7 @@ class TranscriptionsController(Resource):
 
         reactor.callInThread(self.transcriber.transcribe, uid, tran, audio)
 
-        req.redirect("/status.html#%s" % (uid))
+        req.redirect("/transcriptions/%s" % (uid))
         req.finish()
 
         return NOT_DONE_YET
@@ -152,11 +138,10 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
 
     f.putChild('', File(get_resource('www/index.html')))
     f.putChild('status.html', File(get_resource('www/status.html')))
-    
-    status_store = {}
+    f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
 
-    trans = Transcriber(data_dir, status_store)
-    trans_ctrl = TranscriptionsController(status_store, trans)
+    trans = Transcriber(data_dir)
+    trans_ctrl = TranscriptionsController(trans)
     f.putChild('transcriptions', trans_ctrl)
     
     s = Site(f)
