@@ -119,7 +119,9 @@ class TranscriptionsController(Resource):
         audio = req.args['audio'][0]
         if 'async' in req.args and req.args['async'][0] == 'false':
             result = self.transcriber.transcribe(uid, tran, audio)
-            return json.dumps(result)
+            req.write(json.dumps(result))
+            req.finish()
+            return NOT_DONE_YET
 
         reactor.callInThread(self.transcriber.transcribe, uid, tran, audio)
 
