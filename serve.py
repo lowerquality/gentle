@@ -133,7 +133,12 @@ class TranscriptionsController(Resource):
                 req.headers["Content-Type"] = "application/json"
                 req.write(json.dumps(result, indent=2))
                 req.finish()
-        reactor.callInThread(respond)
+        call = reactor.callLater(0, respond)
+
+        def on_cancel(_):
+            '''Close the thread when the caller cancels'''
+            call.cancel()
+        req.notifyFinish().addErrback(on_cancel)
 
         return NOT_DONE_YET
 
