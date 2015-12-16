@@ -1,7 +1,9 @@
 from twisted.web.static import File
 from twisted.web.resource import Resource
 from twisted.web.server import Site, NOT_DONE_YET
-from twisted.internet import reactor
+from twisted.internet import reactor as default_reactor
+from twisted.web._responses import FOUND
+from twisted.internet import threads
 
 import json
 import logging
@@ -103,9 +105,10 @@ class Transcriber():
         return result
 
 class TranscriptionsController(Resource):
-    def __init__(self, transcriber):
+    def __init__(self, transcriber, reactor=default_reactor):
         Resource.__init__(self)
         self.transcriber = transcriber
+        self.reactor = reactor
     
     def getChild(self, uid, req):
         out_dir = self.transcriber.out_dir(uid)
@@ -117,30 +120,31 @@ class TranscriptionsController(Resource):
 
         tran = req.args['transcript'][0]
         audio = req.args['audio'][0]
-        
+
         async = True
         if 'async' in req.args and req.args['async'][0] == 'false':
             async = False
-        
-        def respond():
-            if async:
-                req.redirect("/transcriptions/%s" % (uid))
-                req.finish()
 
-            result = self.transcriber.transcribe(uid, tran, audio)
+        result_promise = threads.deferToThreadPool(
+            self.reactor, self.reactor.getThreadPool(),
+            self.transcriber.transcribe,
+            uid, tran, audio)
 
-            if not async:
+        if not async:
+            def write_result(result):
+                '''Write JSON to client on completion'''
                 req.headers["Content-Type"] = "application/json"
                 req.write(json.dumps(result, indent=2))
                 req.finish()
-        call = reactor.callLater(0, respond)
+            result_promise.addCallback(write_result)
+            result_promise.addErrback(lambda _: None) # ignore errors
 
-        def on_cancel(_):
-            '''Close the thread when the caller cancels'''
-            call.cancel()
-        req.notifyFinish().addErrback(on_cancel)
+            req.notifyFinish().addErrback(lambda _: result_promise.cancel())
 
-        return NOT_DONE_YET
+            return NOT_DONE_YET
+
+        req.setResponseCode(FOUND)
+        req.setHeader(b"Location", "/transcriptions/%s" % (uid))
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
@@ -160,10 +164,10 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
     
     s = Site(f)
     logging.info("about to listen")
-    reactor.listenTCP(port, s, interface=interface)
+    default_reactor.listenTCP(port, s, interface=interface)
     logging.info("listening")
 
-    reactor.run(installSignalHandlers=installSignalHandlers)
+    default_reactor.run(installSignalHandlers=installSignalHandlers)
     
     
 if __name__=='__main__':
