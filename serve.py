@@ -40,7 +40,15 @@ class Transcriber():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def transcribe(self, uid, transcript, audio):
+    def _cancel_sync_request(self, _err):
+        self.sync_request_active = False
+
+    def transcribe(self, uid, transcript, audio, async=True, req=None):
+        if not async:
+            self.sync_request_active = True
+            req.notifyFinish().addErrback(
+                self._cancel_sync_request)
+        
         output = {
             'status': 'STARTED',
             'transcript': transcript,
@@ -100,7 +108,16 @@ class Transcriber():
 
         logging.info('done with transcription.')
 
+        if not async:
+            reactor.callFromThread(self.finish_transcription, result, req)
+
         return result
+
+    def finish_transcription(self, result, request):
+        if self.sync_request_active:
+            request.headers["Content-Type"] = "application/json"
+            request.write(json.dumps(result, indent=2))
+            request.finish()
 
 class TranscriptionsController(Resource):
     def __init__(self, transcriber):
@@ -117,14 +134,16 @@ class TranscriptionsController(Resource):
 
         tran = req.args['transcript'][0]
         audio = req.args['audio'][0]
+        
+        async = True
         if 'async' in req.args and req.args['async'][0] == 'false':
-            result = self.transcriber.transcribe(uid, tran, audio)
-            return json.dumps(result)
+            async = False
+            
+        reactor.callInThread(self.transcriber.transcribe, uid, tran, audio, req=req, async=async)
 
-        reactor.callInThread(self.transcriber.transcribe, uid, tran, audio)
-
-        req.redirect("/transcriptions/%s" % (uid))
-        req.finish()
+        if async:
+            req.redirect("/transcriptions/%s" % (uid))
+            req.finish()
 
         return NOT_DONE_YET
 
