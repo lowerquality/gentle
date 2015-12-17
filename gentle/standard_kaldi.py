@@ -179,8 +179,8 @@ class Kaldi(object):
 
         logging.info('done with audio!')
         ret = self.get_final()
+        self.reset()
         _add_words(ret, seg_offset*2)
-        self.stop()
         yield {
             "words": words,
         }
