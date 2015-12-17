@@ -145,6 +145,7 @@ class TranscriptionsController(Resource):
 
         req.setResponseCode(FOUND)
         req.setHeader(b"Location", "/transcriptions/%s" % (uid))
+        return ''
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
