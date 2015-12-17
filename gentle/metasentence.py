@@ -25,7 +25,10 @@ class MetaSentence:
     """
 
     def __init__(self, sentence, vocab):
-        self.raw_sentence = sentence.decode('utf-8')
+        self.raw_sentence = sentence
+
+        if type(sentence) != unicode:
+            self.raw_sentence = sentence.decode('utf-8')
         self.vocab = vocab
 
         self._tokenize()
