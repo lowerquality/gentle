@@ -18,15 +18,22 @@ from gentle.language_model_transcribe import lm_transcribe_progress
 from gentle.transcription import to_csv
 import gentle
 
+class EncodingError(Exception):
+    '''Raised when ffmpeg failed to encode an audiofile for whatever reason.'''
+    pass
+
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
 # browser playback.
 def to_wav(infile, outfile):
-    return subprocess.call([get_binary('ffmpeg'),
-                     '-loglevel', 'panic',
-                     '-i', infile,
-                     '-ac', '1', '-ar', '8000',
-                     '-acodec', 'pcm_s16le',
-                     outfile])
+    status = subprocess.call([
+        get_binary('ffmpeg'),
+        '-loglevel', 'panic',
+        '-i', infile,
+        '-ac', '1', '-ar', '8000',
+        '-acodec', 'pcm_s16le',
+        outfile])
+    if status != 0:
+        raise EncodingError()
 
 class Transcriber():
     def __init__(self, data_dir):
@@ -42,7 +49,31 @@ class Transcriber():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def transcribe(self, uid, transcript, audio):
+    def save_wav(self, audio_or_id, out_dir):
+        '''Transcode and save a wav in the given directory. If
+        an id is provided instead of audio bytes, copy the audio
+        file from the previous transcription with that id.'''
+        out_path = os.path.join(out_dir, 'a.wav')
+        upload_path = os.path.join(out_dir, 'upload')
+
+        if len(audio_or_id) == 8: # it's actually an audio id
+            src_wavfile = os.path.join(
+                self.data_dir,
+                'transcriptions',
+                audio_or_id,
+                'a.wav')
+            if not os.path.exists(src_wavfile):
+                raise RuntimeError("missing wavfile for '%s'" % (audio_or_id))
+            shutil.copy(src_wavfile, out_path)
+        else:
+            with open(upload_path, 'w') as wavfile:
+                wavfile.write(audio_or_id)
+            to_wav(upload_path, out_path)
+            os.unlink(upload_path)
+
+        return out_path
+
+    def transcribe(self, uid, transcript, audio_or_id):
         output = {
             'status': 'STARTED',
             'transcript': transcript,
@@ -63,16 +94,14 @@ class Transcriber():
         tran_path = os.path.join(outdir, 'transcript.txt')
         with open(tran_path, 'w') as tranfile:
             tranfile.write(transcript)
-        audio_path = os.path.join(outdir, 'upload')
-        with open(audio_path, 'w') as wavfile:
-            wavfile.write(audio)
 
         output['status'] = 'ENCODING'
-        with open(os.path.join(outdir, 'align.json'), 'w') as alignfile:
-            json.dump(output, alignfile, indent=2)
+        save()
 
-        wavfile = os.path.join(outdir, 'a.wav')
-        if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
+        try:
+            wavfile = self.save_wav(audio_or_id, outdir)
+        except EncodingError, error:
+            logging.info('%r', error)
             output['status'] = 'ERROR'
             output['error'] = "Encoding failed. Make sure that you've uploaded a valid media file."
             save()
@@ -93,9 +122,6 @@ class Transcriber():
             output['words'] = result['words']
             output['transcript'] = result['transcript']
             save()
-
-        # ...and remove the original upload
-        os.unlink(os.path.join(outdir, 'upload'))
 
         output['status'] = 'OK'
         save()
