@@ -184,6 +184,7 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
     f.putChild('', File(get_resource('www/index.html')))
     f.putChild('status.html', File(get_resource('www/status.html')))
     f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
+    f.putChild('recorder.js', File(get_resource('www/recorder.js')))
 
     trans = Transcriber(data_dir)
     trans_ctrl = TranscriptionsController(trans)

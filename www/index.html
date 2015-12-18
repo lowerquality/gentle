@@ -50,13 +50,87 @@
     <div id="header">
       <h1 class="home"><a href="/">Gentle</a></h1>
     </div>
-    <form action="/transcriptions" method="POST" enctype="multipart/form-data">
-      Audio:<br>
-      <input type=file name=audio><br>
+    Audio:<br>
+
+    <div id="rec">
+      <button onclick="startRecording(this);">record</button>
+      <button onclick="stopRecording(this);" disabled>stop</button>
+    </div>
+    <form action="/transcriptions" method="POST" enctype="multipart/form-data" id="form">
+      <input type=hidden id="audio" name=audio><br>
       <br>
       Transcript:<br>
-      <textarea name="transcript"></textarea><br>
+      <textarea name="transcript" id="transcript"></textarea><br>
       <input id="align-button" type=submit value=Align>
     </form>
+    <script src="/recorder.js"></script>
+    <script>
+
+  var $rec = document.getElementById('rec');
+  var $audio = document.getElementById('audio');
+  var $form = document.getElementById('form');
+  var $transcript = document.getElementById('transcript');
+
+  var audio_context;
+  var recorder;
+  function startUserMedia(stream) {
+    var input = audio_context.createMediaStreamSource(stream);
+    recorder = new Recorder(input);
+  }
+  function startRecording(button) {
+    recorder && recorder.record();
+    button.disabled = true;
+    button.nextElementSibling.disabled = false;
+  }
+  function stopRecording(button) {
+    recorder && recorder.stop();
+    button.disabled = true;
+    button.previousElementSibling.disabled = false;
+
+    $rec.innerHTML = 'Recorded.';
+
+    recorder.exportWAV(function(blob) {
+      $rec.innerHTML = 'Recorded. (' + blob.size + ' bytes)';
+      window.blob = blob;
+    });
+
+    recorder.clear();
+  }
+
+  form.addEventListener('submit', function(e) {
+
+    var form = new FormData();
+    form.append('transcript', $transcript.value);
+    form.append('audio', window.blob);
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/transcriptions', true);
+    xhr.onload = function() {
+      // HACK(maxhawkins): responseURL is only on Chrome
+      window.location.href = xhr.responseURL;
+    };
+    xhr.send(form);
+
+
+    e.preventDefault();
+  });
+
+  window.onload = function init() {
+      try {
+        // webkit shim
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
+        window.URL = window.URL || window.webkitURL;
+
+        audio_context = new AudioContext;
+      } catch (e) {
+        alert('No web audio support in this browser!');
+      }
+
+      navigator.getUserMedia({audio: true}, startUserMedia, function(e) {
+        console.error('No live audio input: ' + e);
+      });
+    };
+
+    </script>
   </body>
 </html>
