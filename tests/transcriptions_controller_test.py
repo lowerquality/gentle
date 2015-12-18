@@ -45,7 +45,7 @@ class TranscriptionsControllerTestsBuilder(ReactorBuilder):
         req.args = {'transcript': [''], 'audio': ['']}
 
         body = controller.render(req)
-        assert_equals(body, None)
+        assert_equals(body, '')
 
         assert 'location' in req.outgoingHeaders
         got_location = req.outgoingHeaders['location']
