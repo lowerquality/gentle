@@ -47,8 +47,8 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
                 "transcript": transcript,
                 "words": ret,
             }
-        k.stop()
     finally:
+        k.stop()
         os.unlink(gen_hclg_filename)
 
 def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
@@ -80,11 +80,12 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
 
             transcript += word["word"] + " "
 
-        k.stop()
         yield {
             "transcript": transcript,
             "words": words
         }
+    k.stop()
+
 
 if __name__=='__main__':
     import argparse
