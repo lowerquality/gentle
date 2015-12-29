@@ -7,16 +7,19 @@ from PyQt4.QtGui import QApplication, QWidget, QPushButton
 import serve
 import sys
 
-def get_open_port():
+def get_open_port(desired=0):
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("",0))
+    try:
+        s.bind(("",desired))
+    except socket.error:
+        return get_open_port(0)
     s.listen(1)
     port = s.getsockname()[1]
     s.close()
     return port
 
-PORT = get_open_port()
+PORT = get_open_port(8765)
 
 # Start a thread for the web server.
 webthread = threading.Thread(target=serve.serve, args=(PORT,))
