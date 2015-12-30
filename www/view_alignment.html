@@ -20,10 +20,14 @@ html, body {
 #header, #header a {
     color: white;
 }
+#downloads {
+    float: right;
+    background: #999;
+}
 .download {
     float: right;
     background: #999;
-    padding: 0 15px;
+    padding: 0 5px;
 }
 .home {
   margin: 0;
@@ -76,7 +80,7 @@ html, body {
       <h1 class="home"><a href="/">Gentle</a></h1>
       <audio id="audio" src="a.wav" controls="true"></audio>
       <img src="/preloader.gif" id="preloader" alt="loading...">
-      <a href="align.json" download="align.json" class="download">Download JSON</a><a href="align.csv" class="download">Download CSV</a>
+      <span id="downloads"> </div>
     </div>
     <div id="transcript"></div>
 
@@ -182,29 +186,57 @@ function render(ret) {
     currentOffset = transcript.length;
 }
 
-function update() {
-    get_json('align.json', function(ret) {
-        if (ret.status == 'ERROR') {
-            $preloader.style.visibility = 'hidden';
-            $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
-        } else if (ret.status == 'TRANSCRIBING') {
-            $preloader.style.visibility = 'visible';
-            render(ret);
-            setTimeout(update, 2000);
-        } else if (ret.status == 'OK') {
-            $preloader.style.visibility = 'hidden';
-            render(ret);
-        } else if (ret.status == 'ENCODING') {
-            $preloader.style.visibility = 'visible';
-            $trans.innerHTML = 'Encoding, please wait...';
-            setTimeout(update, 2000);
-        } else {
-            $preloader.style.visibility = 'hidden';
-            $trans.innerHTML = ret.status + '...';
-        }
-
-    });
+function show_downloads() {
+    var $d = document.getElementById("downloads");
+    $d.textContent = "Download as: ";
+    var uid = window.location.pathname.split("/")[2];
+    [["CSV", "align.csv", "Word alignment CSV"],
+     ["JSON", "align.json", "JSON word/phoneme alignment data"],
+     ["Zip", "/zip/" + uid + ".zip", "Standalone zipfile"]]
+        .forEach(function(x) {
+            var $a = document.createElement("a");
+            $a.className = "download";
+            $a.textContent = x[0];
+            $a.href = x[1];
+            $a.title = x[2];
+            $d.appendChild($a);
+        });
 }
+
+function update() {
+    if(INLINE_JSON) {
+        // We want this to work from file:/// domains, so we provide a
+        // mechanism for inlining the alignment data.
+        render(INLINE_JSON);
+        show_downloads();
+    }
+    else  {
+        get_json('align.json', function(ret) {
+            if (ret.status == 'ERROR') {
+                $preloader.style.visibility = 'hidden';
+                $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
+            } else if (ret.status == 'TRANSCRIBING') {
+                $preloader.style.visibility = 'visible';
+                render(ret);
+                setTimeout(update, 2000);
+            } else if (ret.status == 'OK') {
+                $preloader.style.visibility = 'hidden';
+                render(ret);
+                show_downloads();
+            } else if (ret.status == 'ENCODING') {
+                $preloader.style.visibility = 'visible';
+                $trans.innerHTML = 'Encoding, please wait...';
+                setTimeout(update, 2000);
+            } else {
+                $preloader.style.visibility = 'hidden';
+                $trans.innerHTML = ret.status + '...';
+            }
+        });
+    }
+}
+
+var INLINE_JSON;
+
 update();
 
 </script></body></html>
