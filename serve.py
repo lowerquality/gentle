@@ -1,7 +1,9 @@
 from twisted.web.static import File
 from twisted.web.resource import Resource
 from twisted.web.server import Site, NOT_DONE_YET
-from twisted.internet import reactor
+from twisted.internet import reactor as default_reactor
+from twisted.web._responses import FOUND
+from twisted.internet import threads
 
 import json
 import logging
@@ -40,15 +42,7 @@ class Transcriber():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def _cancel_sync_request(self, _err):
-        self.sync_request_active = False
-
-    def transcribe(self, uid, transcript, audio, async=True, req=None):
-        if not async:
-            self.sync_request_active = True
-            req.notifyFinish().addErrback(
-                self._cancel_sync_request)
-        
+    def transcribe(self, uid, transcript, audio):
         output = {
             'status': 'STARTED',
             'transcript': transcript,
@@ -108,21 +102,13 @@ class Transcriber():
 
         logging.info('done with transcription.')
 
-        if not async:
-            reactor.callFromThread(self.finish_transcription, result, req)
-
         return result
 
-    def finish_transcription(self, result, request):
-        if self.sync_request_active:
-            request.headers["Content-Type"] = "application/json"
-            request.write(json.dumps(result, indent=2))
-            request.finish()
-
 class TranscriptionsController(Resource):
-    def __init__(self, transcriber):
+    def __init__(self, transcriber, reactor=default_reactor):
         Resource.__init__(self)
         self.transcriber = transcriber
+        self.reactor = reactor
     
     def getChild(self, uid, req):
         out_dir = self.transcriber.out_dir(uid)
@@ -134,18 +120,32 @@ class TranscriptionsController(Resource):
 
         tran = req.args['transcript'][0]
         audio = req.args['audio'][0]
-        
+
         async = True
         if 'async' in req.args and req.args['async'][0] == 'false':
             async = False
-            
-        reactor.callInThread(self.transcriber.transcribe, uid, tran, audio, req=req, async=async)
 
-        if async:
-            req.redirect("/transcriptions/%s" % (uid))
-            req.finish()
+        result_promise = threads.deferToThreadPool(
+            self.reactor, self.reactor.getThreadPool(),
+            self.transcriber.transcribe,
+            uid, tran, audio)
 
-        return NOT_DONE_YET
+        if not async:
+            def write_result(result):
+                '''Write JSON to client on completion'''
+                req.headers["Content-Type"] = "application/json"
+                req.write(json.dumps(result, indent=2))
+                req.finish()
+            result_promise.addCallback(write_result)
+            result_promise.addErrback(lambda _: None) # ignore errors
+
+            req.notifyFinish().addErrback(lambda _: result_promise.cancel())
+
+            return NOT_DONE_YET
+
+        req.setResponseCode(FOUND)
+        req.setHeader(b"Location", "/transcriptions/%s" % (uid))
+        return ''
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
@@ -165,10 +165,10 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
     
     s = Site(f)
     logging.info("about to listen")
-    reactor.listenTCP(port, s, interface=interface)
+    default_reactor.listenTCP(port, s, interface=interface)
     logging.info("listening")
 
-    reactor.run(installSignalHandlers=installSignalHandlers)
+    default_reactor.run(installSignalHandlers=installSignalHandlers)
     
     
 if __name__=='__main__':
