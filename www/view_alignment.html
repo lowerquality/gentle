@@ -67,20 +67,27 @@ html, body {
 .success:hover {
     text-decoration: underline;
 }
-.active, .phactive {
+.active {
     color: magenta;
 }
 #preloader {
     visibility: hidden;
 }
+.phactive {
+    text-decoration: underline;
+}
 .phones {
     position: absolute;
+    color: #333;
 }
 .phones .phone {
     margin-right: 5px;
     font-family: Helvetica, sans-serif;
     text-transform: uppercase;
-    font-size: 75%;
+    font-size: 50%;
+}
+.phones .phone:last-child {
+    margin-right: 0;
 }
     </style>
   </head>
@@ -135,11 +142,10 @@ function render_phones(wd) {
     $phones.innerHTML = "";
     $active_phone = null;
 
-    $phones.style.top = wd.$div.offsetTop + 15;
+    $phones.style.top = wd.$div.offsetTop + 18;
     $phones.style.left = wd.$div.offsetLeft;
 
     var dur = wd.end - wd.start;
-    var wd_width = wd.$div.offsetWidth * 2;
 
     var start_x = wd.$div.offsetLeft;
     
@@ -151,8 +157,10 @@ function render_phones(wd) {
             
             $phones.appendChild($p);
             cur_phones$.push($p);
-
         });
+
+    var offsetToCenter = (wd.$div.offsetWidth - $phones.offsetWidth) / 2;
+    $phones.style.left = wd.$div.offsetLeft + offsetToCenter;
 }
 function highlight_phone(t) {
     if(!cur_wd) {
