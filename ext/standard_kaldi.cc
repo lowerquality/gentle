@@ -115,16 +115,16 @@ Hypothesis Hypothesizer::GetFull(const kaldi::CompactLattice& clat) {
                             &prons_words, &prons_times, &prons_lengths, &prons,
                             &phone_lengths);
 
-  // The MinimumBayesRisk class strips epsilons but
-  // CompactLatticeToWordProns keeps them. Build a table
-  // of offsets so we can skip entries referring to epsilons.
+  // The MinimumBayesRisk class automatically strips epsilons. Build
+  // a mapping from indices in epsilon-removed arrays to indices
+  // in arrays with epsilsons left in.
   int offset = 0;
-  std::vector<int> prons_to_mbr_map;
+  std::vector<int> epsilon_removed_map;
   for (int32 word : prons_words) {
     if (word == 0) {  // <eps>
       offset++;
     } else {
-      prons_to_mbr_map.push_back(offset);
+      epsilon_removed_map.push_back(offset);
     }
   }
 
@@ -141,7 +141,7 @@ Hypothesis Hypothesizer::GetFull(const kaldi::CompactLattice& clat) {
   const std::vector<float>& confs = mbr.GetOneBestConfidences();
   const std::vector<std::pair<float, float> >& times = mbr.GetOneBestTimes();
 
-  KALDI_ASSERT(words.size() <= eps_offsets.size());
+  KALDI_ASSERT(words.size() <= epsilon_removed_map.size());
 
   for (int i = 0; i < words.size(); i++) {
     AlignedWord aligned;
@@ -154,7 +154,7 @@ Hypothesis Hypothesizer::GetFull(const kaldi::CompactLattice& clat) {
     aligned.has_confidence = true;
 
     // Skip over epsilon entries
-    int prons_idx = i + eps_offsets[i];
+    int prons_idx = i + epsilon_removed_map[i];
     KALDI_ASSERT(prons_idx < prons.size());
 
     for (size_t j = 0; j < phone_lengths[prons_idx].size(); j++) {
