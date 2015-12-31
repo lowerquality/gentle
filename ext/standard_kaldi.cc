@@ -18,29 +18,242 @@
 
 const int arate = 8000;
 
-void usage() {
-  fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
+// Phonemes contain information about phoneme timing in the
+// transcript. They're included in AlignedWords.
+struct Phoneme {
+  std::string token;
+  double duration;
+  bool has_duration;
+};
+
+// AlignedWord contains information about the timing of a
+// word heard in an audio file.
+struct AlignedWord {
+  std::string token;
+  double start;
+  bool has_start;
+  double duration;
+  bool has_duration;
+  std::vector<Phoneme> phones;
+};
+
+// A Hypothesis is a possible transcription of an auio file.
+// It's the output of this program.
+typedef std::vector<AlignedWord> Hypothesis;
+
+// Hypothesizer reads Kaldi lattices and extracts Hypothesis structs
+// with possible transcriptions of the utterances they contain.
+class Hypothesizer {
+ public:
+  Hypothesizer(float frame_shift,
+               const kaldi::TransitionModel& transition_model,
+               const kaldi::WordBoundaryInfo& word_boundary_info,
+               const fst::SymbolTable* word_syms,
+               const fst::SymbolTable* phone_syms)
+      : frame_shift_(frame_shift),
+        transition_model_(&transition_model),
+        word_boundary_info_(&word_boundary_info),
+        word_syms_(word_syms),
+        phone_syms_(phone_syms) {}
+
+  // GetPartial only generates the word sequence for the best
+  // hypothesis in the lattice. It doesn't word-align the transcript
+  // or anything fancy. It's fast and good for partial results.
+  Hypothesis GetPartial(const kaldi::Lattice& lattice);
+
+  // GetFull extracts the best hypothesis in the lattice, pulling
+  // out all the stops. It word aligns, phoneme aligns, and generates
+  // confidences. It's slower and should only be used when it matters.
+  Hypothesis GetFull(const kaldi::Lattice& lattice);
+
+ private:
+  float frame_shift_;
+  const kaldi::TransitionModel* transition_model_;
+  const kaldi::WordBoundaryInfo* word_boundary_info_;
+  const fst::SymbolTable* word_syms_;
+  const fst::SymbolTable* phone_syms_;
+};
+
+Hypothesis Hypothesizer::GetPartial(const kaldi::Lattice& lattice) {
+  Hypothesis hyp;
+
+  // Let's see what words are in here..
+  std::vector<int32> words;
+  std::vector<int32> alignment;
+  kaldi::LatticeWeight weight;
+  GetLinearSymbolSequence(lattice, &alignment, &words, &weight);
+
+  for (int32 word : words) {
+    AlignedWord aligned;
+    aligned.token = this->word_syms_->Find(word);
+    hyp.push_back(aligned);
+  }
+
+  return hyp;
 }
 
+Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
+  Hypothesis hyp;
+
+  kaldi::CompactLattice clat;
+  ConvertLattice(lattice, &clat);
+
+  // Compute prons alignment (see: kaldi/latbin/nbest-to-prons.cc)
+  kaldi::CompactLattice aligned_clat;
+
+  std::vector<int32> words, times, lengths;
+  std::vector<std::vector<int32> > prons;
+  std::vector<std::vector<int32> > phone_lengths;
+
+  WordAlignLattice(clat, *this->transition_model_, *this->word_boundary_info_,
+                   0, &aligned_clat);
+
+  CompactLatticeToWordProns(*this->transition_model_, clat, &words, &times,
+                            &lengths, &prons, &phone_lengths);
+
+  for (int i = 0; i < words.size(); i++) {
+    AlignedWord aligned;
+    aligned.token = this->word_syms_->Find(words[i]);
+    aligned.start = times[i] * this->frame_shift_;
+    aligned.has_start = true;
+    aligned.duration = lengths[i] * this->frame_shift_;
+    aligned.has_duration = true;
+
+    for (size_t j = 0; j < phone_lengths[i].size(); j++) {
+      Phoneme phone;
+      phone.token = this->phone_syms_->Find(prons[i][j]);
+      phone.duration = phone_lengths[i][j] * this->frame_shift_;
+      phone.has_duration = true;
+      aligned.phones.push_back(phone);
+    }
+
+    hyp.push_back(aligned);
+  }
+
+  return hyp;
+}
+
+// TranscribeSession represents an in-progress transcription of an audio
+// file. It stores information about speaker adaptation so the results will
+// be better if one is used per speaker.
+class TranscribeSession {
+ public:
+  TranscribeSession(
+      const kaldi::OnlineNnet2FeaturePipelineInfo& info,
+      const kaldi::TransitionModel& transition_model,
+      const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
+      const kaldi::nnet2::AmNnet& nnet,
+      const fst::Fst<fst::StdArc>* decode_fst);
+
+  // AddChunk adds an audio chunk of audio to the decoding pipeline.
+  void AddChunk(kaldi::BaseFloat sampling_rate,
+                      const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
+  // GetLattice outputs the session's lattice. If end_of_utterance is true
+  // the lattice will contain final-probs.
+  void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
+
+ private:
+  kaldi::OnlineIvectorExtractorAdaptationState adaptation_state_;
+  kaldi::OnlineNnet2FeaturePipeline feature_pipeline_;
+  kaldi::OnlineSilenceWeighting silence_weighting_;
+  kaldi::SingleUtteranceNnet2Decoder decoder_;
+};
+
+TranscribeSession::TranscribeSession(
+    const kaldi::OnlineNnet2FeaturePipelineInfo& info,
+    const kaldi::TransitionModel& transition_model,
+    const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
+    const kaldi::nnet2::AmNnet& nnet,
+    const fst::Fst<fst::StdArc>* decode_fst)
+    : adaptation_state_(info.ivector_extractor_info),
+      feature_pipeline_(info),
+      silence_weighting_(transition_model, info.silence_weighting_config),
+      decoder_(nnet2_decoding_config,
+               transition_model,
+               nnet,
+               *decode_fst,
+               &feature_pipeline_) {
+  this->feature_pipeline_.SetAdaptationState(this->adaptation_state_);
+}
+
+void TranscribeSession::AddChunk(
+    kaldi::BaseFloat sampling_rate,
+    const kaldi::VectorBase<kaldi::BaseFloat>& waveform) {
+  this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
+
+  // What does this do?
+  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights;
+  if (this->silence_weighting_.Active()) {
+    this->silence_weighting_.ComputeCurrentTraceback(this->decoder_.Decoder());
+    this->silence_weighting_.GetDeltaWeights(
+        this->feature_pipeline_.NumFramesReady(), &delta_weights);
+    this->feature_pipeline_.UpdateFrameWeights(delta_weights);
+  }
+
+  this->decoder_.AdvanceDecoding();
+}
+
+void TranscribeSession::GetLattice(bool end_of_utterance,
+                                   kaldi::Lattice* lattice) {
+  if (this->decoder_.NumFramesDecoded() == 0) {
+    return;
+  }
+
+  if (end_of_utterance) {
+    this->decoder_.FinalizeDecoding();
+  }
+
+  this->decoder_.GetBestPath(end_of_utterance, lattice);
+}
+
+// MarshalHypothesis serializes a Hypothesis struct into the funky text
+// format we use to communicate with the Python code.
+std::string MarshalHypothesis(const Hypothesis& hypothesis) {
+  std::stringstream ss;
+
+  for (AlignedWord word : hypothesis) {
+    if (word.token == "<eps>") {
+      // Don't output anything for <eps> links, which correspond to silence....
+      continue;
+    }
+
+    ss << "word: " << word.token;
+    if (word.has_start) {
+      ss << " / start: " << word.start;
+    }
+    if (word.has_duration) {
+      ss << " / duration: " << word.duration;
+    }
+    ss << std::endl;
+
+    for (Phoneme phone : word.phones) {
+      ss << "phone: " << phone.token;
+      if (phone.has_duration) {
+        ss << " / duration: " << phone.duration;
+      }
+      ss << std::endl;
+    }
+  }
+
+  return ss.str();
+}
+
+
 void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
-  std::string ivector_model_dir) {
+                       std::string ivector_model_dir) {
   // online_nnet2_decoding.conf
   info.feature_type = "mfcc";
 
   // ivector_extractor.conf
   info.use_ivectors = true;
-  ReadKaldiObject(
-    ivector_model_dir + "/final.mat",
-    &info.ivector_extractor_info.lda_mat);
-  ReadKaldiObject(
-    ivector_model_dir + "/global_cmvn.stats",
-    &info.ivector_extractor_info.global_cmvn_stats);
-  ReadKaldiObject(
-    ivector_model_dir + "/final.dubm",
-    &info.ivector_extractor_info.diag_ubm);
-  ReadKaldiObject(
-    ivector_model_dir + "/final.ie",
-    &info.ivector_extractor_info.extractor);
+  ReadKaldiObject(ivector_model_dir + "/final.mat",
+                  &info.ivector_extractor_info.lda_mat);
+  ReadKaldiObject(ivector_model_dir + "/global_cmvn.stats",
+                  &info.ivector_extractor_info.global_cmvn_stats);
+  ReadKaldiObject(ivector_model_dir + "/final.dubm",
+                  &info.ivector_extractor_info.diag_ubm);
+  ReadKaldiObject(ivector_model_dir + "/final.ie",
+                  &info.ivector_extractor_info.extractor);
   info.ivector_extractor_info.greedy_ivector_extractor = true;
   info.ivector_extractor_info.ivector_period = 10;
   info.ivector_extractor_info.max_count = 0.0;
@@ -62,18 +275,22 @@ void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
   info.ivector_extractor_info.Check();
 }
 
-void ConfigDecoding(kaldi::OnlineNnet2DecodingConfig &config) {
+void ConfigDecoding(kaldi::OnlineNnet2DecodingConfig& config) {
   config.decodable_opts.acoustic_scale = 0.1;
   config.decoder_opts.lattice_beam = 6.0;
   config.decoder_opts.beam = 15.0;
   config.decoder_opts.max_active = 7000;
 }
 
-void ConfigEndpoint(kaldi::OnlineEndpointConfig &config) {
+void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
   config.silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
 }
 
-int main(int argc, char *argv[]) {
+void usage() {
+  fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
+}
+
+int main(int argc, char* argv[]) {
   using namespace kaldi;
   using namespace fst;
 
@@ -89,8 +306,9 @@ int main(int argc, char *argv[]) {
   const string ivector_model_dir = nnet_dir + "/ivector_extractor";
   const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
   const string word_syms_rxfilename = proto_lang_dir + "/langdir/words.txt";
-  const string phone_syms_rxfilename = proto_lang_dir + "/langdir/phones.txt";  
-  const string word_boundary_filename = proto_lang_dir + "/langdir/phones/word_boundary.int";
+  const string phone_syms_rxfilename = proto_lang_dir + "/langdir/phones.txt";
+  const string word_boundary_filename =
+      proto_lang_dir + "/langdir/phones/word_boundary.int";
 
   setbuf(stdout, NULL);
 
@@ -103,14 +321,12 @@ int main(int argc, char *argv[]) {
   OnlineEndpointConfig endpoint_config;
   ConfigEndpoint(endpoint_config);
 
-
-  WordBoundaryInfoNewOpts opts; // use default opts
+  WordBoundaryInfoNewOpts opts;  // use default opts
   WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
-  
 
   BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
   fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
-      
+
   TransitionModel trans_model;
 
   nnet2::AmNnet nnet;
@@ -122,55 +338,40 @@ int main(int argc, char *argv[]) {
   }
 
   // This one is much slower than the others.
-  fst::Fst<fst::StdArc> *decode_fst = ReadFstKaldi(fst_rxfilename);
+  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(fst_rxfilename);
 
-    
-  fst::SymbolTable *word_syms = fst::SymbolTable::ReadText(word_syms_rxfilename);
-  fst::SymbolTable *phone_syms = fst::SymbolTable::ReadText(phone_syms_rxfilename);  
+  fst::SymbolTable* word_syms =
+      fst::SymbolTable::ReadText(word_syms_rxfilename);
+  fst::SymbolTable* phone_syms =
+      fst::SymbolTable::ReadText(phone_syms_rxfilename);
 
   std::cerr << "Loaded!\n";
 
   OnlineSilenceWeighting silence_weighting(
-                                           trans_model,
-                                           feature_info.silence_weighting_config);
+      trans_model, feature_info.silence_weighting_config);
 
-  std::unique_ptr<OnlineIvectorExtractorAdaptationState> adaptation_state;
-  std::unique_ptr<OnlineNnet2FeaturePipeline> feature_pipeline;
-  std::unique_ptr<SingleUtteranceNnet2Decoder> decoder;
+  Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
+                            word_syms, phone_syms);
 
-  auto reset_decoder = [&]() {
-    // Reset the decoding pipeline.
-    feature_pipeline.reset(new OnlineNnet2FeaturePipeline(feature_info));
-    OnlineIvectorExtractorAdaptationState adaptation_state(
-      feature_info.ivector_extractor_info);
-    feature_pipeline->SetAdaptationState(adaptation_state);
-    decoder.reset(new SingleUtteranceNnet2Decoder(
-      nnet2_decoding_config,
-      trans_model,
-      nnet,
-      *decode_fst,
-      // TODO(maxahawkins): does this take ownership?
-      feature_pipeline.get()));
-  };
-  reset_decoder();
-  
+  std::unique_ptr<TranscribeSession> session(new TranscribeSession(
+        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+
   char cmd[1024];
 
-  while(fgets(cmd, sizeof(cmd), stdin)) {
-
-    if(strcmp(cmd,"stop\n") == 0) {
+  while (fgets(cmd, sizeof(cmd), stdin)) {
+    if (strcmp(cmd, "stop\n") == 0) {
       // Quit the program.
       break;
     }
-    
-    else if(strcmp(cmd,"reset\n") == 0) {
+
+    else if (strcmp(cmd, "reset\n") == 0) {
       // Reset all decoding state.
       //
       // =Reply=
       // 1. No reply
-      reset_decoder();
-    }
-    else if(strcmp(cmd,"push-chunk\n") == 0) {
+      session.reset(new TranscribeSession(
+        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+    } else if (strcmp(cmd, "push-chunk\n") == 0) {
       // Add a chunk of audio to the decoding pipeline.
       //
       // =Request=
@@ -195,110 +396,42 @@ int main(int argc, char *argv[]) {
           wave_part(i) = sample;
         }
 
-        feature_pipeline->AcceptWaveform(arate, wave_part);
-
-        // What does this do?
-        std::vector<std::pair<int32, BaseFloat> > delta_weights;
-        if (silence_weighting.Active()) {
-          silence_weighting.ComputeCurrentTraceback(decoder->Decoder());
-          silence_weighting.GetDeltaWeights(feature_pipeline->NumFramesReady(),
-                                            &delta_weights);
-          feature_pipeline->UpdateFrameWeights(delta_weights);
-        }
-
-      
-        decoder->AdvanceDecoding();
+        session->AddChunk(arate, wave_part);
 
         fprintf(stdout, "ok\n");
       }
-    }
-    else if(strcmp(cmd,"get-partial\n") == 0) {
+    } else if (strcmp(cmd, "get-partial\n") == 0) {
       // Dump the provisional (non-word-aligned) transcript for
       // the current lattice.
       //
       // =Reply=
-      // 1. One line containing every word in the current lattice
-      if (decoder->NumFramesDecoded() == 0) {
-        continue;
-      }
+      // 1. "word: " for every word
+      // 2. "ok\n" on completion
 
-      Lattice lat;
-      decoder->GetBestPath(false, &lat);
-
-      // Let's see what words are in here..
-
-      std::vector<int32> words;
-      std::vector<int32> alignment;
-      LatticeWeight weight;
-      GetLinearSymbolSequence(lat, &alignment, &words, &weight);
-
-      std::stringstream sentence;
-      for (size_t i = 0; i < words.size(); i++) {
-        std::string s = word_syms->Find(words[i]);
-        if (i > 0) {
-          sentence << " ";
-        }
-        sentence << s;
-      }
-      fprintf(stdout, "%s\n", sentence.str().c_str());
-    }
-    else if(strcmp(cmd,"get-final\n") == 0) {
+      kaldi::Lattice partial_lat;
+      session->GetLattice(false, &partial_lat);
+      Hypothesis partial = hypothesizer.GetPartial(partial_lat);
+      std::cout << MarshalHypothesis(partial);
+      fprintf(stdout, "ok\n");
+    } else if (strcmp(cmd, "get-final\n") == 0) {
       // Dump the final, phone-aligned transcript for the
       // current lattice.
       //
       // =Reply=
       // 1. "phone: / duration:" for every phoneme
       // 2. "word: / start: / duration:" for every word
-      // 3. "done with words\n" on completion
-      if (decoder->NumFramesDecoded() == 0) {
-        fprintf(stdout, "done with words\n");
-        continue;
-      }
+      // 3. "ok\n" on completion
 
-      decoder->FinalizeDecoding();
-
-      Lattice lat;
-      decoder->GetBestPath(true, &lat);
-      CompactLattice clat;
-      ConvertLattice(lat, &clat);
-
-      // Compute prons alignment (see: kaldi/latbin/nbest-to-prons.cc)
-      CompactLattice aligned_clat;
-
-      std::vector<int32> words, times, lengths;
-      std::vector<std::vector<int32> > prons;
-      std::vector<std::vector<int32> > phone_lengths;
-      
-      WordAlignLattice(clat, trans_model, word_boundary_info, 0, &aligned_clat);
-
-      CompactLatticeToWordProns(trans_model, clat, &words, &times, &lengths,
-                                &prons, &phone_lengths);
-
-      for (size_t i = 0; i < words.size(); i++) {
-        if (words[i] == 0)  {
-          // Don't output anything for <eps> links, which correspond to silence....
-          continue;
-        }
-        fprintf(stdout, "word: %s / start: %f / duration: %f\n",
-                word_syms->Find(words[i]).c_str(),
-                times[i] * frame_shift,
-                lengths[i] * frame_shift);
-
-        // Print out the phonemes for this word
-        for(size_t j=0; j<phone_lengths[i].size(); j++) {
-          fprintf(stdout, "phone: %s / duration: %f\n",
-                  phone_syms->Find(prons[i][j]).c_str(),
-                  phone_lengths[i][j] * frame_shift);
-        }
-      }
-
-      fprintf(stdout, "done with words\n");
+      kaldi::Lattice final_lat;
+      session->GetLattice(true, &final_lat);
+      Hypothesis final = hypothesizer.GetFull(final_lat);
+      std::cout << MarshalHypothesis(final);
+      fprintf(stdout, "ok\n");
     } else {
       fprintf(stdout, "unknown command\n");
     }
   }
 
-
-  std::cerr << "Goodbye.\n";  
+  std::cerr << "Goodbye.\n";
   return 0;
 }
