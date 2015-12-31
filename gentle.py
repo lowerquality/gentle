@@ -2,7 +2,8 @@ import logging
 import threading
 from twisted.internet import reactor
 import webbrowser
-from PyQt4.QtGui import QApplication, QWidget, QPushButton
+from PyQt4.QtGui import QApplication, QWidget, QPushButton, QLabel, QVBoxLayout
+from gentle.__version__ import __version__
 
 import serve
 import sys
@@ -27,6 +28,9 @@ webthread.start()
 
 def open_browser():
     webbrowser.open("http://localhost:%d/" % (PORT))
+
+def open_about():
+    webbrowser.open("https://lowerquality.com/gentle")
     
 app = QApplication(sys.argv)
 w = QWidget()
@@ -36,12 +40,26 @@ w.setWindowTitle('Gentle')
 def quit_server():
     app.exit()
 
-btn = QPushButton('Open in browser', w)
+layout = QVBoxLayout()
+w.setLayout(layout)
+
+txt = QLabel('''Gentle v%s
+
+A robust yet lenient forced-aligner built on Kaldi.''' % (__version__))
+layout.addWidget(txt)
+
+btn = QPushButton('Open in browser')
+btn.setStyleSheet("font-weight: bold;")
+layout.addWidget(btn)
 btn.clicked.connect(open_browser)
 
-quitb = QPushButton('Quit', w)
+abt = QPushButton('About Gentle')
+layout.addWidget(abt)
+abt.clicked.connect(open_about)
+
+quitb = QPushButton('Quit')
+layout.addWidget(quitb)
 quitb.clicked.connect(quit_server)
-quitb.move(0,50)
 
 w.show()
 

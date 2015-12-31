@@ -6,7 +6,7 @@ pyinstaller gentle.spec
 # lieu of tracking down the bug, let's just go in and delete some of
 # the nastier, offending files.
 cd dist/gentle.app/Contents/Resources
-rm -rf COPYING Dockerfile *.sh examples *.spec include lib tests *.pyc gentle *.py *.bkp webdata \
+rm -rf Dockerfile *.sh examples *.spec include lib tests *.pyc gentle *.py *.bkp webdata \
    .git* .travis.yml .DS_Store \
    ext/kaldi ext/*.dSYM ext/Makefile ext/*.cc
 cd ../MacOS
