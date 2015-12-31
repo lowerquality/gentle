@@ -30,6 +30,7 @@ def align(alignment, ms):
             hyp_word = hypothesis[a]
             hyp_token = alignment[a]
             phones = hyp_token.get("phones", [])
+            confidence = hyp_token["confidence"]
             start = hyp_token["start"]
             end = hyp_token["start"] + hyp_token["duration"]
         if b < len(reference):
@@ -45,6 +46,7 @@ def align(alignment, ms):
                 "word": display_word,
                 "alignedWord": hyp_word,
                 "phones": phones,
+                "confidence": confidence,
                 "start": start,
                 "end": end,
             })

@@ -252,6 +252,7 @@ function render(ret) {
         }
 
         var $wd = document.createElement('span');
+        $wd.style.opacity = 0.1 + 0.9 * Math.pow(wd.confidence, 3);
         var txt = transcript.slice(wd.startOffset, wd.endOffset);
         var $wdText = document.createTextNode(txt);
         $wd.appendChild($wdText);

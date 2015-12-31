@@ -60,7 +60,16 @@ class Kaldi(object):
     def get_partial(self):
         '''Dump the provisional (non-word-aligned) transcript'''
         self._cmd("get-partial")
-        return self._subprocess.stdout.readline()
+        words = []
+        while True:
+            line = self._subprocess.stdout.readline()
+            logging.info("partial: %s", line)
+            if line.startswith("ok"):
+                break
+            if parts[0].startswith('word'):
+                word = parts[0].split(': ')[1]
+                words.append(word)
+        return words.join(" ")
 
     def get_final(self):
         '''Dump the final, phone-aligned transcript'''
@@ -68,7 +77,8 @@ class Kaldi(object):
         words = []
         while True:
             line = self._subprocess.stdout.readline()
-            if line.startswith("done"):
+            logging.info(line)
+            if line.startswith("ok"):
                 break
             parts = line.split(' / ')
             if parts[0].startswith('word'):
@@ -76,6 +86,7 @@ class Kaldi(object):
                 word['word'] = parts[0].split(': ')[1]
                 word['start'] = float(parts[1].split(': ')[1])
                 word['duration'] = float(parts[2].split(': ')[1])
+                word['confidence'] = float(parts[3].split(': ')[1])
                 word['phones'] = []
                 words.append(word)
             elif parts[0].startswith('phone'):
