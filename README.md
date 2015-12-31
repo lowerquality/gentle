@@ -13,3 +13,13 @@ There are three ways to install Gentle.
 2. Use the [Docker](https://www.docker.com/) image. Just run ```docker run lowerquality/gentle```. This works anywhere Docker is installed.
 
 2. Download the source code and run ```./install.sh```. Then run ```python gentle.py``` to start the server. This works on Mac and Linux.
+
+## Using Gentle
+
+By default, the aligner listens at http://localhost:8765. That page has a graphical interface for transcribing, viewing, and downloading audio.
+
+There is also a REST API so you can use Gentle in your programs. Here's an example of how to use the API with CURL:
+
+```bash
+curl -F "audio=@audio.mp3" -F "transcript=@words.txt" "http://localhost:8765/transcriptions?async=false"
+```
