@@ -171,7 +171,6 @@ class TranscriptionZipper(Resource):
         Resource.__init__(self)
     
     def getChild(self, path, req):
-        print 'tz path', path
         uid = path.split('.')[0]
         t_dir = self.transcriber.out_dir(uid)
         if os.path.exists(t_dir):
