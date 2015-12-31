@@ -6,14 +6,15 @@
 
 #include <stdlib.h>
 
-#include "online2/online-nnet2-decoding.h"
-#include "online2/onlinebin-util.h"
-#include "online2/online-timing.h"
-#include "online2/online-endpoint.h"
 #include "fstext/fstext-lib.h"
-#include "lat/lattice-functions.h"
-#include "lat/word-align-lattice.h"
 #include "hmm/hmm-utils.h"
+#include "lat/lattice-functions.h"
+#include "lat/sausages.h"
+#include "lat/word-align-lattice.h"
+#include "online2/online-endpoint.h"
+#include "online2/online-nnet2-decoding.h"
+#include "online2/online-timing.h"
+#include "online2/onlinebin-util.h"
 #include "thread/kaldi-thread.h"
 
 const int arate = 8000;
@@ -34,6 +35,8 @@ struct AlignedWord {
   bool has_start;
   double duration;
   bool has_duration;
+  double confidence;
+  bool has_confidence;
   std::vector<Phoneme> phones;
 };
 
@@ -64,7 +67,7 @@ class Hypothesizer {
   // GetFull extracts the best hypothesis in the lattice, pulling
   // out all the stops. It word aligns, phoneme aligns, and generates
   // confidences. It's slower and should only be used when it matters.
-  Hypothesis GetFull(const kaldi::Lattice& lattice);
+  Hypothesis GetFull(const kaldi::CompactLattice& lattice);
 
  private:
   float frame_shift_;
@@ -92,37 +95,72 @@ Hypothesis Hypothesizer::GetPartial(const kaldi::Lattice& lattice) {
   return hyp;
 }
 
-Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
+Hypothesis Hypothesizer::GetFull(const kaldi::CompactLattice& clat) {
   Hypothesis hyp;
 
-  kaldi::CompactLattice clat;
-  ConvertLattice(lattice, &clat);
-
-  // Compute prons alignment (see: kaldi/latbin/nbest-to-prons.cc)
-  kaldi::CompactLattice aligned_clat;
-
-  std::vector<int32> words, times, lengths;
+  std::vector<int32> prons_words, prons_times, prons_lengths;
   std::vector<std::vector<int32> > prons;
   std::vector<std::vector<int32> > phone_lengths;
 
+  // PERF(maxhawkins): is it possible to word-align /then/ calculate
+  // the shortest path? Then we could do it once instead of twice.
+  kaldi::CompactLattice clat_best_path;
+  kaldi::CompactLatticeShortestPath(clat, &clat_best_path);
+
+  kaldi::CompactLattice aligned_clat_best_path;
+  WordAlignLattice(clat_best_path, *this->transition_model_,
+                   *this->word_boundary_info_, 0, &aligned_clat_best_path);
+
+  CompactLatticeToWordProns(*this->transition_model_, aligned_clat_best_path,
+                            &prons_words, &prons_times, &prons_lengths, &prons,
+                            &phone_lengths);
+
+  // The MinimumBayesRisk class strips epsilons but
+  // CompactLatticeToWordProns keeps them. Build a table
+  // of offsets so we can skip entries referring to epsilons.
+  int offset = 0;
+  std::vector<int> prons_to_mbr_map;
+  for (int32 word : prons_words) {
+    if (word == 0) {  // <eps>
+      offset++;
+    } else {
+      prons_to_mbr_map.push_back(offset);
+    }
+  }
+
+  kaldi::CompactLattice aligned_clat;
   WordAlignLattice(clat, *this->transition_model_, *this->word_boundary_info_,
                    0, &aligned_clat);
 
-  CompactLatticeToWordProns(*this->transition_model_, clat, &words, &times,
-                            &lengths, &prons, &phone_lengths);
+  // PERF(maxhawkins): it may be possible to pass in the one-best
+  // word list from CompactLatticeToWordProns above. However, it
+  // was causing some timing issues so I'm just having it recompute.
+  kaldi::MinimumBayesRisk mbr(aligned_clat, prons_words, true);
+
+  const std::vector<int32>& words = mbr.GetOneBest();
+  const std::vector<float>& confs = mbr.GetOneBestConfidences();
+  const std::vector<std::pair<float, float> >& times = mbr.GetOneBestTimes();
+
+  KALDI_ASSERT(words.size() <= eps_offsets.size());
 
   for (int i = 0; i < words.size(); i++) {
     AlignedWord aligned;
     aligned.token = this->word_syms_->Find(words[i]);
-    aligned.start = times[i] * this->frame_shift_;
+    aligned.start = times[i].first * this->frame_shift_;
     aligned.has_start = true;
-    aligned.duration = lengths[i] * this->frame_shift_;
+    aligned.duration = times[i].second * this->frame_shift_;
     aligned.has_duration = true;
+    aligned.confidence = confs[i];
+    aligned.has_confidence = true;
 
-    for (size_t j = 0; j < phone_lengths[i].size(); j++) {
+    // Skip over epsilon entries
+    int prons_idx = i + eps_offsets[i];
+    KALDI_ASSERT(prons_idx < prons.size());
+
+    for (size_t j = 0; j < phone_lengths[prons_idx].size(); j++) {
       Phoneme phone;
-      phone.token = this->phone_syms_->Find(prons[i][j]);
-      phone.duration = phone_lengths[i][j] * this->frame_shift_;
+      phone.token = this->phone_syms_->Find(prons[prons_idx][j]);
+      phone.duration = phone_lengths[prons_idx][j] * this->frame_shift_;
       phone.has_duration = true;
       aligned.phones.push_back(phone);
     }
@@ -147,16 +185,20 @@ class TranscribeSession {
 
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
-                      const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
-  // GetLattice outputs the session's lattice. If end_of_utterance is true
-  // the lattice will contain final-probs.
-  void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
+                const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
+  // GetLattice outputs the session's lattice (with any acoustic scaling
+  // removed). If end_of_utterance is true the lattice will contain final-probs.
+  void GetLattice(bool end_of_utterance, kaldi::CompactLattice* lattice);
+  // GetBestPath outputs the best path through the session's lattice.
+  // If end_of_utterance is true the lattice will contain final-probs.
+  void GetBestPath(bool end_of_utterance, kaldi::Lattice* lattice);
 
  private:
   kaldi::OnlineIvectorExtractorAdaptationState adaptation_state_;
   kaldi::OnlineNnet2FeaturePipeline feature_pipeline_;
   kaldi::OnlineSilenceWeighting silence_weighting_;
   kaldi::SingleUtteranceNnet2Decoder decoder_;
+  float acoustic_scale_;
 };
 
 TranscribeSession::TranscribeSession(
@@ -172,7 +214,8 @@ TranscribeSession::TranscribeSession(
                transition_model,
                nnet,
                *decode_fst,
-               &feature_pipeline_) {
+               &feature_pipeline_),
+      acoustic_scale_(nnet2_decoding_config.decodable_opts.acoustic_scale) {
   this->feature_pipeline_.SetAdaptationState(this->adaptation_state_);
 }
 
@@ -193,8 +236,8 @@ void TranscribeSession::AddChunk(
   this->decoder_.AdvanceDecoding();
 }
 
-void TranscribeSession::GetLattice(bool end_of_utterance,
-                                   kaldi::Lattice* lattice) {
+void TranscribeSession::GetBestPath(bool end_of_utterance,
+                                    kaldi::Lattice* clat) {
   if (this->decoder_.NumFramesDecoded() == 0) {
     return;
   }
@@ -203,7 +246,22 @@ void TranscribeSession::GetLattice(bool end_of_utterance,
     this->decoder_.FinalizeDecoding();
   }
 
-  this->decoder_.GetBestPath(end_of_utterance, lattice);
+  this->decoder_.GetBestPath(end_of_utterance, clat);
+}
+
+void TranscribeSession::GetLattice(bool end_of_utterance,
+                                   kaldi::CompactLattice* clat) {
+  if (this->decoder_.NumFramesDecoded() == 0) {
+    return;
+  }
+
+  if (end_of_utterance) {
+    this->decoder_.FinalizeDecoding();
+  }
+
+  this->decoder_.GetLattice(end_of_utterance, clat);
+  fst::ScaleLattice(fst::AcousticLatticeScale(1.0 / this->acoustic_scale_),
+                    clat);
 }
 
 // MarshalHypothesis serializes a Hypothesis struct into the funky text
@@ -224,6 +282,9 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
     if (word.has_duration) {
       ss << " / duration: " << word.duration;
     }
+    if (word.has_confidence) {
+      ss << " / confidence: " << word.confidence;
+    }
     ss << std::endl;
 
     for (Phoneme phone : word.phones) {
@@ -237,7 +298,6 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
 
   return ss.str();
 }
-
 
 void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
                        std::string ivector_model_dir) {
@@ -354,7 +414,7 @@ int main(int argc, char* argv[]) {
                             word_syms, phone_syms);
 
   std::unique_ptr<TranscribeSession> session(new TranscribeSession(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+      feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
 
   char cmd[1024];
 
@@ -370,7 +430,7 @@ int main(int argc, char* argv[]) {
       // =Reply=
       // 1. No reply
       session.reset(new TranscribeSession(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+          feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
     } else if (strcmp(cmd, "push-chunk\n") == 0) {
       // Add a chunk of audio to the decoding pipeline.
       //
@@ -409,7 +469,7 @@ int main(int argc, char* argv[]) {
       // 2. "ok\n" on completion
 
       kaldi::Lattice partial_lat;
-      session->GetLattice(false, &partial_lat);
+      session->GetBestPath(false, &partial_lat);
       Hypothesis partial = hypothesizer.GetPartial(partial_lat);
       std::cout << MarshalHypothesis(partial);
       fprintf(stdout, "ok\n");
@@ -422,7 +482,7 @@ int main(int argc, char* argv[]) {
       // 2. "word: / start: / duration:" for every word
       // 3. "ok\n" on completion
 
-      kaldi::Lattice final_lat;
+      kaldi::CompactLattice final_lat;
       session->GetLattice(true, &final_lat);
       Hypothesis final = hypothesizer.GetFull(final_lat);
       std::cout << MarshalHypothesis(final);

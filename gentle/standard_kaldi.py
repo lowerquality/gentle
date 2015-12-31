@@ -86,6 +86,7 @@ class Kaldi(object):
                 word['word'] = parts[0].split(': ')[1]
                 word['start'] = float(parts[1].split(': ')[1])
                 word['duration'] = float(parts[2].split(': ')[1])
+                word['confidence'] = float(parts[3].split(': ')[1])
                 word['phones'] = []
                 words.append(word)
             elif parts[0].startswith('phone'):

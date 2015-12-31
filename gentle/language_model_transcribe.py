@@ -72,6 +72,7 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
                 "startOffset": len(transcript),
                 "endOffset": len(transcript) + len(t_wd["word"]),
                 "word": t_wd["word"],
+                "confidence": t_wd["confidence"],
                 "alignedWord": t_wd["word"],
                 "phones": t_wd["phones"],
                 "start": t_wd["start"],
