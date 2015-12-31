@@ -37,7 +37,7 @@ coll = COLLECT(exe,
                name='gentler')
 app = BUNDLE(coll,
              name='gentle.app',
-             icon=None,
+             icon='gentle.icns',
              bundle_identifier=None,
              info_plist={
                  'NSHighResolutionCapable': 'True'
