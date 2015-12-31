@@ -67,11 +67,20 @@ html, body {
 .success:hover {
     text-decoration: underline;
 }
-.active {
+.active, .phactive {
     color: magenta;
 }
 #preloader {
     visibility: hidden;
+}
+.phones {
+    position: absolute;
+}
+.phones .phone {
+    margin-right: 5px;
+    font-family: Helvetica, sans-serif;
+    text-transform: uppercase;
+    font-size: 75%;
 }
     </style>
   </head>
@@ -114,6 +123,66 @@ var $preloader = document.getElementById('preloader');
 var wds = [];
 var cur_wd;
 
+var $phones = document.createElement("div");
+$phones.className = "phones";
+document.body.appendChild($phones);
+
+var cur_phones$ = [];           // List of phoneme $divs
+var $active_phone;
+
+function render_phones(wd) {
+    cur_phones$ = [];
+    $phones.innerHTML = "";
+    $active_phone = null;
+
+    $phones.style.top = wd.$div.offsetTop + 15;
+    $phones.style.left = wd.$div.offsetLeft;
+
+    var dur = wd.end - wd.start;
+    var wd_width = wd.$div.offsetWidth * 2;
+
+    var start_x = wd.$div.offsetLeft;
+    
+    wd.phones
+        .forEach(function(ph){
+            var $p = document.createElement("span");
+            $p.className = "phone";
+            $p.textContent = ph.phone.split("_")[0];
+            
+            $phones.appendChild($p);
+            cur_phones$.push($p);
+
+        });
+}
+function highlight_phone(t) {
+    if(!cur_wd) {
+        $phones.innerHTML = "";
+        return;
+    }
+    var hit;
+    var cur_t = cur_wd.start;
+    
+    cur_wd.phones.forEach(function(ph, idx) {
+        if(cur_t <= t && cur_t + ph.duration >= t) {
+            hit = idx;
+        }
+        cur_t += ph.duration;
+    });
+
+    if(hit) {
+        var $ph = cur_phones$[hit];
+        if($ph != $active_phone) {
+            if($active_phone) {
+                $active_phone.classList.remove("phactive");
+            }
+            if($ph) {
+                $ph.classList.add("phactive");
+            }
+        }
+        $active_phone = $ph;
+    }
+}
+
 function highlight_word() {
     var t = $a.currentTime;
     // XXX: O(N); use binary search
@@ -129,9 +198,11 @@ function highlight_word() {
         }
         if(next_wd && next_wd.$div) {
             next_wd.$div.classList.add('active');
+            render_phones(next_wd);
         }
     }
     cur_wd = next_wd;
+    highlight_phone(t);
 
     window.requestAnimationFrame(highlight_word);
 }
