@@ -190,16 +190,19 @@ function show_downloads() {
     var $d = document.getElementById("downloads");
     $d.textContent = "Download as: ";
     var uid = window.location.pathname.split("/")[2];
+    // Name, path, title, inhibit-on-file:///
     [["CSV", "align.csv", "Word alignment CSV"],
      ["JSON", "align.json", "JSON word/phoneme alignment data"],
-     ["Zip", "/zip/" + uid + ".zip", "Standalone zipfile"]]
+     ["Zip", "/zip/" + uid + ".zip", "Standalone zipfile", true]]
         .forEach(function(x) {
             var $a = document.createElement("a");
             $a.className = "download";
             $a.textContent = x[0];
             $a.href = x[1];
             $a.title = x[2];
-            $d.appendChild($a);
+            if(!x[3] || window.location.protocol != "file:") {
+                $d.appendChild($a);
+            }
         });
 }
 
