@@ -133,12 +133,12 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
   return hyp;
 }
 
-// TranscribeSession represents an in-progress transcription of an audio
+// Decoder represents an in-progress transcription of an audio
 // file. It stores information about speaker adaptation so the results will
 // be better if one is used per speaker.
-class TranscribeSession {
+class Decoder {
  public:
-  TranscribeSession(
+  Decoder(
       const kaldi::OnlineNnet2FeaturePipelineInfo& info,
       const kaldi::TransitionModel& transition_model,
       const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
@@ -148,7 +148,7 @@ class TranscribeSession {
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
                       const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
-  // GetLattice outputs the session's lattice. If end_of_utterance is true
+  // GetLattice outputs the decoder's lattice. If end_of_utterance is true
   // the lattice will contain final-probs.
   void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
 
@@ -159,7 +159,7 @@ class TranscribeSession {
   kaldi::SingleUtteranceNnet2Decoder decoder_;
 };
 
-TranscribeSession::TranscribeSession(
+Decoder::Decoder(
     const kaldi::OnlineNnet2FeaturePipelineInfo& info,
     const kaldi::TransitionModel& transition_model,
     const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
@@ -176,7 +176,7 @@ TranscribeSession::TranscribeSession(
   this->feature_pipeline_.SetAdaptationState(this->adaptation_state_);
 }
 
-void TranscribeSession::AddChunk(
+void Decoder::AddChunk(
     kaldi::BaseFloat sampling_rate,
     const kaldi::VectorBase<kaldi::BaseFloat>& waveform) {
   this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
@@ -193,7 +193,7 @@ void TranscribeSession::AddChunk(
   this->decoder_.AdvanceDecoding();
 }
 
-void TranscribeSession::GetLattice(bool end_of_utterance,
+void Decoder::GetLattice(bool end_of_utterance,
                                    kaldi::Lattice* lattice) {
   if (this->decoder_.NumFramesDecoded() == 0) {
     return;
@@ -353,7 +353,7 @@ int main(int argc, char* argv[]) {
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms, phone_syms);
 
-  std::unique_ptr<TranscribeSession> session(new TranscribeSession(
+  std::unique_ptr<Decoder> decoder(new Decoder(
         feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
 
   char cmd[1024];
@@ -369,7 +369,7 @@ int main(int argc, char* argv[]) {
       //
       // =Reply=
       // 1. No reply
-      session.reset(new TranscribeSession(
+      decoder.reset(new Decoder(
         feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
     } else if (strcmp(cmd, "push-chunk\n") == 0) {
       // Add a chunk of audio to the decoding pipeline.
@@ -396,7 +396,7 @@ int main(int argc, char* argv[]) {
           wave_part(i) = sample;
         }
 
-        session->AddChunk(arate, wave_part);
+        decoder->AddChunk(arate, wave_part);
 
         fprintf(stdout, "ok\n");
       }
@@ -409,7 +409,7 @@ int main(int argc, char* argv[]) {
       // 2. "ok\n" on completion
 
       kaldi::Lattice partial_lat;
-      session->GetLattice(false, &partial_lat);
+      decoder->GetLattice(false, &partial_lat);
       Hypothesis partial = hypothesizer.GetPartial(partial_lat);
       std::cout << MarshalHypothesis(partial);
       fprintf(stdout, "ok\n");
@@ -423,7 +423,7 @@ int main(int argc, char* argv[]) {
       // 3. "ok\n" on completion
 
       kaldi::Lattice final_lat;
-      session->GetLattice(true, &final_lat);
+      decoder->GetLattice(true, &final_lat);
       Hypothesis final = hypothesizer.GetFull(final_lat);
       std::cout << MarshalHypothesis(final);
       fprintf(stdout, "ok\n");
