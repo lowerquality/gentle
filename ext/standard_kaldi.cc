@@ -148,9 +148,9 @@ class Decoder {
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
                       const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
-  // GetLattice outputs the decoder's lattice. If end_of_utterance is true
-  // the lattice will contain final-probs.
-  void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
+  // GetBestPath outputs the decoder's one-best lattice. If end_of_utterance
+  // is true the lattice will contain final-probs.
+  void GetBestPath(bool end_of_utterance, kaldi::Lattice* lattice);
 
  private:
   kaldi::OnlineIvectorExtractorAdaptationState adaptation_state_;
@@ -193,7 +193,7 @@ void Decoder::AddChunk(
   this->decoder_.AdvanceDecoding();
 }
 
-void Decoder::GetLattice(bool end_of_utterance,
+void Decoder::GetBestPath(bool end_of_utterance,
                                    kaldi::Lattice* lattice) {
   if (this->decoder_.NumFramesDecoded() == 0) {
     return;
@@ -406,7 +406,7 @@ int main(int argc, char* argv[]) {
       // 2. "ok\n" on completion
 
       kaldi::Lattice partial_lat;
-      decoder->GetLattice(false, &partial_lat);
+      decoder->GetBestPath(false, &partial_lat);
       Hypothesis partial = hypothesizer.GetPartial(partial_lat);
       std::cout << MarshalHypothesis(partial);
       fprintf(stdout, "ok\n");
@@ -420,7 +420,7 @@ int main(int argc, char* argv[]) {
       // 3. "ok\n" on completion
 
       kaldi::Lattice final_lat;
-      decoder->GetLattice(true, &final_lat);
+      decoder->GetBestPath(true, &final_lat);
       Hypothesis final = hypothesizer.GetFull(final_lat);
       std::cout << MarshalHypothesis(final);
       fprintf(stdout, "ok\n");
