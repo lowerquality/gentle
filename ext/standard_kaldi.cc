@@ -133,9 +133,7 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
   return hyp;
 }
 
-// Decoder represents an in-progress transcription of an audio
-// file. It stores information about speaker adaptation so the results will
-// be better if one is used per speaker.
+// Decoder represents an in-progress transcription of an utterance.
 class Decoder {
  public:
   Decoder(
@@ -143,11 +141,15 @@ class Decoder {
       const kaldi::TransitionModel& transition_model,
       const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
       const kaldi::nnet2::AmNnet& nnet,
-      const fst::Fst<fst::StdArc>* decode_fst);
+      const fst::Fst<fst::StdArc>* decode_fst,
+      const kaldi::OnlineIvectorExtractorAdaptationState &adaptation_state);
 
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
                       const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
+  // GetAdaptationState gets the ivector extractor's adaptation state
+  void GetAdaptationState(
+    kaldi::OnlineIvectorExtractorAdaptationState *adaptation_state);
   // GetBestPath outputs the decoder's current one-best lattice.
   kaldi::Lattice GetBestPath();
   // Finalize is called when you're finished adding chunks. It flushes the
@@ -160,7 +162,6 @@ class Decoder {
   // applying silence weighting.
   void AdvanceDecoding();
 
-  kaldi::OnlineIvectorExtractorAdaptationState adaptation_state_;
   kaldi::OnlineNnet2FeaturePipeline feature_pipeline_;
   kaldi::SingleUtteranceNnet2Decoder decoder_;
 
@@ -174,9 +175,9 @@ Decoder::Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
                  const kaldi::TransitionModel& transition_model,
                  const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
                  const kaldi::nnet2::AmNnet& nnet,
-                 const fst::Fst<fst::StdArc>* decode_fst)
-    : adaptation_state_(info.ivector_extractor_info),
-      feature_pipeline_(info),
+                 const fst::Fst<fst::StdArc>* decode_fst,
+                 const kaldi::OnlineIvectorExtractorAdaptationState &adaptation_state)
+    : feature_pipeline_(info),
       decoder_(nnet2_decoding_config,
                transition_model,
                nnet,
@@ -184,7 +185,7 @@ Decoder::Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
                &feature_pipeline_),
       silence_weighting_(transition_model, info.silence_weighting_config),
       finalized_(false) {
-  this->feature_pipeline_.SetAdaptationState(this->adaptation_state_);
+  this->feature_pipeline_.SetAdaptationState(adaptation_state);
 }
 
 void Decoder::AddChunk(
@@ -196,6 +197,11 @@ void Decoder::AddChunk(
 
   this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
   this->AdvanceDecoding();
+}
+
+void Decoder::GetAdaptationState(
+    kaldi::OnlineIvectorExtractorAdaptationState *adaptation_state) {
+  this->feature_pipeline_.GetAdaptationState(adaptation_state);
 }
 
 void Decoder::AdvanceDecoding() {
@@ -373,8 +379,12 @@ int main(int argc, char* argv[]) {
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms, phone_syms);
 
-  std::unique_ptr<Decoder> decoder(new Decoder(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+  kaldi::OnlineIvectorExtractorAdaptationState adaptation_state(
+      feature_info.ivector_extractor_info);
+
+  std::unique_ptr<Decoder> decoder(new Decoder(feature_info, trans_model,
+                                               nnet2_decoding_config, nnet,
+                                               decode_fst, adaptation_state));
 
   char cmd[1024];
 
@@ -389,8 +399,9 @@ int main(int argc, char* argv[]) {
       //
       // =Reply=
       // 1. No reply
-      decoder.reset(new Decoder(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+      decoder.reset(new Decoder(feature_info, trans_model,
+                                nnet2_decoding_config, nnet, decode_fst,
+                                adaptation_state));
     } else if (strcmp(cmd, "push-chunk\n") == 0) {
       // Add a chunk of audio to the decoding pipeline.
       //
