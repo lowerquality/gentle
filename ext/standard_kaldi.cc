@@ -155,24 +155,25 @@ class Decoder {
  private:
   kaldi::OnlineIvectorExtractorAdaptationState adaptation_state_;
   kaldi::OnlineNnet2FeaturePipeline feature_pipeline_;
-  kaldi::OnlineSilenceWeighting silence_weighting_;
   kaldi::SingleUtteranceNnet2Decoder decoder_;
+
+  kaldi::OnlineSilenceWeighting silence_weighting_;
+  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights_;
 };
 
-Decoder::Decoder(
-    const kaldi::OnlineNnet2FeaturePipelineInfo& info,
-    const kaldi::TransitionModel& transition_model,
-    const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
-    const kaldi::nnet2::AmNnet& nnet,
-    const fst::Fst<fst::StdArc>* decode_fst)
+Decoder::Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
+                 const kaldi::TransitionModel& transition_model,
+                 const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
+                 const kaldi::nnet2::AmNnet& nnet,
+                 const fst::Fst<fst::StdArc>* decode_fst)
     : adaptation_state_(info.ivector_extractor_info),
       feature_pipeline_(info),
-      silence_weighting_(transition_model, info.silence_weighting_config),
       decoder_(nnet2_decoding_config,
                transition_model,
                nnet,
                *decode_fst,
-               &feature_pipeline_) {
+               &feature_pipeline_),
+      silence_weighting_(transition_model, info.silence_weighting_config) {
   this->feature_pipeline_.SetAdaptationState(this->adaptation_state_);
 }
 
@@ -181,13 +182,12 @@ void Decoder::AddChunk(
     const kaldi::VectorBase<kaldi::BaseFloat>& waveform) {
   this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
 
-  // What does this do?
-  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights;
+  // Down-weight silence in ivector estimation
   if (this->silence_weighting_.Active()) {
     this->silence_weighting_.ComputeCurrentTraceback(this->decoder_.Decoder());
     this->silence_weighting_.GetDeltaWeights(
-        this->feature_pipeline_.NumFramesReady(), &delta_weights);
-    this->feature_pipeline_.UpdateFrameWeights(delta_weights);
+        this->feature_pipeline_.NumFramesReady(), &this->delta_weights_);
+    this->feature_pipeline_.UpdateFrameWeights(this->delta_weights_);
   }
 
   this->decoder_.AdvanceDecoding();
@@ -346,9 +346,6 @@ int main(int argc, char* argv[]) {
       fst::SymbolTable::ReadText(phone_syms_rxfilename);
 
   std::cerr << "Loaded!\n";
-
-  OnlineSilenceWeighting silence_weighting(
-      trans_model, feature_info.silence_weighting_config);
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms, phone_syms);
