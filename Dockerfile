@@ -14,4 +14,6 @@ RUN cd /gentle && ./install_models.sh
 
 EXPOSE 8765
 
+VOLUME /gentle/webdata
+
 CMD cd /gentle && python serve.py
