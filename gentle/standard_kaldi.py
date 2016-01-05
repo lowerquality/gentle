@@ -5,8 +5,9 @@ import subprocess
 import wave
 import tempfile
 
-from gentle.paths import get_binary
 from gentle import ffmpeg, prons
+from gentle.paths import get_binary
+from gentle.rpc import RPCProtocol
 
 EXECUTABLE_PATH = get_binary("ext/standard_kaldi")
 
@@ -31,55 +32,30 @@ class Kaldi(object):
         self._words = None
         self._stopped = False
 
-    def _write(self, data):
-        """Send data to the subprocess, print stderr and raise if it crashes"""
-        if self._stopped:
-            # TODO(maxhawkins): I don't like how this API self-destructs after
-            # use. The subprocess should stay open until the user specifically
-            # deletes it.
-            raise RuntimeError('wrote to stopped standard_kaldi process')
-        try:
-            self._subprocess.stdin.write(data)
-        except IOError, _:
-            raise IOError("Lost connection with standard_kaldi subprocess")
-
-    def _cmd(self, name):
-        """Begin a command"""
-        self._write("%s\n" % (name))
-        self._subprocess.stdin.flush()
+        self.rpc = RPCProtocol(self._subprocess.stdin, self._subprocess.stdout)
 
     def push_chunk(self, buf):
         '''Push a chunk of audio. Returns true if it worked OK.'''
-        # Wait until we're ready
-        self._cmd("push-chunk")
-        self._write("%d\n" % len(buf))
-        self._write(buf)
-        status = self._subprocess.stdout.readline().strip()
-        return status == 'ok'
+        self.rpc.do('push-chunk', body=buf)
 
     def get_partial(self):
         '''Dump the provisional (non-word-aligned) transcript'''
-        self._cmd("get-partial")
+        body, _ = self.rpc.do('get-partial')
+
         words = []
-        while True:
-            line = self._subprocess.stdout.readline()
-            logging.info("partial: %s", line)
-            if line.startswith("ok"):
-                break
-            if parts[0].startswith('word'):
-                word = parts[0].split(': ')[1]
-                words.append(word)
+        for line in body.split('\n'):
+            parts = line.split(' / ')
+            word = parts[0].split(': ')[1]
+            words.append(word)
+
         return words.join(" ")
 
     def get_final(self):
         '''Dump the final, phone-aligned transcript'''
-        self._cmd("get-final")
+        body, _ = self.rpc.do('get-final')
+
         words = []
-        while True:
-            line = self._subprocess.stdout.readline()
-            logging.info(line)
-            if line.startswith("ok"):
-                break
+        for line in body.split('\n'):
             parts = line.split(' / ')
             if parts[0].startswith('word'):
                 word = {}
@@ -101,14 +77,11 @@ class Kaldi(object):
 
     def reset(self):
         '''Reset the decoder, delete the decoding state'''
-        self._cmd("reset")
+        self.rpc.do('reset')
 
     def stop(self):
         '''Quit the program'''
-        logging.info('stopping...')
-        self._cmd("stop")
-        self._subprocess.wait()
-        logging.info('stopped\n')
+        self.rpc.do('stop')
         self._stopped = True
 
     def transcribe(self, infile):
