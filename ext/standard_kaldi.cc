@@ -136,20 +136,19 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
 // Decoder represents an in-progress transcription of an utterance.
 class Decoder {
  public:
-  Decoder(
-      const kaldi::OnlineNnet2FeaturePipelineInfo& info,
-      const kaldi::TransitionModel& transition_model,
-      const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
-      const kaldi::nnet2::AmNnet& nnet,
-      const fst::Fst<fst::StdArc>* decode_fst,
-      const kaldi::OnlineIvectorExtractorAdaptationState &adaptation_state);
+  Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
+          const kaldi::TransitionModel& transition_model,
+          const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
+          const kaldi::nnet2::AmNnet& nnet,
+          const fst::Fst<fst::StdArc>* decode_fst,
+          const kaldi::OnlineIvectorExtractorAdaptationState& adaptation_state);
 
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
-                      const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
+                const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
   // GetAdaptationState gets the ivector extractor's adaptation state
   void GetAdaptationState(
-    kaldi::OnlineIvectorExtractorAdaptationState *adaptation_state);
+      kaldi::OnlineIvectorExtractorAdaptationState* adaptation_state);
   // GetBestPath outputs the decoder's current one-best lattice.
   kaldi::Lattice GetBestPath();
   // Finalize is called when you're finished adding chunks. It flushes the
@@ -171,12 +170,13 @@ class Decoder {
   bool finalized_;
 };
 
-Decoder::Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
-                 const kaldi::TransitionModel& transition_model,
-                 const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
-                 const kaldi::nnet2::AmNnet& nnet,
-                 const fst::Fst<fst::StdArc>* decode_fst,
-                 const kaldi::OnlineIvectorExtractorAdaptationState &adaptation_state)
+Decoder::Decoder(
+    const kaldi::OnlineNnet2FeaturePipelineInfo& info,
+    const kaldi::TransitionModel& transition_model,
+    const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
+    const kaldi::nnet2::AmNnet& nnet,
+    const fst::Fst<fst::StdArc>* decode_fst,
+    const kaldi::OnlineIvectorExtractorAdaptationState& adaptation_state)
     : feature_pipeline_(info),
       decoder_(nnet2_decoding_config,
                transition_model,
@@ -188,9 +188,8 @@ Decoder::Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
   this->feature_pipeline_.SetAdaptationState(adaptation_state);
 }
 
-void Decoder::AddChunk(
-    kaldi::BaseFloat sampling_rate,
-    const kaldi::VectorBase<kaldi::BaseFloat>& waveform) {
+void Decoder::AddChunk(kaldi::BaseFloat sampling_rate,
+                       const kaldi::VectorBase<kaldi::BaseFloat>& waveform) {
   if (finalized_) {
     return;
   }
@@ -200,7 +199,7 @@ void Decoder::AddChunk(
 }
 
 void Decoder::GetAdaptationState(
-    kaldi::OnlineIvectorExtractorAdaptationState *adaptation_state) {
+    kaldi::OnlineIvectorExtractorAdaptationState* adaptation_state) {
   this->feature_pipeline_.GetAdaptationState(adaptation_state);
 }
 
@@ -267,7 +266,6 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
   return ss.str();
 }
 
-
 void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
                        std::string ivector_model_dir) {
   // online_nnet2_decoding.conf
@@ -317,6 +315,91 @@ void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
 
 void usage() {
   fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
+}
+
+// The status codes used by the RPC. Maps to HTTP status codes.
+enum {
+  STATUS_OK = 200,
+  STATUS_BAD_REQUEST = 400,
+  STATUS_INTERNAL_SERVER_ERROR = 500
+} RPCStatus;
+
+// Parse the method part of an RPC request. Returns false if the data is
+// malformed.
+//
+// Methods have this form:
+//   METHOD <ARG1> <ARG2> ... <ARGN>\n
+bool RPCReadMethod(std::istream& stream, string* method, vector<string>* args) {
+  std::string line;
+  if (!std::getline(stream, line)) {
+    return false;
+  }
+  std::stringstream ss(line);
+
+  if (!(ss >> *method)) {
+    return false;
+  }
+
+  string buf;
+  while (ss >> buf) {
+    args->push_back(buf);
+  }
+
+  return true;
+}
+
+// Parse the body part of an RPC request. Returns false if the data is
+// malformed.
+//
+// Bodies have this form:
+//   BODY_SIZE\n
+//   BODY\n
+bool RPCReadBody(std::istream& stream, vector<char>* body) {
+  string line;
+  if (!std::getline(stream, line)) {
+    return false;
+  }
+  std::stringstream ss(line);
+
+  size_t body_size;
+  if (!(ss >> body_size)) {
+    return false;
+  }
+
+  body->resize(body_size);
+  if (!stream.read(&body->front(), body_size)) {
+    return false;
+  }
+
+  char trailing_newline;
+  if (!stream.get(trailing_newline)) {
+    return false;
+  }
+
+  return true;
+}
+
+// Write the reply part of the RPC.
+//
+// Replies have this form:
+//   STATUS\n
+//   BODY_SIZE\n
+//   BODY\n
+void RPCWriteReply(std::ostream& stream,
+                   const int& status,
+                   const vector<char>& body) {
+  stream << status << std::endl;
+  stream << body.size() << std::endl;
+  stream.write(&body[0], body.size());
+  stream << std::endl;
+}
+
+// Write the reply part of the RPC. Same as the above but accepts strings.
+void RPCWriteReply(std::ostream& stream,
+                   const int& status,
+                   const string& body_str) {
+  vector<char> body(body_str.begin(), body_str.end());
+  RPCWriteReply(stream, status, body);
 }
 
 int main(int argc, char* argv[]) {
@@ -374,7 +457,8 @@ int main(int argc, char* argv[]) {
   fst::SymbolTable* phone_syms =
       fst::SymbolTable::ReadText(phone_syms_rxfilename);
 
-  std::cerr << "Loaded!\n";
+  OnlineSilenceWeighting silence_weighting(
+      trans_model, feature_info.silence_weighting_config);
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms, phone_syms);
@@ -386,80 +470,79 @@ int main(int argc, char* argv[]) {
                                                nnet2_decoding_config, nnet,
                                                decode_fst, adaptation_state));
 
-  char cmd[1024];
+  std::ostream& out_stream = std::cout;
+  std::istream& in_stream = std::cin;
 
-  while (fgets(cmd, sizeof(cmd), stdin)) {
-    if (strcmp(cmd, "stop\n") == 0) {
-      // Quit the program.
-      break;
+  RPCWriteReply(out_stream, STATUS_OK, "loaded");
+
+  while (!in_stream.eof()) {
+    string method;
+    vector<string> args;
+    vector<char> body;
+
+    if (!RPCReadMethod(in_stream, &method, &args)) {
+      RPCWriteReply(out_stream, STATUS_BAD_REQUEST,
+                    "malformed method '" + method + "'");
+      continue;
+    }
+    if (!RPCReadBody(in_stream, &body)) {
+      RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "malformed body");
+      continue;
     }
 
-    else if (strcmp(cmd, "reset\n") == 0) {
-      // Reset all decoding state.
-      //
-      // =Reply=
-      // 1. No reply
-      decoder.reset(new Decoder(feature_info, trans_model,
-                                nnet2_decoding_config, nnet, decode_fst,
-                                adaptation_state));
-    } else if (strcmp(cmd, "push-chunk\n") == 0) {
-      // Add a chunk of audio to the decoding pipeline.
-      //
-      // =Request=
-      // 1. chunk size in bytes (as ascii string)
-      // 2. newline
-      // 3. binary data as signed 16bit integer pcm
-      // =Reply=
-      // 1. "ok\n" upon completion
-      {
-        char chunk_len_str[100];
-        fgets(chunk_len_str, sizeof(chunk_len_str), stdin);
-        int chunk_len = atoi(chunk_len_str);
+    try {
+      if (method == "stop") {
+        RPCWriteReply(out_stream, STATUS_OK, "goodbye");
+        return 0;
 
-        std::vector<char> audio_chunk(chunk_len, 0);
-        std::cin.read(&audio_chunk[0], chunk_len);
+      } else if (method == "reset") {
+        // Reset all decoding state.
+        decoder.reset(new Decoder(feature_info, trans_model,
+                                  nnet2_decoding_config, nnet, decode_fst,
+                                  adaptation_state));
+        RPCWriteReply(out_stream, STATUS_OK, "");
 
-        int sample_count = chunk_len / 2;
+      } else if (method == "push-chunk") {
+        // Add a chunk of audio to the decoding pipeline.
+        int sample_count = body.size() / 2;
 
         Vector<BaseFloat> wave_part(sample_count);
         for (int i = 0; i < sample_count; i++) {
-          int16_t sample = *reinterpret_cast<int16_t*>(&audio_chunk[i * 2]);
+          int16_t sample = *reinterpret_cast<int16_t*>(&body[i * 2]);
           wave_part(i) = sample;
         }
 
         decoder->AddChunk(arate, wave_part);
+        RPCWriteReply(out_stream, STATUS_OK, "");
 
-        fprintf(stdout, "ok\n");
+      } else if (method == "get-partial") {
+        // Dump the provisional (non-word-aligned) transcript for the current
+        // lattice.
+
+        kaldi::Lattice partial_lat = decoder->GetBestPath();
+        Hypothesis partial = hypothesizer.GetPartial(partial_lat);
+        string serialized = MarshalHypothesis(partial);
+
+        RPCWriteReply(out_stream, STATUS_OK, serialized);
+
+      } else if (method == "get-final") {
+        // Dump the final, phone-aligned transcript for the current lattice.
+        kaldi::Lattice final_lat = decoder->GetBestPath();
+        Hypothesis final = hypothesizer.GetFull(final_lat);
+        string serialized = MarshalHypothesis(final);
+
+        RPCWriteReply(out_stream, STATUS_OK, serialized);
+
+      } else {
+        RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "unknown method");
+        continue;
       }
-    } else if (strcmp(cmd, "get-partial\n") == 0) {
-      // Dump the provisional (non-word-aligned) transcript for
-      // the current lattice.
-      //
-      // =Reply=
-      // 1. "word: " for every word
-      // 2. "ok\n" on completion
-      kaldi::Lattice partial_lat = decoder->GetBestPath();
-      Hypothesis partial = hypothesizer.GetPartial(partial_lat);
-      std::cout << MarshalHypothesis(partial);
-      fprintf(stdout, "ok\n");
-    } else if (strcmp(cmd, "get-final\n") == 0) {
-      // Dump the final, phone-aligned transcript for the
-      // current lattice.
-      //
-      // =Reply=
-      // 1. "phone: / duration:" for every phoneme
-      // 2. "word: / start: / duration:" for every word
-      // 3. "ok\n" on completion
-      decoder->Finalize();
-      kaldi::Lattice final_lat = decoder->GetBestPath();
-      Hypothesis final = hypothesizer.GetFull(final_lat);
-      std::cout << MarshalHypothesis(final);
-      fprintf(stdout, "ok\n");
-    } else {
-      fprintf(stdout, "unknown command\n");
+
+    } catch (const std::exception& e) {
+      RPCWriteReply(out_stream, STATUS_INTERNAL_SERVER_ERROR, e.what());
+      continue;
     }
   }
 
-  std::cerr << "Goodbye.\n";
   return 0;
 }
