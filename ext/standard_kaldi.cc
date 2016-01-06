@@ -318,8 +318,18 @@ kaldi::OnlineEndpointConfig DefaultEndpointConfig() {
 enum {
   STATUS_OK = 200,
   STATUS_BAD_REQUEST = 400,
+  STATUS_PRECONDITION_FAILED = 412,
   STATUS_INTERNAL_SERVER_ERROR = 500
 } RPCStatus;
+
+// Exception that contains a message and a status code
+// to return to the RPC client
+struct RPCException : public std::runtime_error {
+  int status_;
+  RPCException(std::string const& error,
+               int status = STATUS_INTERNAL_SERVER_ERROR)
+      : std::runtime_error(error), status_(status) {}
+};
 
 // Parse the method part of an RPC request. Returns false if the data is
 // malformed.
@@ -432,140 +442,144 @@ int main(int argc, char* argv[]) {
 
   std::cerr << "Loading...\n";
 
-  OnlineNnet2FeaturePipelineInfo feature_info;
-  SetDefaultFeatureInfo(&feature_info);
-  auto nnet2_decoding_config = DefaultDecodingConfig();
-  auto endpoint_config = DefaultEndpointConfig();
+  try {
+    OnlineNnet2FeaturePipelineInfo feature_info;
+    SetDefaultFeatureInfo(&feature_info);
+    auto nnet2_decoding_config = DefaultDecodingConfig();
+    auto endpoint_config = DefaultEndpointConfig();
 
-  BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
-  fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
+    BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
+    fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
 
-  // Load Hypothesizer data
-  WordBoundaryInfoNewOpts opts;  // use default opts
-  WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
-  std::unique_ptr<const fst::SymbolTable> word_syms(
-      fst::SymbolTable::ReadText(word_syms_filename));
-  std::unique_ptr<const fst::SymbolTable> phone_syms(
-      fst::SymbolTable::ReadText(phone_syms_filename));
+    // Load Hypothesizer data
+    WordBoundaryInfoNewOpts opts;  // use default opts
+    WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
+    std::unique_ptr<const fst::SymbolTable> word_syms(
+        fst::SymbolTable::ReadText(word_syms_filename));
+    std::unique_ptr<const fst::SymbolTable> phone_syms(
+        fst::SymbolTable::ReadText(phone_syms_filename));
 
-  // Load Decoder data
-  ReadKaldiObject(lda_mat_filename,
-                  &feature_info.ivector_extractor_info.lda_mat);
-  ReadKaldiObject(global_cmvn_stats_filename,
-                  &feature_info.ivector_extractor_info.global_cmvn_stats);
-  ReadKaldiObject(diag_ubm_filename,
-                  &feature_info.ivector_extractor_info.diag_ubm);
-  ReadKaldiObject(ivector_extractor_filename,
-                  &feature_info.ivector_extractor_info.extractor);
-  feature_info.ivector_extractor_info.Check();
-  TransitionModel trans_model;
-  nnet2::AmNnet nnet;
-  {
-    bool binary;
-    Input ki(nnet2_filename, &binary);
-    trans_model.Read(ki.Stream(), binary);
-    nnet.Read(ki.Stream(), binary);
-  }
-  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst;
-  // Optionally load an existing decoding graph if it exists
-  if (std::ifstream(hclg_filename.c_str())) {
-    hclg_fst.reset(ReadFstKaldi(hclg_filename));
-  }
-
-
-  Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
-                            word_syms.get(), phone_syms.get());
-
-  std::unique_ptr<TranscribeSession> current_session;
-
-
-  // Lazy load the session
-  auto get_session = [&]() -> TranscribeSession* {
-    TranscribeSession* session = current_session.get();
-    if (session != nullptr) {
-      return session;
+    // Load Decoder data
+    ReadKaldiObject(lda_mat_filename,
+                    &feature_info.ivector_extractor_info.lda_mat);
+    ReadKaldiObject(global_cmvn_stats_filename,
+                    &feature_info.ivector_extractor_info.global_cmvn_stats);
+    ReadKaldiObject(diag_ubm_filename,
+                    &feature_info.ivector_extractor_info.diag_ubm);
+    ReadKaldiObject(ivector_extractor_filename,
+                    &feature_info.ivector_extractor_info.extractor);
+    feature_info.ivector_extractor_info.Check();
+    TransitionModel trans_model;
+    nnet2::AmNnet nnet;
+    {
+      bool binary;
+      Input ki(nnet2_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      nnet.Read(ki.Stream(), binary);
     }
-    if (hclg_fst.get() == nullptr) {
-      throw "no model loaded";
-    }
-    current_session.reset(new TranscribeSession(feature_info, trans_model,
-                                    nnet2_decoding_config, nnet,
-                                    hclg_fst.get()));
-    return current_session.get();
-  };
-
-  RPCWriteReply(out_stream, STATUS_OK, "loaded");
-
-  while (!in_stream.eof()) {
-    string method;
-    vector<string> args;
-    vector<char> body;
-
-    if (!RPCReadMethod(in_stream, &method, &args)) {
-      RPCWriteReply(out_stream, STATUS_BAD_REQUEST,
-                    "malformed method '" + method + "'");
-      continue;
-    }
-    if (!RPCReadBody(in_stream, &body)) {
-      RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "malformed body");
-      continue;
+    std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst;
+    // Optionally load an existing decoding graph if it exists
+    if (std::ifstream(hclg_filename.c_str())) {
+      hclg_fst.reset(ReadFstKaldi(hclg_filename));
     }
 
-    try {
-      if (method == "stop") {
-        RPCWriteReply(out_stream, STATUS_OK, "goodbye");
-        return 0;
+    Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
+                              word_syms.get(), phone_syms.get());
 
-      } else if (method == "reset") {
-        // Reset all decoding state.
-        current_session.reset(nullptr);
-        RPCWriteReply(out_stream, STATUS_OK, "");
+    std::unique_ptr<TranscribeSession> current_session;
 
-      } else if (method == "push-chunk") {
-        // Add a chunk of audio to the decoding pipeline.
-        int sample_count = body.size() / 2;
+    // Lazy load the session
+    auto get_session = [&]() -> TranscribeSession * {
+      TranscribeSession* session = current_session.get();
+      if (session != nullptr) {
+        return session;
+      }
+      if (hclg_fst.get() == nullptr) {
+        throw RPCException("no model loaded", STATUS_PRECONDITION_FAILED);
+      }
+      current_session.reset(new TranscribeSession(feature_info, trans_model,
+                                                  nnet2_decoding_config, nnet,
+                                                  hclg_fst.get()));
+      return current_session.get();
+    };
 
-        Vector<BaseFloat> wave_part(sample_count);
-        for (int i = 0; i < sample_count; i++) {
-          int16_t sample = *reinterpret_cast<int16_t*>(&body[i * 2]);
-          wave_part(i) = sample;
-        }
+    RPCWriteReply(out_stream, STATUS_OK, "loaded");
 
-        auto session = get_session();
-        session->AddChunk(arate, wave_part);
-        RPCWriteReply(out_stream, STATUS_OK, "");
+    while (!in_stream.eof()) {
+      string method;
+      vector<string> args;
+      vector<char> body;
 
-      } else if (method == "get-partial") {
-        // Dump the provisional (non-word-aligned) transcript for the current
-        // lattice.
-
-        kaldi::Lattice partial_lat;
-        auto session = get_session();
-        session->GetLattice(false, &partial_lat);
-        Hypothesis partial = hypothesizer.GetPartial(partial_lat);
-        string serialized = MarshalHypothesis(partial);
-
-        RPCWriteReply(out_stream, STATUS_OK, serialized);
-
-      } else if (method == "get-final") {
-        // Dump the final, phone-aligned transcript for the current lattice.
-        kaldi::Lattice final_lat;
-        auto session = get_session();
-        session->GetLattice(true, &final_lat);
-        Hypothesis final = hypothesizer.GetFull(final_lat);
-        string serialized = MarshalHypothesis(final);
-
-        RPCWriteReply(out_stream, STATUS_OK, serialized);
-
-      } else {
-        RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "unknown method");
+      if (!RPCReadMethod(in_stream, &method, &args)) {
+        RPCWriteReply(out_stream, STATUS_BAD_REQUEST,
+                      "malformed method '" + method + "'");
         continue;
       }
-    } catch (const std::exception& e) {
-      RPCWriteReply(out_stream, STATUS_INTERNAL_SERVER_ERROR, e.what());
-      continue;
+      if (!RPCReadBody(in_stream, &body)) {
+        RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "malformed body");
+        continue;
+      }
+
+      try {
+        if (method == "stop") {
+          RPCWriteReply(out_stream, STATUS_OK, "goodbye");
+          return EXIT_SUCCESS;
+
+        } else if (method == "reset") {
+          // Reset all decoding state.
+          current_session.reset(nullptr);
+          RPCWriteReply(out_stream, STATUS_OK, "");
+
+        } else if (method == "push-chunk") {
+          // Add a chunk of audio to the decoding pipeline.
+          int sample_count = body.size() / 2;
+
+          Vector<BaseFloat> wave_part(sample_count);
+          for (int i = 0; i < sample_count; i++) {
+            int16_t sample = *reinterpret_cast<int16_t*>(&body[i * 2]);
+            wave_part(i) = sample;
+          }
+
+          auto session = get_session();
+          session->AddChunk(arate, wave_part);
+          RPCWriteReply(out_stream, STATUS_OK, "");
+
+        } else if (method == "get-partial") {
+          // Dump the provisional (non-word-aligned) transcript for the current
+          // lattice.
+
+          kaldi::Lattice partial_lat;
+          auto session = get_session();
+          session->GetLattice(false, &partial_lat);
+          Hypothesis partial = hypothesizer.GetPartial(partial_lat);
+          string serialized = MarshalHypothesis(partial);
+
+          RPCWriteReply(out_stream, STATUS_OK, serialized);
+
+        } else if (method == "get-final") {
+          // Dump the final, phone-aligned transcript for the current lattice.
+          kaldi::Lattice final_lat;
+          auto session = get_session();
+          session->GetLattice(true, &final_lat);
+          Hypothesis final = hypothesizer.GetFull(final_lat);
+          string serialized = MarshalHypothesis(final);
+
+          RPCWriteReply(out_stream, STATUS_OK, serialized);
+
+        } else {
+          RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "unknown method");
+          continue;
+        }
+      } catch (const std::exception& e) {
+        RPCWriteReply(out_stream, STATUS_INTERNAL_SERVER_ERROR, e.what());
+        continue;
+      }
     }
+
+  } catch (const std::exception& e) {
+    RPCWriteReply(out_stream, STATUS_INTERNAL_SERVER_ERROR, e.what());
+    return EXIT_FAILURE;
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }
