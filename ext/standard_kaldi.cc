@@ -295,8 +295,6 @@ void SetDefaultFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo* info) {
   // mfcc.conf
   info->mfcc_opts.frame_opts.samp_freq = arate;
   info->mfcc_opts.use_energy = false;
-
-  info->ivector_extractor_info.Check();
 }
 
 kaldi::OnlineNnet2DecodingConfig DefaultDecodingConfig() {
@@ -459,6 +457,7 @@ int main(int argc, char* argv[]) {
                   &feature_info.ivector_extractor_info.diag_ubm);
   ReadKaldiObject(ivector_extractor_filename,
                   &feature_info.ivector_extractor_info.extractor);
+  feature_info.ivector_extractor_info.Check();
   TransitionModel trans_model;
   nnet2::AmNnet nnet;
   {
