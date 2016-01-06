@@ -272,7 +272,7 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
   return ss.str();
 }
 
-void SetDefaultFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo *info) {
+void SetDefaultFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo* info) {
   // online_nnet2_decoding.conf
   info->feature_type = "mfcc";
 
@@ -432,35 +432,25 @@ int main(int argc, char* argv[]) {
 
   std::cerr << "Loading...\n";
 
+
   OnlineNnet2FeaturePipelineInfo feature_info;
   SetDefaultFeatureInfo(&feature_info);
   auto nnet2_decoding_config = DefaultDecodingConfig();
   auto endpoint_config = DefaultEndpointConfig();
 
-  WordBoundaryInfoNewOpts opts;  // use default opts
-  WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
-
   BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
   fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
 
-  TransitionModel trans_model;
 
-  nnet2::AmNnet nnet;
-  {
-    bool binary;
-    Input ki(nnet2_filename, &binary);
-    trans_model.Read(ki.Stream(), binary);
-    nnet.Read(ki.Stream(), binary);
-  }
-
-  // This one is much slower than the others.
-  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(hclg_filename);
-
+  // Load Hypothesizer data
+  WordBoundaryInfoNewOpts opts;  // use default opts
+  WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
   fst::SymbolTable* word_syms =
       fst::SymbolTable::ReadText(word_syms_filename);
   fst::SymbolTable* phone_syms =
       fst::SymbolTable::ReadText(phone_syms_filename);
 
+  // Load Decoder data
   ReadKaldiObject(lda_mat_filename,
                   &feature_info.ivector_extractor_info.lda_mat);
   ReadKaldiObject(global_cmvn_stats_filename,
@@ -469,15 +459,24 @@ int main(int argc, char* argv[]) {
                   &feature_info.ivector_extractor_info.diag_ubm);
   ReadKaldiObject(ivector_extractor_filename,
                   &feature_info.ivector_extractor_info.extractor);
+  TransitionModel trans_model;
+  nnet2::AmNnet nnet;
+  {
+    bool binary;
+    Input ki(nnet2_filename, &binary);
+    trans_model.Read(ki.Stream(), binary);
+    nnet.Read(ki.Stream(), binary);
+  }
+  // This one is much slower than the others.
+  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(hclg_filename);
 
-  OnlineSilenceWeighting silence_weighting(
-      trans_model, feature_info.silence_weighting_config);
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms, phone_syms);
 
   std::unique_ptr<TranscribeSession> session(new TranscribeSession(
       feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+
 
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
