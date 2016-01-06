@@ -102,8 +102,8 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
   kaldi::CompactLattice aligned_clat;
 
   std::vector<int32> words, times, lengths;
-  std::vector<std::vector<int32> > prons;
-  std::vector<std::vector<int32> > phone_lengths;
+  std::vector<std::vector<int32>> prons;
+  std::vector<std::vector<int32>> phone_lengths;
 
   WordAlignLattice(clat, *this->transition_model_, *this->word_boundary_info_,
                    0, &aligned_clat);
@@ -182,7 +182,7 @@ void TranscribeSession::AddChunk(
   this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
 
   // What does this do?
-  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights;
+  std::vector<std::pair<int32, kaldi::BaseFloat>> delta_weights;
   if (this->silence_weighting_.Active()) {
     this->silence_weighting_.ComputeCurrentTraceback(this->decoder_.Decoder());
     this->silence_weighting_.GetDeltaWeights(
@@ -420,18 +420,20 @@ int main(int argc, char* argv[]) {
 
   // Paths, paths, paths.
   const string diag_ubm_filename = nnet_dir + "/ivector_extractor/final.dubm";
-  const string global_cmvn_stats_filename = nnet_dir + "/ivector_extractor/global_cmvn.stats";
-  const string ivector_extractor_filename = nnet_dir + "/ivector_extractor/final.ie";
+  const string global_cmvn_stats_filename =
+      nnet_dir + "/ivector_extractor/global_cmvn.stats";
+  const string ivector_extractor_filename =
+      nnet_dir + "/ivector_extractor/final.ie";
   const string lda_mat_filename = nnet_dir + "/ivector_extractor/final.mat";
   const string nnet2_filename = proto_lang_dir + "/modeldir/final.mdl";
   const string phone_syms_filename = proto_lang_dir + "/langdir/phones.txt";
-  const string word_boundary_filename = proto_lang_dir + "/langdir/phones/word_boundary.int";
+  const string word_boundary_filename =
+      proto_lang_dir + "/langdir/phones/word_boundary.int";
   const string word_syms_filename = proto_lang_dir + "/langdir/words.txt";
 
   setbuf(stdout, NULL);
 
   std::cerr << "Loading...\n";
-
 
   OnlineNnet2FeaturePipelineInfo feature_info;
   SetDefaultFeatureInfo(&feature_info);
@@ -441,14 +443,13 @@ int main(int argc, char* argv[]) {
   BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
   fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
 
-
   // Load Hypothesizer data
   WordBoundaryInfoNewOpts opts;  // use default opts
   WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
-  fst::SymbolTable* word_syms =
-      fst::SymbolTable::ReadText(word_syms_filename);
-  fst::SymbolTable* phone_syms =
-      fst::SymbolTable::ReadText(phone_syms_filename);
+  std::unique_ptr<fst::SymbolTable> word_syms(
+      fst::SymbolTable::ReadText(word_syms_filename));
+  std::unique_ptr<fst::SymbolTable> phone_syms(
+      fst::SymbolTable::ReadText(phone_syms_filename));
 
   // Load Decoder data
   ReadKaldiObject(lda_mat_filename,
@@ -468,15 +469,13 @@ int main(int argc, char* argv[]) {
     nnet.Read(ki.Stream(), binary);
   }
   // This one is much slower than the others.
-  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(hclg_filename);
-
+  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst(ReadFstKaldi(hclg_filename));
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
-                            word_syms, phone_syms);
+                            word_syms.get(), phone_syms.get());
 
   std::unique_ptr<TranscribeSession> session(new TranscribeSession(
-      feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
-
+      feature_info, trans_model, nnet2_decoding_config, nnet, hclg_fst.get()));
 
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
@@ -507,7 +506,7 @@ int main(int argc, char* argv[]) {
         // Reset all decoding state.
         session.reset(new TranscribeSession(feature_info, trans_model,
                                             nnet2_decoding_config, nnet,
-                                            decode_fst));
+                                            hclg_fst.get()));
         RPCWriteReply(out_stream, STATUS_OK, "");
 
       } else if (method == "push-chunk") {
