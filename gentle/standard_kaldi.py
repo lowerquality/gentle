@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import subprocess
-import tempfile
 import wave
 
 from gentle import ffmpeg, prons
@@ -174,7 +173,6 @@ def read_wav(infile):
 def main():
     '''Transcribe the given input file using a standard_kaldi C++ subprocess.'''
     import sys
-    import json
 
     infile = sys.argv[1]
     outfile = sys.argv[2]

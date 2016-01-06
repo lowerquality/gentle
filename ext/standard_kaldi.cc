@@ -235,7 +235,7 @@ void Decoder::Finalize() {
 }
 
 // MarshalPhones serializes a list of phonemes as JSON
-std::string MarshalPhones(const vector<Phoneme> &phones) {
+std::string MarshalPhones(const vector<Phoneme>& phones) {
   std::stringstream ss;
 
   ss << "[";
