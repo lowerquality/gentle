@@ -6,14 +6,15 @@
 
 #include <stdlib.h>
 
-#include "online2/online-nnet2-decoding.h"
-#include "online2/onlinebin-util.h"
-#include "online2/online-timing.h"
-#include "online2/online-endpoint.h"
+#include "fst/script/compile.h"
 #include "fstext/fstext-lib.h"
+#include "hmm/hmm-utils.h"
 #include "lat/lattice-functions.h"
 #include "lat/word-align-lattice.h"
-#include "hmm/hmm-utils.h"
+#include "online2/online-endpoint.h"
+#include "online2/online-nnet2-decoding.h"
+#include "online2/online-timing.h"
+#include "online2/onlinebin-util.h"
 #include "thread/kaldi-thread.h"
 
 const int arate = 8000;
@@ -102,8 +103,8 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
   kaldi::CompactLattice aligned_clat;
 
   std::vector<int32> words, times, lengths;
-  std::vector<std::vector<int32> > prons;
-  std::vector<std::vector<int32> > phone_lengths;
+  std::vector<std::vector<int32>> prons;
+  std::vector<std::vector<int32>> phone_lengths;
 
   WordAlignLattice(clat, *this->transition_model_, *this->word_boundary_info_,
                    0, &aligned_clat);
@@ -147,7 +148,7 @@ class TranscribeSession {
 
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
-                      const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
+                const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
   // GetLattice outputs the session's lattice. If end_of_utterance is true
   // the lattice will contain final-probs.
   void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
@@ -182,7 +183,7 @@ void TranscribeSession::AddChunk(
   this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
 
   // What does this do?
-  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights;
+  std::vector<std::pair<int32, kaldi::BaseFloat>> delta_weights;
   if (this->silence_weighting_.Active()) {
     this->silence_weighting_.ComputeCurrentTraceback(this->decoder_.Decoder());
     this->silence_weighting_.GetDeltaWeights(
@@ -206,232 +207,513 @@ void TranscribeSession::GetLattice(bool end_of_utterance,
   this->decoder_.GetBestPath(end_of_utterance, lattice);
 }
 
-// MarshalHypothesis serializes a Hypothesis struct into the funky text
-// format we use to communicate with the Python code.
+// MarshalPhones serializes a list of phonemes as JSON
+std::string MarshalPhones(const vector<Phoneme>& phones) {
+  std::stringstream ss;
+
+  ss << "[";
+  for (int i = 0; i < phones.size(); i++) {
+    Phoneme phone = phones[i];
+    ss << "{" << std::endl;
+
+    ss << "\"phone\":\"" << phone.token << "\",";
+    if (phone.has_duration) {
+      ss << "\"duration\":" << phone.duration;
+    }
+
+    ss << "}";
+    if (i < phones.size() - 1) {
+      ss << ",";
+    }
+  }
+  ss << "]";
+
+  return ss.str();
+}
+
+// MarshalHypothesis serializes a Hypothesis struct as JSON
 std::string MarshalHypothesis(const Hypothesis& hypothesis) {
   std::stringstream ss;
 
+  Hypothesis no_eps;
   for (AlignedWord word : hypothesis) {
     if (word.token == "<eps>") {
       // Don't output anything for <eps> links, which correspond to silence....
       continue;
     }
+    no_eps.push_back(word);
+  }
 
-    ss << "word: " << word.token;
+  ss << "{\"hypothesis\":";
+  ss << "[";
+
+  for (int i = 0; i < no_eps.size(); i++) {
+    AlignedWord word = no_eps[i];
+
+    ss << "{";
+
+    ss << "\"word\":\"" << word.token << "\",";
     if (word.has_start) {
-      ss << " / start: " << word.start;
+      ss << "\"start\":" << word.start << ",";
     }
     if (word.has_duration) {
-      ss << " / duration: " << word.duration;
+      ss << "\"duration\":" << word.duration << ",";
     }
-    ss << std::endl;
+    ss << "\"phones\":" << MarshalPhones(word.phones);
 
-    for (Phoneme phone : word.phones) {
-      ss << "phone: " << phone.token;
-      if (phone.has_duration) {
-        ss << " / duration: " << phone.duration;
-      }
-      ss << std::endl;
+    ss << "}";
+    if (i < no_eps.size() - 1) {
+      ss << ",";
     }
   }
+
+  ss << "]";
+  ss << "}" << std::endl;
 
   return ss.str();
 }
 
+// Re-build the Kaldi decoding graph from its constituent parts.
+// We do this so we can restrict the language model while doing
+// forced alignment.
+//
+// More information on HCLG: http://kaldi.sourceforge.net/graph.html
+const fst::VectorFst<fst::StdArc> BuildHCLG(
+    const fst::VectorFst<fst::StdArc>& grammar_fst,
+    const fst::VectorFst<fst::StdArc>& lang_disambig_fst,
+    const kaldi::ContextDependency& ctx_dep,
+    const kaldi::TransitionModel& trans_model,
+    const std::vector<int32>& disambig_symbols) {
+  int32 N = 3, P = 1;
+  float transition_scale = 1.0;
+  float self_loop_scale = 0.1;
+  bool reverse = false;
 
-void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
-                       std::string ivector_model_dir) {
-  // online_nnet2_decoding.conf
-  info.feature_type = "mfcc";
+  // Build LG FST
+  if (lang_disambig_fst.Properties(fst::kOLabelSorted, true) == 0) {
+    KALDI_WARN << "L_disambig.fst is not olabel sorted.";
+  }
+  fst::TableComposeOptions table_opts;
+  fst::VectorFst<fst::StdArc> lg_fst;
+  fst::TableCompose(lang_disambig_fst, grammar_fst, &lg_fst, table_opts);
 
-  // ivector_extractor.conf
-  info.use_ivectors = true;
-  ReadKaldiObject(ivector_model_dir + "/final.mat",
-                  &info.ivector_extractor_info.lda_mat);
-  ReadKaldiObject(ivector_model_dir + "/global_cmvn.stats",
-                  &info.ivector_extractor_info.global_cmvn_stats);
-  ReadKaldiObject(ivector_model_dir + "/final.dubm",
-                  &info.ivector_extractor_info.diag_ubm);
-  ReadKaldiObject(ivector_model_dir + "/final.ie",
-                  &info.ivector_extractor_info.extractor);
-  info.ivector_extractor_info.greedy_ivector_extractor = true;
-  info.ivector_extractor_info.ivector_period = 10;
-  info.ivector_extractor_info.max_count = 0.0;
-  info.ivector_extractor_info.max_remembered_frames = 1000;
-  info.ivector_extractor_info.min_post = 0.025;
-  info.ivector_extractor_info.num_cg_iters = 15;
-  info.ivector_extractor_info.num_gselect = 5;
-  info.ivector_extractor_info.posterior_scale = 0.1;
-  info.ivector_extractor_info.use_most_recent_ivector = true;
+  ArcSort(&lg_fst, fst::ILabelCompare<fst::StdArc>());
+  int max_states = -1;
+  bool debug_location = false;
+  DeterminizeStarInLog(&lg_fst, fst::kDelta, &debug_location, max_states);
 
-  // splice.conf
-  info.ivector_extractor_info.splice_opts.left_context = 3;
-  info.ivector_extractor_info.splice_opts.right_context = 3;
+  MinimizeEncoded(&lg_fst, fst::kDelta);
 
-  // mfcc.conf
-  info.mfcc_opts.frame_opts.samp_freq = arate;
-  info.mfcc_opts.use_energy = false;
+  ArcSort(&lg_fst, fst::ILabelCompare<fst::StdArc>());
 
-  info.ivector_extractor_info.Check();
+  fst::StdArc::Weight min, max;
+  if (!IsStochasticFst(lg_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: LG not stochastic." << std::endl;
+  }
+
+  // Build CLG FST
+  std::vector<std::vector<int32>> ilabels;
+  fst::VectorFst<fst::StdArc> clg_fst;
+  std::vector<int32>& hack_disambig_nonconst =
+      const_cast<std::vector<int32>&>(disambig_symbols);
+  fst::ComposeContext(hack_disambig_nonconst, N, P, &lg_fst, &clg_fst,
+                      &ilabels);
+
+  ArcSort(&clg_fst, fst::ILabelCompare<fst::StdArc>());
+
+  if (!IsStochasticFst(clg_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: CLG not stochastic." << std::endl;
+  }
+
+  // Build HCLGa FST
+  kaldi::HTransducerConfig hcfg;
+  hcfg.transition_scale = transition_scale;
+  if (reverse) {
+    hcfg.reverse = true;
+    hcfg.push_weights = true;
+  }
+  std::vector<int32> disambig_tid;
+  fst::VectorFst<fst::StdArc>* ha_fst =
+      GetHTransducer(ilabels, ctx_dep, trans_model, hcfg, &disambig_tid);
+
+  fst::VectorFst<fst::StdArc> hclga_fst;
+  fst::TableComposeOptions hclga_table_opts;
+  TableCompose(*ha_fst, clg_fst, &hclga_fst, hclga_table_opts);
+
+  ArcSort(&hclga_fst, fst::ILabelCompare<fst::StdArc>());
+  DeterminizeStarInLog(&hclga_fst, fst::kDelta, &debug_location, max_states);
+
+  RemoveSomeInputSymbols(disambig_tid, &hclga_fst);
+
+  RemoveEpsLocal(&hclga_fst);
+
+  MinimizeEncoded(&hclga_fst, fst::kDelta);
+
+  if (!IsStochasticFst(hclga_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: HCLGa is not stochastic." << std::endl;
+  }
+
+  // Build HCLG FST
+  fst::VectorFst<fst::StdArc>& hclg_fst = hclga_fst;  // rewrites in place
+
+  std::vector<int32> null_disambig_syms;
+  AddSelfLoops(trans_model, null_disambig_syms, self_loop_scale, true,
+               &hclg_fst);
+
+  if (transition_scale == 1.0 && self_loop_scale == 1.0 &&
+      !IsStochasticFst(hclg_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: final HCLG is not stochastic." << std::endl;
+  }
+
+  return hclg_fst;
 }
 
-void ConfigDecoding(kaldi::OnlineNnet2DecodingConfig& config) {
+void SetDefaultFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo* info) {
+  // online_nnet2_decoding.conf
+  info->feature_type = "mfcc";
+
+  // ivector_extractor.conf
+  info->use_ivectors = true;
+  info->ivector_extractor_info.greedy_ivector_extractor = true;
+  info->ivector_extractor_info.ivector_period = 10;
+  info->ivector_extractor_info.max_count = 0.0;
+  info->ivector_extractor_info.max_remembered_frames = 1000;
+  info->ivector_extractor_info.min_post = 0.025;
+  info->ivector_extractor_info.num_cg_iters = 15;
+  info->ivector_extractor_info.num_gselect = 5;
+  info->ivector_extractor_info.posterior_scale = 0.1;
+  info->ivector_extractor_info.use_most_recent_ivector = true;
+
+  // splice.conf
+  info->ivector_extractor_info.splice_opts.left_context = 3;
+  info->ivector_extractor_info.splice_opts.right_context = 3;
+
+  // mfcc.conf
+  info->mfcc_opts.frame_opts.samp_freq = arate;
+  info->mfcc_opts.use_energy = false;
+}
+
+kaldi::OnlineNnet2DecodingConfig DefaultDecodingConfig() {
+  kaldi::OnlineNnet2DecodingConfig config;
+
   config.decodable_opts.acoustic_scale = 0.1;
   config.decoder_opts.lattice_beam = 6.0;
   config.decoder_opts.beam = 15.0;
   config.decoder_opts.max_active = 7000;
+
+  return config;
 }
 
-void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
+kaldi::OnlineEndpointConfig DefaultEndpointConfig() {
+  kaldi::OnlineEndpointConfig config;
   config.silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
+  return config;
 }
 
-void usage() {
-  fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
+// The status codes used by the RPC. Maps to HTTP status codes.
+enum {
+  STATUS_OK = 200,
+  STATUS_BAD_REQUEST = 400,
+  STATUS_PRECONDITION_FAILED = 412,
+  STATUS_INTERNAL_SERVER_ERROR = 500
+} RPCStatus;
+
+// Exception that contains a message and a status code
+// to return to the RPC client
+struct RPCException : public std::runtime_error {
+  int status_;
+  RPCException(std::string const& error,
+               int status = STATUS_INTERNAL_SERVER_ERROR)
+      : std::runtime_error(error), status_(status) {}
+};
+
+// Parse the method part of an RPC request. Returns false if the data is
+// malformed.
+//
+// Methods have this form:
+//   METHOD <ARG1> <ARG2> ... <ARGN>\n
+bool RPCReadMethod(std::istream& stream, string* method, vector<string>* args) {
+  std::string line;
+  if (!std::getline(stream, line)) {
+    return false;
+  }
+  std::stringstream ss(line);
+
+  if (!(ss >> *method)) {
+    return false;
+  }
+
+  string buf;
+  while (ss >> buf) {
+    args->push_back(buf);
+  }
+
+  return true;
+}
+
+// Parse the body part of an RPC request. Returns false if the data is
+// malformed.
+//
+// Bodies have this form:
+//   BODY_SIZE\n
+//   BODY\n
+bool RPCReadBody(std::istream& stream, vector<char>* body) {
+  string line;
+  if (!std::getline(stream, line)) {
+    return false;
+  }
+  std::stringstream ss(line);
+
+  size_t body_size;
+  if (!(ss >> body_size)) {
+    return false;
+  }
+
+  body->resize(body_size);
+  if (!stream.read(&body->front(), body_size)) {
+    return false;
+  }
+
+  char trailing_newline;
+  if (!stream.get(trailing_newline)) {
+    return false;
+  }
+
+  return true;
+}
+
+// Write the reply part of the RPC.
+//
+// Replies have this form:
+//   STATUS\n
+//   BODY_SIZE\n
+//   BODY\n
+void RPCWriteReply(std::ostream& stream,
+                   const int& status,
+                   const vector<char>& body) {
+  stream << status << std::endl;
+  stream << body.size() << std::endl;
+  stream.write(&body[0], body.size());
+  stream << std::endl;
+}
+
+// Write the reply part of the RPC. Same as the above but accepts strings.
+void RPCWriteReply(std::ostream& stream,
+                   const int& status,
+                   const string& body_str) {
+  vector<char> body(body_str.begin(), body_str.end());
+  RPCWriteReply(stream, status, body);
 }
 
 int main(int argc, char* argv[]) {
   using namespace kaldi;
   using namespace fst;
 
+  std::ostream& out_stream = std::cout;
+  std::istream& in_stream = std::cin;
+  setbuf(stdout, NULL);
+
   if (argc != 4) {
-    usage();
+    string usage = "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir";
+    RPCWriteReply(out_stream, STATUS_BAD_REQUEST, usage);
     return EXIT_FAILURE;
   }
 
   const string nnet_dir = argv[1];
-  const string fst_rxfilename = argv[2];
+  const string hclg_filename = argv[2];
   const string proto_lang_dir = argv[3];
 
-  const string ivector_model_dir = nnet_dir + "/ivector_extractor";
-  const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
-  const string word_syms_rxfilename = proto_lang_dir + "/langdir/words.txt";
-  const string phone_syms_rxfilename = proto_lang_dir + "/langdir/phones.txt";
+  // Paths, paths, paths.
+  const string ctx_dep_filename = proto_lang_dir + "/modeldir/tree";
+  const string diag_ubm_filename = nnet_dir + "/ivector_extractor/final.dubm";
+  const string disambig_phones_filename =
+      proto_lang_dir + "/langdir/phones/disambig.int";
+  const string global_cmvn_stats_filename =
+      nnet_dir + "/ivector_extractor/global_cmvn.stats";
+  const string ivector_extractor_filename =
+      nnet_dir + "/ivector_extractor/final.ie";
+  const string lang_disambig_fst_filename =
+      proto_lang_dir + "/langdir/L_disambig.fst";
+  const string lda_mat_filename = nnet_dir + "/ivector_extractor/final.mat";
+  const string nnet2_filename = proto_lang_dir + "/modeldir/final.mdl";
+  const string phone_syms_filename = proto_lang_dir + "/langdir/phones.txt";
   const string word_boundary_filename =
       proto_lang_dir + "/langdir/phones/word_boundary.int";
-
-  setbuf(stdout, NULL);
+  const string word_syms_filename = proto_lang_dir + "/langdir/words.txt";
 
   std::cerr << "Loading...\n";
 
-  OnlineNnet2FeaturePipelineInfo feature_info;
-  ConfigFeatureInfo(feature_info, ivector_model_dir);
-  OnlineNnet2DecodingConfig nnet2_decoding_config;
-  ConfigDecoding(nnet2_decoding_config);
-  OnlineEndpointConfig endpoint_config;
-  ConfigEndpoint(endpoint_config);
+  try {
+    OnlineNnet2FeaturePipelineInfo feature_info;
+    SetDefaultFeatureInfo(&feature_info);
+    auto nnet2_decoding_config = DefaultDecodingConfig();
+    auto endpoint_config = DefaultEndpointConfig();
 
-  WordBoundaryInfoNewOpts opts;  // use default opts
-  WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
+    BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
+    fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
 
-  BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
-  fprintf(stderr, "Frame shift is %f secs.\n", frame_shift);
+    // Load Hypothesizer data
+    WordBoundaryInfoNewOpts opts;  // use default opts
+    WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
+    std::unique_ptr<const fst::SymbolTable> word_syms(
+        fst::SymbolTable::ReadText(word_syms_filename));
+    std::unique_ptr<const fst::SymbolTable> phone_syms(
+        fst::SymbolTable::ReadText(phone_syms_filename));
 
-  TransitionModel trans_model;
+    // Load BuildHCLG data
+    std::unique_ptr<const VectorFst<StdArc>> lang_disambig_fst(
+        ReadFstKaldi(lang_disambig_fst_filename));
+    if (lang_disambig_fst->Properties(fst::kOLabelSorted, true) == 0) {
+      KALDI_WARN << "L_disambig.fst is not olabel sorted.";
+    }
+    std::vector<int32> disambig_symbols;
+    ReadIntegerVectorSimple(disambig_phones_filename, &disambig_symbols);
+    if (disambig_symbols.empty()) {
+      KALDI_WARN << "Disambiguation symbols list is empty; this likely "
+                 << "indicates an error in data preparation.";
+    }
+    ContextDependency ctx_dep;
+    ReadKaldiObject(ctx_dep_filename, &ctx_dep);
 
-  nnet2::AmNnet nnet;
-  {
-    bool binary;
-    Input ki(nnet2_rxfilename, &binary);
-    trans_model.Read(ki.Stream(), binary);
-    nnet.Read(ki.Stream(), binary);
-  }
-
-  // This one is much slower than the others.
-  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(fst_rxfilename);
-
-  fst::SymbolTable* word_syms =
-      fst::SymbolTable::ReadText(word_syms_rxfilename);
-  fst::SymbolTable* phone_syms =
-      fst::SymbolTable::ReadText(phone_syms_rxfilename);
-
-  std::cerr << "Loaded!\n";
-
-  OnlineSilenceWeighting silence_weighting(
-      trans_model, feature_info.silence_weighting_config);
-
-  Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
-                            word_syms, phone_syms);
-
-  std::unique_ptr<TranscribeSession> session(new TranscribeSession(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
-
-  char cmd[1024];
-
-  while (fgets(cmd, sizeof(cmd), stdin)) {
-    if (strcmp(cmd, "stop\n") == 0) {
-      // Quit the program.
-      break;
+    // Load Decoder data
+    ReadKaldiObject(lda_mat_filename,
+                    &feature_info.ivector_extractor_info.lda_mat);
+    ReadKaldiObject(global_cmvn_stats_filename,
+                    &feature_info.ivector_extractor_info.global_cmvn_stats);
+    ReadKaldiObject(diag_ubm_filename,
+                    &feature_info.ivector_extractor_info.diag_ubm);
+    ReadKaldiObject(ivector_extractor_filename,
+                    &feature_info.ivector_extractor_info.extractor);
+    feature_info.ivector_extractor_info.Check();
+    TransitionModel trans_model;
+    nnet2::AmNnet nnet;
+    {
+      bool binary;
+      Input ki(nnet2_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      nnet.Read(ki.Stream(), binary);
+    }
+    std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst;
+    // Optionally load an existing decoding graph if it exists
+    if (std::ifstream(hclg_filename.c_str())) {
+      hclg_fst.reset(ReadFstKaldi(hclg_filename));
     }
 
-    else if (strcmp(cmd, "reset\n") == 0) {
-      // Reset all decoding state.
-      //
-      // =Reply=
-      // 1. No reply
-      session.reset(new TranscribeSession(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
-    } else if (strcmp(cmd, "push-chunk\n") == 0) {
-      // Add a chunk of audio to the decoding pipeline.
-      //
-      // =Request=
-      // 1. chunk size in bytes (as ascii string)
-      // 2. newline
-      // 3. binary data as signed 16bit integer pcm
-      // =Reply=
-      // 1. "ok\n" upon completion
-      {
-        char chunk_len_str[100];
-        fgets(chunk_len_str, sizeof(chunk_len_str), stdin);
-        int chunk_len = atoi(chunk_len_str);
+    Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
+                              word_syms.get(), phone_syms.get());
 
-        std::vector<char> audio_chunk(chunk_len, 0);
-        std::cin.read(&audio_chunk[0], chunk_len);
+    std::unique_ptr<TranscribeSession> current_session;
 
-        int sample_count = chunk_len / 2;
-
-        Vector<BaseFloat> wave_part(sample_count);
-        for (int i = 0; i < sample_count; i++) {
-          int16_t sample = *reinterpret_cast<int16_t*>(&audio_chunk[i * 2]);
-          wave_part(i) = sample;
-        }
-
-        session->AddChunk(arate, wave_part);
-
-        fprintf(stdout, "ok\n");
+    // Lazy load the session
+    auto get_session = [&]() -> TranscribeSession * {
+      TranscribeSession* session = current_session.get();
+      if (session != nullptr) {
+        return session;
       }
-    } else if (strcmp(cmd, "get-partial\n") == 0) {
-      // Dump the provisional (non-word-aligned) transcript for
-      // the current lattice.
-      //
-      // =Reply=
-      // 1. "word: " for every word
-      // 2. "ok\n" on completion
+      if (hclg_fst.get() == nullptr) {
+        throw RPCException("no model loaded", STATUS_PRECONDITION_FAILED);
+      }
+      current_session.reset(new TranscribeSession(feature_info, trans_model,
+                                                  nnet2_decoding_config, nnet,
+                                                  hclg_fst.get()));
+      return current_session.get();
+    };
 
-      kaldi::Lattice partial_lat;
-      session->GetLattice(false, &partial_lat);
-      Hypothesis partial = hypothesizer.GetPartial(partial_lat);
-      std::cout << MarshalHypothesis(partial);
-      fprintf(stdout, "ok\n");
-    } else if (strcmp(cmd, "get-final\n") == 0) {
-      // Dump the final, phone-aligned transcript for the
-      // current lattice.
-      //
-      // =Reply=
-      // 1. "phone: / duration:" for every phoneme
-      // 2. "word: / start: / duration:" for every word
-      // 3. "ok\n" on completion
+    RPCWriteReply(out_stream, STATUS_OK, "loaded");
 
-      kaldi::Lattice final_lat;
-      session->GetLattice(true, &final_lat);
-      Hypothesis final = hypothesizer.GetFull(final_lat);
-      std::cout << MarshalHypothesis(final);
-      fprintf(stdout, "ok\n");
-    } else {
-      fprintf(stdout, "unknown command\n");
+    while (!in_stream.eof()) {
+      string method;
+      vector<string> args;
+      vector<char> body;
+
+      if (!RPCReadMethod(in_stream, &method, &args)) {
+        RPCWriteReply(out_stream, STATUS_BAD_REQUEST,
+                      "malformed method '" + method + "'");
+        continue;
+      }
+      if (!RPCReadBody(in_stream, &body)) {
+        RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "malformed body");
+        continue;
+      }
+
+      try {
+        if (method == "stop") {
+          RPCWriteReply(out_stream, STATUS_OK, "goodbye");
+          return EXIT_SUCCESS;
+
+        } else if (method == "reset") {
+          // Reset all decoding state.
+          current_session.reset(nullptr);
+          RPCWriteReply(out_stream, STATUS_OK, "");
+
+        } else if (method == "make-model") {
+          // Make a new model using the grammar provided in body.
+          // It will be used the next time the decoder is reset.
+          fst::SymbolTableTextOptions opts;
+
+          std::stringstream body_stream(body.data());
+
+          fst::FstCompiler<fst::StdArc> fstcompiler(
+              body_stream, "", word_syms.get(), word_syms.get(), nullptr, false,
+              false, false, false, false);
+          VectorFst<StdArc> grammar_fst = fstcompiler.Fst();
+
+          hclg_fst.reset(new VectorFst<StdArc>(
+              BuildHCLG(grammar_fst, *lang_disambig_fst, ctx_dep, trans_model,
+                        disambig_symbols)));
+
+          RPCWriteReply(out_stream, STATUS_OK, "");
+
+        } else if (method == "push-chunk") {
+          // Add a chunk of audio to the decoding pipeline.
+          int sample_count = body.size() / 2;
+
+          Vector<BaseFloat> wave_part(sample_count);
+          for (int i = 0; i < sample_count; i++) {
+            int16_t sample = *reinterpret_cast<int16_t*>(&body[i * 2]);
+            wave_part(i) = sample;
+          }
+
+          auto session = get_session();
+          session->AddChunk(arate, wave_part);
+          RPCWriteReply(out_stream, STATUS_OK, "");
+
+        } else if (method == "get-partial") {
+          // Dump the provisional (non-word-aligned) transcript for the current
+          // lattice.
+
+          kaldi::Lattice partial_lat;
+          auto session = get_session();
+          session->GetLattice(false, &partial_lat);
+          Hypothesis partial = hypothesizer.GetPartial(partial_lat);
+          string serialized = MarshalHypothesis(partial);
+
+          RPCWriteReply(out_stream, STATUS_OK, serialized);
+
+        } else if (method == "get-final") {
+          // Dump the final, phone-aligned transcript for the current lattice.
+          kaldi::Lattice final_lat;
+          auto session = get_session();
+          session->GetLattice(true, &final_lat);
+          Hypothesis final = hypothesizer.GetFull(final_lat);
+          string serialized = MarshalHypothesis(final);
+
+          RPCWriteReply(out_stream, STATUS_OK, serialized);
+
+        } else {
+          RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "unknown method");
+          continue;
+        }
+      } catch (const std::exception& e) {
+        RPCWriteReply(out_stream, STATUS_INTERNAL_SERVER_ERROR, e.what());
+        continue;
+      }
     }
+
+  } catch (const std::exception& e) {
+    RPCWriteReply(out_stream, STATUS_INTERNAL_SERVER_ERROR, e.what());
+    return EXIT_FAILURE;
   }
 
-  std::cerr << "Goodbye.\n";
-  return 0;
+  return EXIT_SUCCESS;
 }
