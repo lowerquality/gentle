@@ -4,7 +4,7 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include $(KALDI_BASE)kaldi.mk
 
-BINFILES = standard_kaldi mkgraph
+BINFILES = standard_kaldi
 
 OBJFILES =
 

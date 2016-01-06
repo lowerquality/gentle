@@ -6,14 +6,15 @@
 
 #include <stdlib.h>
 
-#include "online2/online-nnet2-decoding.h"
-#include "online2/onlinebin-util.h"
-#include "online2/online-timing.h"
-#include "online2/online-endpoint.h"
+#include "fst/script/compile.h"
 #include "fstext/fstext-lib.h"
+#include "hmm/hmm-utils.h"
 #include "lat/lattice-functions.h"
 #include "lat/word-align-lattice.h"
-#include "hmm/hmm-utils.h"
+#include "online2/online-endpoint.h"
+#include "online2/online-nnet2-decoding.h"
+#include "online2/online-timing.h"
+#include "online2/onlinebin-util.h"
 #include "thread/kaldi-thread.h"
 
 const int arate = 8000;
@@ -272,6 +273,101 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
   return ss.str();
 }
 
+// Re-build the Kaldi decoding graph from its constituent parts.
+// We do this so we can restrict the language model while doing
+// forced alignment.
+//
+// More information on HCLG: http://kaldi.sourceforge.net/graph.html
+const fst::VectorFst<fst::StdArc> BuildHCLG(
+    const fst::VectorFst<fst::StdArc>& grammar_fst,
+    const fst::VectorFst<fst::StdArc>& lang_disambig_fst,
+    const kaldi::ContextDependency& ctx_dep,
+    const kaldi::TransitionModel& trans_model,
+    const std::vector<int32>& disambig_symbols) {
+  int32 N = 3, P = 1;
+  float transition_scale = 1.0;
+  float self_loop_scale = 0.1;
+  bool reverse = false;
+
+  // Build LG FST
+  if (lang_disambig_fst.Properties(fst::kOLabelSorted, true) == 0) {
+    KALDI_WARN << "L_disambig.fst is not olabel sorted.";
+  }
+  fst::TableComposeOptions table_opts;
+  fst::VectorFst<fst::StdArc> lg_fst;
+  fst::TableCompose(lang_disambig_fst, grammar_fst, &lg_fst, table_opts);
+
+  ArcSort(&lg_fst, fst::ILabelCompare<fst::StdArc>());
+  int max_states = -1;
+  bool debug_location = false;
+  DeterminizeStarInLog(&lg_fst, fst::kDelta, &debug_location, max_states);
+
+  MinimizeEncoded(&lg_fst, fst::kDelta);
+
+  ArcSort(&lg_fst, fst::ILabelCompare<fst::StdArc>());
+
+  fst::StdArc::Weight min, max;
+  if (!IsStochasticFst(lg_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: LG not stochastic." << std::endl;
+  }
+
+  // Build CLG FST
+  std::vector<std::vector<int32>> ilabels;
+  fst::VectorFst<fst::StdArc> clg_fst;
+  std::vector<int32>& hack_disambig_nonconst =
+      const_cast<std::vector<int32>&>(disambig_symbols);
+  fst::ComposeContext(hack_disambig_nonconst, N, P, &lg_fst, &clg_fst,
+                      &ilabels);
+
+  ArcSort(&clg_fst, fst::ILabelCompare<fst::StdArc>());
+
+  if (!IsStochasticFst(clg_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: CLG not stochastic." << std::endl;
+  }
+
+  // Build HCLGa FST
+  kaldi::HTransducerConfig hcfg;
+  hcfg.transition_scale = transition_scale;
+  if (reverse) {
+    hcfg.reverse = true;
+    hcfg.push_weights = true;
+  }
+  std::vector<int32> disambig_tid;
+  fst::VectorFst<fst::StdArc>* ha_fst =
+      GetHTransducer(ilabels, ctx_dep, trans_model, hcfg, &disambig_tid);
+
+  fst::VectorFst<fst::StdArc> hclga_fst;
+  fst::TableComposeOptions hclga_table_opts;
+  TableCompose(*ha_fst, clg_fst, &hclga_fst, hclga_table_opts);
+
+  ArcSort(&hclga_fst, fst::ILabelCompare<fst::StdArc>());
+  DeterminizeStarInLog(&hclga_fst, fst::kDelta, &debug_location, max_states);
+
+  RemoveSomeInputSymbols(disambig_tid, &hclga_fst);
+
+  RemoveEpsLocal(&hclga_fst);
+
+  MinimizeEncoded(&hclga_fst, fst::kDelta);
+
+  if (!IsStochasticFst(hclga_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: HCLGa is not stochastic." << std::endl;
+  }
+
+  // Build HCLG FST
+  fst::VectorFst<fst::StdArc>& hclg_fst = hclga_fst;  // rewrites in place
+
+  std::vector<int32> null_disambig_syms;
+  AddSelfLoops(trans_model, null_disambig_syms, self_loop_scale, true,
+               &hclg_fst);
+
+  if (transition_scale == 1.0 && self_loop_scale == 1.0 &&
+      !IsStochasticFst(hclg_fst, 0.01, &min, &max)) {
+    std::cerr << "[info]: final HCLG is not stochastic." << std::endl;
+  }
+
+  return hclg_fst;
+}
+
 void SetDefaultFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo* info) {
   // online_nnet2_decoding.conf
   info->feature_type = "mfcc";
@@ -428,11 +524,16 @@ int main(int argc, char* argv[]) {
   const string proto_lang_dir = argv[3];
 
   // Paths, paths, paths.
+  const string ctx_dep_filename = proto_lang_dir + "/modeldir/tree";
   const string diag_ubm_filename = nnet_dir + "/ivector_extractor/final.dubm";
+  const string disambig_phones_filename =
+      proto_lang_dir + "/langdir/phones/disambig.int";
   const string global_cmvn_stats_filename =
       nnet_dir + "/ivector_extractor/global_cmvn.stats";
   const string ivector_extractor_filename =
       nnet_dir + "/ivector_extractor/final.ie";
+  const string lang_disambig_fst_filename =
+      proto_lang_dir + "/langdir/L_disambig.fst";
   const string lda_mat_filename = nnet_dir + "/ivector_extractor/final.mat";
   const string nnet2_filename = proto_lang_dir + "/modeldir/final.mdl";
   const string phone_syms_filename = proto_lang_dir + "/langdir/phones.txt";
@@ -458,6 +559,21 @@ int main(int argc, char* argv[]) {
         fst::SymbolTable::ReadText(word_syms_filename));
     std::unique_ptr<const fst::SymbolTable> phone_syms(
         fst::SymbolTable::ReadText(phone_syms_filename));
+
+    // Load BuildHCLG data
+    std::unique_ptr<const VectorFst<StdArc>> lang_disambig_fst(
+        ReadFstKaldi(lang_disambig_fst_filename));
+    if (lang_disambig_fst->Properties(fst::kOLabelSorted, true) == 0) {
+      KALDI_WARN << "L_disambig.fst is not olabel sorted.";
+    }
+    std::vector<int32> disambig_symbols;
+    ReadIntegerVectorSimple(disambig_phones_filename, &disambig_symbols);
+    if (disambig_symbols.empty()) {
+      KALDI_WARN << "Disambiguation symbols list is empty; this likely "
+                 << "indicates an error in data preparation.";
+    }
+    ContextDependency ctx_dep;
+    ReadKaldiObject(ctx_dep_filename, &ctx_dep);
 
     // Load Decoder data
     ReadKaldiObject(lda_mat_filename,
@@ -528,6 +644,24 @@ int main(int argc, char* argv[]) {
         } else if (method == "reset") {
           // Reset all decoding state.
           current_session.reset(nullptr);
+          RPCWriteReply(out_stream, STATUS_OK, "");
+
+        } else if (method == "make-model") {
+          // Make a new model using the grammar provided in body.
+          // It will be used the next time the decoder is reset.
+          fst::SymbolTableTextOptions opts;
+
+          std::stringstream body_stream(body.data());
+
+          fst::FstCompiler<fst::StdArc> fstcompiler(
+              body_stream, "", word_syms.get(), word_syms.get(), nullptr, false,
+              false, false, false, false);
+          VectorFst<StdArc> grammar_fst = fstcompiler.Fst();
+
+          hclg_fst.reset(new VectorFst<StdArc>(
+              BuildHCLG(grammar_fst, *lang_disambig_fst, ctx_dep, trans_model,
+                        disambig_symbols)));
+
           RPCWriteReply(out_stream, STATUS_OK, "");
 
         } else if (method == "push-chunk") {
