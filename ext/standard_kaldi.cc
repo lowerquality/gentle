@@ -468,14 +468,33 @@ int main(int argc, char* argv[]) {
     trans_model.Read(ki.Stream(), binary);
     nnet.Read(ki.Stream(), binary);
   }
-  // This one is much slower than the others.
-  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst(ReadFstKaldi(hclg_filename));
+  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst;
+  // Optionally load an existing decoding graph if it exists
+  if (std::ifstream(hclg_filename.c_str())) {
+    hclg_fst.reset(ReadFstKaldi(hclg_filename));
+  }
+
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms.get(), phone_syms.get());
 
-  std::unique_ptr<TranscribeSession> session(new TranscribeSession(
-      feature_info, trans_model, nnet2_decoding_config, nnet, hclg_fst.get()));
+  std::unique_ptr<TranscribeSession> current_session;
+
+
+  // Lazy load the session
+  auto get_session = [&]() -> TranscribeSession* {
+    TranscribeSession* session = current_session.get();
+    if (session != nullptr) {
+      return session;
+    }
+    if (hclg_fst.get() == nullptr) {
+      throw "no model loaded";
+    }
+    current_session.reset(new TranscribeSession(feature_info, trans_model,
+                                    nnet2_decoding_config, nnet,
+                                    hclg_fst.get()));
+    return current_session.get();
+  };
 
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
@@ -504,9 +523,7 @@ int main(int argc, char* argv[]) {
 
       } else if (method == "reset") {
         // Reset all decoding state.
-        session.reset(new TranscribeSession(feature_info, trans_model,
-                                            nnet2_decoding_config, nnet,
-                                            hclg_fst.get()));
+        current_session.reset(nullptr);
         RPCWriteReply(out_stream, STATUS_OK, "");
 
       } else if (method == "push-chunk") {
@@ -519,6 +536,7 @@ int main(int argc, char* argv[]) {
           wave_part(i) = sample;
         }
 
+        auto session = get_session();
         session->AddChunk(arate, wave_part);
         RPCWriteReply(out_stream, STATUS_OK, "");
 
@@ -527,6 +545,7 @@ int main(int argc, char* argv[]) {
         // lattice.
 
         kaldi::Lattice partial_lat;
+        auto session = get_session();
         session->GetLattice(false, &partial_lat);
         Hypothesis partial = hypothesizer.GetPartial(partial_lat);
         string serialized = MarshalHypothesis(partial);
@@ -536,6 +555,7 @@ int main(int argc, char* argv[]) {
       } else if (method == "get-final") {
         // Dump the final, phone-aligned transcript for the current lattice.
         kaldi::Lattice final_lat;
+        auto session = get_session();
         session->GetLattice(true, &final_lat);
         Hypothesis final = hypothesizer.GetFull(final_lat);
         string serialized = MarshalHypothesis(final);
