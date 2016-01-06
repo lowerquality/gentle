@@ -272,21 +272,12 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
   return ss.str();
 }
 
-void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
-                       std::string ivector_model_dir) {
+void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info) {
   // online_nnet2_decoding.conf
   info.feature_type = "mfcc";
 
   // ivector_extractor.conf
   info.use_ivectors = true;
-  ReadKaldiObject(ivector_model_dir + "/final.mat",
-                  &info.ivector_extractor_info.lda_mat);
-  ReadKaldiObject(ivector_model_dir + "/global_cmvn.stats",
-                  &info.ivector_extractor_info.global_cmvn_stats);
-  ReadKaldiObject(ivector_model_dir + "/final.dubm",
-                  &info.ivector_extractor_info.diag_ubm);
-  ReadKaldiObject(ivector_model_dir + "/final.ie",
-                  &info.ivector_extractor_info.extractor);
   info.ivector_extractor_info.greedy_ivector_extractor = true;
   info.ivector_extractor_info.ivector_period = 10;
   info.ivector_extractor_info.max_count = 0.0;
@@ -418,22 +409,25 @@ int main(int argc, char* argv[]) {
   }
 
   const string nnet_dir = argv[1];
-  const string fst_rxfilename = argv[2];
+  const string hclg_filename = argv[2];
   const string proto_lang_dir = argv[3];
 
-  const string ivector_model_dir = nnet_dir + "/ivector_extractor";
-  const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
-  const string word_syms_rxfilename = proto_lang_dir + "/langdir/words.txt";
-  const string phone_syms_rxfilename = proto_lang_dir + "/langdir/phones.txt";
-  const string word_boundary_filename =
-      proto_lang_dir + "/langdir/phones/word_boundary.int";
+  // Paths, paths, paths.
+  const string diag_ubm_filename = nnet_dir + "/ivector_extractor/final.dubm";
+  const string global_cmvn_stats_filename = nnet_dir + "/ivector_extractor/global_cmvn.stats";
+  const string ivector_extractor_filename = nnet_dir + "/ivector_extractor/final.ie";
+  const string lda_mat_filename = nnet_dir + "/ivector_extractor/final.mat";
+  const string nnet2_filename = proto_lang_dir + "/modeldir/final.mdl";
+  const string phone_syms_filename = proto_lang_dir + "/langdir/phones.txt";
+  const string word_boundary_filename = proto_lang_dir + "/langdir/phones/word_boundary.int";
+  const string word_syms_filename = proto_lang_dir + "/langdir/words.txt";
 
   setbuf(stdout, NULL);
 
   std::cerr << "Loading...\n";
 
   OnlineNnet2FeaturePipelineInfo feature_info;
-  ConfigFeatureInfo(feature_info, ivector_model_dir);
+  ConfigFeatureInfo(feature_info);
   OnlineNnet2DecodingConfig nnet2_decoding_config;
   ConfigDecoding(nnet2_decoding_config);
   OnlineEndpointConfig endpoint_config;
@@ -450,18 +444,27 @@ int main(int argc, char* argv[]) {
   nnet2::AmNnet nnet;
   {
     bool binary;
-    Input ki(nnet2_rxfilename, &binary);
+    Input ki(nnet2_filename, &binary);
     trans_model.Read(ki.Stream(), binary);
     nnet.Read(ki.Stream(), binary);
   }
 
   // This one is much slower than the others.
-  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(fst_rxfilename);
+  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(hclg_filename);
 
   fst::SymbolTable* word_syms =
-      fst::SymbolTable::ReadText(word_syms_rxfilename);
+      fst::SymbolTable::ReadText(word_syms_filename);
   fst::SymbolTable* phone_syms =
-      fst::SymbolTable::ReadText(phone_syms_rxfilename);
+      fst::SymbolTable::ReadText(phone_syms_filename);
+
+  ReadKaldiObject(lda_mat_filename,
+                  &feature_info.ivector_extractor_info.lda_mat);
+  ReadKaldiObject(global_cmvn_stats_filename,
+                  &feature_info.ivector_extractor_info.global_cmvn_stats);
+  ReadKaldiObject(diag_ubm_filename,
+                  &feature_info.ivector_extractor_info.diag_ubm);
+  ReadKaldiObject(ivector_extractor_filename,
+                  &feature_info.ivector_extractor_info.extractor);
 
   OnlineSilenceWeighting silence_weighting(
       trans_model, feature_info.silence_weighting_config);
