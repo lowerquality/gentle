@@ -316,10 +316,6 @@ kaldi::OnlineEndpointConfig DefaultEndpointConfig() {
   return config;
 }
 
-void usage() {
-  fprintf(stderr, "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir\n");
-}
-
 // The status codes used by the RPC. Maps to HTTP status codes.
 enum {
   STATUS_OK = 200,
@@ -409,8 +405,13 @@ int main(int argc, char* argv[]) {
   using namespace kaldi;
   using namespace fst;
 
+  std::ostream& out_stream = std::cout;
+  std::istream& in_stream = std::cin;
+  setbuf(stdout, NULL);
+
   if (argc != 4) {
-    usage();
+    string usage = "usage: standard_kaldi nnet_dir hclg_path proto_lang_dir";
+    RPCWriteReply(out_stream, STATUS_BAD_REQUEST, usage);
     return EXIT_FAILURE;
   }
 
@@ -430,8 +431,6 @@ int main(int argc, char* argv[]) {
   const string word_boundary_filename =
       proto_lang_dir + "/langdir/phones/word_boundary.int";
   const string word_syms_filename = proto_lang_dir + "/langdir/words.txt";
-
-  setbuf(stdout, NULL);
 
   std::cerr << "Loading...\n";
 
@@ -495,9 +494,6 @@ int main(int argc, char* argv[]) {
                                     hclg_fst.get()));
     return current_session.get();
   };
-
-  std::ostream& out_stream = std::cout;
-  std::istream& in_stream = std::cin;
 
   RPCWriteReply(out_stream, STATUS_OK, "loaded");
 
