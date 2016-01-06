@@ -1,9 +1,10 @@
 '''Glue code for communicating with standard_kaldi C++ process'''
+import json
 import logging
 import os
 import subprocess
-import wave
 import tempfile
+import wave
 
 from gentle import ffmpeg, prons
 from gentle.paths import get_binary
@@ -41,38 +42,15 @@ class Kaldi(object):
     def get_partial(self):
         '''Dump the provisional (non-word-aligned) transcript'''
         body, _ = self.rpc.do('get-partial')
-
-        words = []
-        for line in body.split('\n'):
-            parts = line.split(' / ')
-            word = parts[0].split(': ')[1]
-            words.append(word)
-
+        hypothesis = json.loads(body)['hypothesis']
+        words = [h.word for h in hypothesis]
         return words.join(" ")
 
     def get_final(self):
         '''Dump the final, phone-aligned transcript'''
         body, _ = self.rpc.do('get-final')
-
-        words = []
-        for line in body.split('\n'):
-            parts = line.split(' / ')
-            if parts[0].startswith('word'):
-                word = {}
-                word['word'] = parts[0].split(': ')[1]
-                word['start'] = float(parts[1].split(': ')[1])
-                word['duration'] = float(parts[2].split(': ')[1])
-                word['phones'] = []
-                words.append(word)
-            elif parts[0].startswith('phone'):
-                word = words[-1]
-                phones = word['phones']
-                phone = {}
-                phone['phone'] = parts[0].split(': ')[1]
-                phone['duration'] = float(parts[1].split(': ')[1])
-                phones.append(phone)
-
-        words = prons.tweak(words)
+        hypothesis = json.loads(body)['hypothesis']
+        words = prons.tweak(hypothesis)
         return words
 
     def reset(self):
