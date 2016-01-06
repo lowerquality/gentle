@@ -272,42 +272,48 @@ std::string MarshalHypothesis(const Hypothesis& hypothesis) {
   return ss.str();
 }
 
-void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info) {
+void SetDefaultFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo *info) {
   // online_nnet2_decoding.conf
-  info.feature_type = "mfcc";
+  info->feature_type = "mfcc";
 
   // ivector_extractor.conf
-  info.use_ivectors = true;
-  info.ivector_extractor_info.greedy_ivector_extractor = true;
-  info.ivector_extractor_info.ivector_period = 10;
-  info.ivector_extractor_info.max_count = 0.0;
-  info.ivector_extractor_info.max_remembered_frames = 1000;
-  info.ivector_extractor_info.min_post = 0.025;
-  info.ivector_extractor_info.num_cg_iters = 15;
-  info.ivector_extractor_info.num_gselect = 5;
-  info.ivector_extractor_info.posterior_scale = 0.1;
-  info.ivector_extractor_info.use_most_recent_ivector = true;
+  info->use_ivectors = true;
+  info->ivector_extractor_info.greedy_ivector_extractor = true;
+  info->ivector_extractor_info.ivector_period = 10;
+  info->ivector_extractor_info.max_count = 0.0;
+  info->ivector_extractor_info.max_remembered_frames = 1000;
+  info->ivector_extractor_info.min_post = 0.025;
+  info->ivector_extractor_info.num_cg_iters = 15;
+  info->ivector_extractor_info.num_gselect = 5;
+  info->ivector_extractor_info.posterior_scale = 0.1;
+  info->ivector_extractor_info.use_most_recent_ivector = true;
 
   // splice.conf
-  info.ivector_extractor_info.splice_opts.left_context = 3;
-  info.ivector_extractor_info.splice_opts.right_context = 3;
+  info->ivector_extractor_info.splice_opts.left_context = 3;
+  info->ivector_extractor_info.splice_opts.right_context = 3;
 
   // mfcc.conf
-  info.mfcc_opts.frame_opts.samp_freq = arate;
-  info.mfcc_opts.use_energy = false;
+  info->mfcc_opts.frame_opts.samp_freq = arate;
+  info->mfcc_opts.use_energy = false;
 
-  info.ivector_extractor_info.Check();
+  info->ivector_extractor_info.Check();
 }
 
-void ConfigDecoding(kaldi::OnlineNnet2DecodingConfig& config) {
+kaldi::OnlineNnet2DecodingConfig DefaultDecodingConfig() {
+  kaldi::OnlineNnet2DecodingConfig config;
+
   config.decodable_opts.acoustic_scale = 0.1;
   config.decoder_opts.lattice_beam = 6.0;
   config.decoder_opts.beam = 15.0;
   config.decoder_opts.max_active = 7000;
+
+  return config;
 }
 
-void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
+kaldi::OnlineEndpointConfig DefaultEndpointConfig() {
+  kaldi::OnlineEndpointConfig config;
   config.silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
+  return config;
 }
 
 void usage() {
@@ -427,11 +433,9 @@ int main(int argc, char* argv[]) {
   std::cerr << "Loading...\n";
 
   OnlineNnet2FeaturePipelineInfo feature_info;
-  ConfigFeatureInfo(feature_info);
-  OnlineNnet2DecodingConfig nnet2_decoding_config;
-  ConfigDecoding(nnet2_decoding_config);
-  OnlineEndpointConfig endpoint_config;
-  ConfigEndpoint(endpoint_config);
+  SetDefaultFeatureInfo(&feature_info);
+  auto nnet2_decoding_config = DefaultDecodingConfig();
+  auto endpoint_config = DefaultEndpointConfig();
 
   WordBoundaryInfoNewOpts opts;  // use default opts
   WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
