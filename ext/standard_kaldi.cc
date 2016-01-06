@@ -147,7 +147,7 @@ class TranscribeSession {
 
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
-                      const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
+                const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
   // GetLattice outputs the session's lattice. If end_of_utterance is true
   // the lattice will contain final-probs.
   void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
@@ -207,7 +207,7 @@ void TranscribeSession::GetLattice(bool end_of_utterance,
 }
 
 // MarshalPhones serializes a list of phonemes as JSON
-std::string MarshalPhones(const vector<Phoneme> &phones) {
+std::string MarshalPhones(const vector<Phoneme>& phones) {
   std::stringstream ss;
 
   ss << "[";
