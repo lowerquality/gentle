@@ -133,77 +133,106 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
   return hyp;
 }
 
-// TranscribeSession represents an in-progress transcription of an audio
-// file. It stores information about speaker adaptation so the results will
-// be better if one is used per speaker.
-class TranscribeSession {
+// Decoder represents an in-progress transcription of an utterance.
+class Decoder {
  public:
-  TranscribeSession(
+  Decoder(
       const kaldi::OnlineNnet2FeaturePipelineInfo& info,
       const kaldi::TransitionModel& transition_model,
       const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
       const kaldi::nnet2::AmNnet& nnet,
-      const fst::Fst<fst::StdArc>* decode_fst);
+      const fst::Fst<fst::StdArc>* decode_fst,
+      const kaldi::OnlineIvectorExtractorAdaptationState &adaptation_state);
 
   // AddChunk adds an audio chunk of audio to the decoding pipeline.
   void AddChunk(kaldi::BaseFloat sampling_rate,
                       const kaldi::VectorBase<kaldi::BaseFloat>& waveform);
-  // GetLattice outputs the session's lattice. If end_of_utterance is true
-  // the lattice will contain final-probs.
-  void GetLattice(bool end_of_utterance, kaldi::Lattice* lattice);
+  // GetAdaptationState gets the ivector extractor's adaptation state
+  void GetAdaptationState(
+    kaldi::OnlineIvectorExtractorAdaptationState *adaptation_state);
+  // GetBestPath outputs the decoder's current one-best lattice.
+  kaldi::Lattice GetBestPath();
+  // Finalize is called when you're finished adding chunks. It flushes the
+  // data pipeline and cleans up the lattice. After calling Finalize all
+  // calls to AddChunk will fail.
+  void Finalize();
 
  private:
-  kaldi::OnlineIvectorExtractorAdaptationState adaptation_state_;
+  // AdvanceDecoding processes any chunks in the decoding pipeline,
+  // applying silence weighting.
+  void AdvanceDecoding();
+
   kaldi::OnlineNnet2FeaturePipeline feature_pipeline_;
-  kaldi::OnlineSilenceWeighting silence_weighting_;
   kaldi::SingleUtteranceNnet2Decoder decoder_;
+
+  kaldi::OnlineSilenceWeighting silence_weighting_;
+  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights_;
+
+  bool finalized_;
 };
 
-TranscribeSession::TranscribeSession(
-    const kaldi::OnlineNnet2FeaturePipelineInfo& info,
-    const kaldi::TransitionModel& transition_model,
-    const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
-    const kaldi::nnet2::AmNnet& nnet,
-    const fst::Fst<fst::StdArc>* decode_fst)
-    : adaptation_state_(info.ivector_extractor_info),
-      feature_pipeline_(info),
-      silence_weighting_(transition_model, info.silence_weighting_config),
+Decoder::Decoder(const kaldi::OnlineNnet2FeaturePipelineInfo& info,
+                 const kaldi::TransitionModel& transition_model,
+                 const kaldi::OnlineNnet2DecodingConfig& nnet2_decoding_config,
+                 const kaldi::nnet2::AmNnet& nnet,
+                 const fst::Fst<fst::StdArc>* decode_fst,
+                 const kaldi::OnlineIvectorExtractorAdaptationState &adaptation_state)
+    : feature_pipeline_(info),
       decoder_(nnet2_decoding_config,
                transition_model,
                nnet,
                *decode_fst,
-               &feature_pipeline_) {
-  this->feature_pipeline_.SetAdaptationState(this->adaptation_state_);
+               &feature_pipeline_),
+      silence_weighting_(transition_model, info.silence_weighting_config),
+      finalized_(false) {
+  this->feature_pipeline_.SetAdaptationState(adaptation_state);
 }
 
-void TranscribeSession::AddChunk(
+void Decoder::AddChunk(
     kaldi::BaseFloat sampling_rate,
     const kaldi::VectorBase<kaldi::BaseFloat>& waveform) {
-  this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
+  if (finalized_) {
+    return;
+  }
 
-  // What does this do?
-  std::vector<std::pair<int32, kaldi::BaseFloat> > delta_weights;
+  this->feature_pipeline_.AcceptWaveform(sampling_rate, waveform);
+  this->AdvanceDecoding();
+}
+
+void Decoder::GetAdaptationState(
+    kaldi::OnlineIvectorExtractorAdaptationState *adaptation_state) {
+  this->feature_pipeline_.GetAdaptationState(adaptation_state);
+}
+
+void Decoder::AdvanceDecoding() {
+  // Down-weight silence in ivector estimation
   if (this->silence_weighting_.Active()) {
     this->silence_weighting_.ComputeCurrentTraceback(this->decoder_.Decoder());
     this->silence_weighting_.GetDeltaWeights(
-        this->feature_pipeline_.NumFramesReady(), &delta_weights);
-    this->feature_pipeline_.UpdateFrameWeights(delta_weights);
+        this->feature_pipeline_.NumFramesReady(), &this->delta_weights_);
+    this->feature_pipeline_.UpdateFrameWeights(this->delta_weights_);
   }
 
   this->decoder_.AdvanceDecoding();
 }
 
-void TranscribeSession::GetLattice(bool end_of_utterance,
-                                   kaldi::Lattice* lattice) {
+kaldi::Lattice Decoder::GetBestPath() {
+  kaldi::Lattice lattice;
+
   if (this->decoder_.NumFramesDecoded() == 0) {
-    return;
+    return lattice;
   }
 
-  if (end_of_utterance) {
-    this->decoder_.FinalizeDecoding();
-  }
+  this->decoder_.GetBestPath(this->finalized_, &lattice);
 
-  this->decoder_.GetBestPath(end_of_utterance, lattice);
+  return lattice;
+}
+
+void Decoder::Finalize() {
+  this->finalized_ = true;
+  this->feature_pipeline_.InputFinished();
+  this->AdvanceDecoding();
+  this->decoder_.FinalizeDecoding();
 }
 
 // MarshalHypothesis serializes a Hypothesis struct into the funky text
@@ -347,14 +376,15 @@ int main(int argc, char* argv[]) {
 
   std::cerr << "Loaded!\n";
 
-  OnlineSilenceWeighting silence_weighting(
-      trans_model, feature_info.silence_weighting_config);
-
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
                             word_syms, phone_syms);
 
-  std::unique_ptr<TranscribeSession> session(new TranscribeSession(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+  kaldi::OnlineIvectorExtractorAdaptationState adaptation_state(
+      feature_info.ivector_extractor_info);
+
+  std::unique_ptr<Decoder> decoder(new Decoder(feature_info, trans_model,
+                                               nnet2_decoding_config, nnet,
+                                               decode_fst, adaptation_state));
 
   char cmd[1024];
 
@@ -369,8 +399,9 @@ int main(int argc, char* argv[]) {
       //
       // =Reply=
       // 1. No reply
-      session.reset(new TranscribeSession(
-        feature_info, trans_model, nnet2_decoding_config, nnet, decode_fst));
+      decoder.reset(new Decoder(feature_info, trans_model,
+                                nnet2_decoding_config, nnet, decode_fst,
+                                adaptation_state));
     } else if (strcmp(cmd, "push-chunk\n") == 0) {
       // Add a chunk of audio to the decoding pipeline.
       //
@@ -396,7 +427,7 @@ int main(int argc, char* argv[]) {
           wave_part(i) = sample;
         }
 
-        session->AddChunk(arate, wave_part);
+        decoder->AddChunk(arate, wave_part);
 
         fprintf(stdout, "ok\n");
       }
@@ -407,9 +438,7 @@ int main(int argc, char* argv[]) {
       // =Reply=
       // 1. "word: " for every word
       // 2. "ok\n" on completion
-
-      kaldi::Lattice partial_lat;
-      session->GetLattice(false, &partial_lat);
+      kaldi::Lattice partial_lat = decoder->GetBestPath();
       Hypothesis partial = hypothesizer.GetPartial(partial_lat);
       std::cout << MarshalHypothesis(partial);
       fprintf(stdout, "ok\n");
@@ -421,9 +450,8 @@ int main(int argc, char* argv[]) {
       // 1. "phone: / duration:" for every phoneme
       // 2. "word: / start: / duration:" for every word
       // 3. "ok\n" on completion
-
-      kaldi::Lattice final_lat;
-      session->GetLattice(true, &final_lat);
+      decoder->Finalize();
+      kaldi::Lattice final_lat = decoder->GetBestPath();
       Hypothesis final = hypothesizer.GetFull(final_lat);
       std::cout << MarshalHypothesis(final);
       fprintf(stdout, "ok\n");
