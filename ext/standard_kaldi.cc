@@ -382,33 +382,56 @@ bool RPCReadMethod(std::istream& stream, string* method, vector<string>* args) {
   return true;
 }
 
-// Parse the body part of an RPC request. Returns false if the data is
-// malformed.
+class membuf : public std::basic_streambuf<char> {
+ public:
+  membuf(std::vector<char>& vec) {
+    setg(vec.data(), vec.data(), vec.data() + vec.size());
+  }
+};
+
+// Read an RPC request. Returns false if the data is malformed.
 //
-// Bodies have this form:
-//   BODY_SIZE\n
+// Methods have this form:
+//   MSG_SIZE\n
+//   METHOD <ARG1> <ARG2> ... <ARGN>\n
 //   BODY\n
-bool RPCReadBody(std::istream& stream, vector<char>* body) {
-  string line;
-  if (!std::getline(stream, line)) {
-    return false;
-  }
-  std::stringstream ss(line);
-
-  size_t body_size;
-  if (!(ss >> body_size)) {
+bool RPCReadRequest(std::istream& stream,
+                    string* method,
+                    vector<string>* args,
+                    vector<char>* body) {
+  string size_line;
+  if (!std::getline(stream, size_line)) {
     return false;
   }
 
-  body->resize(body_size);
-  if (!stream.read(&body->front(), body_size)) {
+  std::stringstream size_ss(size_line);
+  size_t size;
+  if (!(size_ss >> size)) {
     return false;
   }
 
+  vector<char> request_bytes(size);
+  if (!stream.read(&request_bytes[0], size)) {
+    return false;
+  }
   char trailing_newline;
-  if (!stream.get(trailing_newline)) {
+  if (!stream.read(&trailing_newline, 1)) {
     return false;
   }
+  if (trailing_newline != '\n') {
+    return false;
+  }
+
+  membuf request_buf(request_bytes);
+  std::istream request_stream(&request_buf);
+
+  if (!RPCReadMethod(request_stream, method, args)) {
+    return false;
+  }
+
+  // Read the rest into the body
+  body->insert(body->begin(), std::istreambuf_iterator<char>(request_stream),
+               {});
 
   return true;
 }
@@ -416,15 +439,19 @@ bool RPCReadBody(std::istream& stream, vector<char>* body) {
 // Write the reply part of the RPC.
 //
 // Replies have this form:
+//   MSG_SIZE\n
 //   STATUS\n
-//   BODY_SIZE\n
 //   BODY\n
 void RPCWriteReply(std::ostream& stream,
                    const int& status,
                    const vector<char>& body) {
-  stream << status << std::endl;
-  stream << body.size() << std::endl;
-  stream.write(&body[0], body.size());
+  std::stringstream ss;
+  ss << status << std::endl;
+  ss.write(&body[0], body.size());
+  const string& reply_str = ss.str();
+
+  stream << reply_str.size() << std::endl;
+  stream.write(&reply_str[0], reply_str.size());
   stream << std::endl;
 }
 
@@ -514,13 +541,9 @@ int main(int argc, char* argv[]) {
     vector<string> args;
     vector<char> body;
 
-    if (!RPCReadMethod(in_stream, &method, &args)) {
+    if (!RPCReadRequest(in_stream, &method, &args, &body)) {
       RPCWriteReply(out_stream, STATUS_BAD_REQUEST,
-                    "malformed method '" + method + "'");
-      continue;
-    }
-    if (!RPCReadBody(in_stream, &body)) {
-      RPCWriteReply(out_stream, STATUS_BAD_REQUEST, "malformed body");
+                    "malformed request '" + method + "'");
       continue;
     }
 

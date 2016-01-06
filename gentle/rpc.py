@@ -25,19 +25,20 @@ class RPCProtocol(object):
     def _write_request(self, method, args, body):
         '''Writes a request to the stream.
         Request format:
+        MSG_SIZE\n
         METHOD <ARG1> <ARG2> ... <ARGN>\n
-        BODY_SIZE\n
         BODY\n
         '''
-        args_string = ' '.join(args)
+        data = method
+        for arg in args:
+            data += ' ' + arg
+        data += '\n'
+        if body:
+            data += body
 
         try:
-            self.send_pipe.write('%s %s\n' % (method, args_string))
-            if body:
-                self.send_pipe.write('%d\n' % len(body))
-                self.send_pipe.write(body)
-            else:
-                self.send_pipe.write('0\n')
+            self.send_pipe.write('%d\n' % len(data))
+            self.send_pipe.write(data)
             self.send_pipe.write('\n')
         except IOError, _:
             raise IOError("Lost connection with standard_kaldi subprocess")
@@ -45,15 +46,17 @@ class RPCProtocol(object):
     def _read_reply(self):
         '''Reads a reply from the stream.
         Reply format:
+        MSG_SIZE\n
         STATUS\n
-        BODY_SIZE\n
         BODY\n
         '''
         try:
-            status = int(self.recv_pipe.readline())
-            body_size = int(self.recv_pipe.readline())
-            body = self.recv_pipe.read(body_size)
+            msg_size = int(self.recv_pipe.readline())
+            data = self.recv_pipe.read(msg_size)
             self.recv_pipe.read(1) # trailing newline
+
+            status_str, body = data.split('\n', 1)
+            status = int(status_str)
         except IOError, _:
             raise IOError("Lost connection with standard_kaldi subprocess")
 
