@@ -446,9 +446,9 @@ int main(int argc, char* argv[]) {
   // Load Hypothesizer data
   WordBoundaryInfoNewOpts opts;  // use default opts
   WordBoundaryInfo word_boundary_info(opts, word_boundary_filename);
-  std::unique_ptr<fst::SymbolTable> word_syms(
+  std::unique_ptr<const fst::SymbolTable> word_syms(
       fst::SymbolTable::ReadText(word_syms_filename));
-  std::unique_ptr<fst::SymbolTable> phone_syms(
+  std::unique_ptr<const fst::SymbolTable> phone_syms(
       fst::SymbolTable::ReadText(phone_syms_filename));
 
   // Load Decoder data
