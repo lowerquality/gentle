@@ -8,7 +8,7 @@ BINFILES = standard_kaldi mkgraph
 
 OBJFILES = decoder.o hypothesis.o hypothesizer.o rpc.o
 
-TESTFILES =
+TESTFILES = rpc-test
 
 CXXFLAGS += -I$(KALDI_BASE) -O3 -DNDEBUG
 
