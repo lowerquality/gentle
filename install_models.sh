@@ -10,6 +10,7 @@ download_models() {
 	local url="https://lowerquality.com/gentle/$filename"
 	wget -O $filename $url
 	unzip $filename
+	rm $filename
 }
 
 echo "Downloading models for v$VERSION..." 1>&2
