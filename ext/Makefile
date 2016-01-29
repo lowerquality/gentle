@@ -10,7 +10,7 @@ OBJFILES =
 
 TESTFILES =
 
-CXXFLAGS += -I$(KALDI_BASE)
+CXXFLAGS += -I$(KALDI_BASE) -O3 -DNDEBUG
 
 ADDLIBS = $(KALDI_BASE)online2/kaldi-online2.a $(KALDI_BASE)ivector/kaldi-ivector.a \
            $(KALDI_BASE)nnet2/kaldi-nnet2.a $(KALDI_BASE)lat/kaldi-lat.a \
