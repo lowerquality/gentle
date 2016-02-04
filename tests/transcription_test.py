@@ -1,4 +1,4 @@
-from gentle.transcription import to_csv, to_json, to_ctm
+from gentle.alignment import to_csv, to_json, to_ctm
 
 from nose.tools import assert_equals
 

@@ -229,9 +229,9 @@ window.requestAnimationFrame(highlight_word);
 
 $trans.innerHTML = "Loading...";
 
-function render(ret) {
-    wds = ret['words'] || [];
-    transcript = ret['transcript'];
+function render(alignment) {
+    wds = alignment['words'] || [];
+    transcript = alignment['transcript'];
 
     $trans.innerHTML = '';
 
@@ -297,32 +297,35 @@ function show_downloads() {
 }
 
 function update() {
-    if(INLINE_JSON) {
+    if(INLINE_JSON && INLINE_JSON.alignment) {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
-        render(INLINE_JSON);
-        show_downloads();
+        render(INLINE_JSON.alignment);
+
+        if (INLINE_JSON.status == 'OK') {
+            show_downloads();
+        }
     }
     else  {
-        get_json('align.json', function(ret) {
-            if (ret.status == 'ERROR') {
+        get_json('align.json', function(job) {
+            if (job.status == 'ERROR') {
                 $preloader.style.visibility = 'hidden';
-                $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
-            } else if (ret.status == 'TRANSCRIBING') {
+                $trans.innerHTML = '<b>' + job.status + ': ' + job.error + '</b>';
+            } else if (job.status == 'ALIGNING') {
                 $preloader.style.visibility = 'visible';
-                render(ret);
+                render(job.alignment);
                 setTimeout(update, 2000);
-            } else if (ret.status == 'OK') {
+            } else if (job.status == 'OK') {
                 $preloader.style.visibility = 'hidden';
-                render(ret);
+                render(job.alignment);
                 show_downloads();
-            } else if (ret.status == 'ENCODING') {
+            } else if (job.status == 'ENCODING') {
                 $preloader.style.visibility = 'visible';
                 $trans.innerHTML = 'Encoding, please wait...';
                 setTimeout(update, 2000);
             } else {
                 $preloader.style.visibility = 'hidden';
-                $trans.innerHTML = ret.status + '...';
+                $trans.innerHTML = job.status + '...';
             }
         });
     }

@@ -46,9 +46,9 @@ if __name__=='__main__':
 	parser = argparse.ArgumentParser(
 		description='Generate statistics about the quality of an alignment.')
 	parser.add_argument('hypothesis', type=argparse.FileType('r'),
-		help='generated transcript for testing')
+		help='generated alignment for testing')
 	parser.add_argument('reference', type=argparse.FileType('r'),
-		help='ground truth transcript to compare with')
+		help='ground truth alignment to compare with')
 
 	args = parser.parse_args()
 
