@@ -10,7 +10,7 @@ import standard_kaldi
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
 # programming algorithm used in sclite's alignment process:
 # http://www1.icsi.berkeley.edu/Speech/docs/sctk-1.2/sclite.htm#time-mediated
-def align(hypothesis_tokens, ms):
+def align(hypothesis, reference):
     '''Use the diff algorithm to align the words recognized by Kaldi
     to the words in the transcript (tokenized by MetaSentence).
     
@@ -18,38 +18,34 @@ def align(hypothesis_tokens, ms):
     correctly-aligned words as well as words that Kaldi failed to recognize
     and extra words not found in the original transcript.
     '''
-    hypothesis = [token["alignedWord"] for token in hypothesis_tokens]
-    reference = ms.get_kaldi_sequence()
-
-    display_seq = ms.get_display_sequence()
-    txt_offsets = ms.get_text_offsets()
+    hypothesis_words = [token['alignedWord'] for token in hypothesis]
+    reference_words = [token['alignedWord'] for token in reference]
 
     out_tokens = []
-    for op, a, b in word_diff(hypothesis, reference):
+    for op, a, b in word_diff(hypothesis_words, reference_words):
         if a < len(hypothesis):
-            hyp_word = hypothesis[a]
-            hyp_token = hypothesis_tokens[a]
-            time = hyp_token['time']
-            phones = hyp_token.get("phones", [])
+            word = hypothesis[a]['alignedWord']
+            time = hypothesis[a]['time']
+            phones = hypothesis[a]['phones']
         if b < len(reference):
-            ref_word = reference[b]
-            display_word = display_seq[b]
-            start_offset, end_offset = txt_offsets[b]
+            source_text = reference[b]['word']
+            start_offset = reference[b]['startOffset']
+            end_offset = reference[b]['endOffset']
 
         if op == 'equal':
             out_tokens.append({
                 "case": "success",
                 "startOffset": start_offset,
                 "endOffset": end_offset,
-                "word": display_word,
-                "alignedWord": hyp_word,
+                "word": source_text,
+                "alignedWord": word,
                 "phones": phones,
                 "time": time,
             })
         elif op == 'delete':
             out_tokens.append({
                 "case": "not-found-in-transcript",
-                "alignedWord": hyp_word,
+                "alignedWord": word,
                 "phones": phones,
                 "time": time,
             })
@@ -58,7 +54,7 @@ def align(hypothesis_tokens, ms):
                 "case": "not-found-in-audio",
                 "startOffset": start_offset,
                 "endOffset": end_offset,
-                "word": display_word,
+                "word": source_text,
             })
     return out_tokens
 
@@ -104,8 +100,8 @@ if __name__=='__main__':
         vocab = metasentence.load_vocabulary(f)
 
     ms = metasentence.MetaSentence(open(TEXT_FILE).read(), vocab)
-    alignment = json.load(open(JSON_FILE))['words']
+    hypothesis = json.load(open(JSON_FILE))['tokens']
 
-    out = align(alignment, ms)
+    out = align(hypothesis, ms)
     
     json.dump(out, open(OUTPUT_FILE, 'w'), indent=2)

@@ -33,15 +33,25 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
         vocab = metasentence.load_vocabulary(f)
 
     ms = metasentence.MetaSentence(transcript, vocab)
+    reference_words = ms.get_kaldi_sequence()
+    sources = ms.get_display_sequence()
+    offsets = ms.get_text_offsets()
+    reference = []
+    for word, src_text, offset in zip(reference_words, sources, offsets):
+        reference.append({
+            'alignedWord': word,
+            'word': src_text,
+            'startOffset': offset[0],
+            'endOffset': offset[1],
+        })
 
-    ks = ms.get_kaldi_sequence()
-
-    gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
+    gen_hclg_filename = language_model.make_bigram_language_model(reference_words, proto_langdir)
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
         for trans in k.transcribe_progress(audio_f):
-            aligned_tokens = diff_align.align(trans["tokens"], ms)
+            hypothesis = trans["tokens"]
+            aligned_tokens = diff_align.align(hypothesis, reference)
             yield {
                 "transcript": transcript,
                 "tokens": aligned_tokens,
