@@ -162,7 +162,7 @@ function render_phones(token) {
         .forEach(function(phone) {
             var $phone = document.createElement("span");
             $phone.className = "phone";
-            $phone.textContent = phone.phone.split("_")[0];
+            $phone.textContent = phone.phone;
             
             $phones.appendChild($phone);
             cur_phones$.push($phone);
