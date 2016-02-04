@@ -38,15 +38,15 @@ class MetaSentence:
         for m in re.finditer(ur'(\w|\’\w|\'\w)+', self.raw_sentence, re.UNICODE):
             start, end = m.span()
             word = m.group().encode('utf-8')
-            token = kaldi_normalize(word, self.vocab)
+            word = kaldi_normalize(word, self.vocab)
             self._seq.append({
                 "start": start, # as unicode codepoint offset
                 "end": end, # as unicode codepoint offset
-                "token": token,
+                "word": word,
             })
 
     def get_kaldi_sequence(self):
-        return [x["token"] for x in self._seq]
+        return [x["word"] for x in self._seq]
 
     def get_display_sequence(self):
         display_sequence = []

@@ -10,25 +10,25 @@ import standard_kaldi
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
 # programming algorithm used in sclite's alignment process:
 # http://www1.icsi.berkeley.edu/Speech/docs/sctk-1.2/sclite.htm#time-mediated
-def align(alignment, ms):
-    '''Use the diff algorithm to align the raw tokens recognized by Kaldi
+def align(hypothesis_tokens, ms):
+    '''Use the diff algorithm to align the words recognized by Kaldi
     to the words in the transcript (tokenized by MetaSentence).
     
     The output combines information about the timing and alignment of
     correctly-aligned words as well as words that Kaldi failed to recognize
     and extra words not found in the original transcript.
     '''
-    hypothesis = [X["word"] for X in alignment]
+    hypothesis = [token["word"] for token in hypothesis_tokens]
     reference = ms.get_kaldi_sequence()
 
     display_seq = ms.get_display_sequence()
     txt_offsets = ms.get_text_offsets()
 
-    out = []
+    out_tokens = []
     for op, a, b in word_diff(hypothesis, reference):
         if a < len(hypothesis):
             hyp_word = hypothesis[a]
-            hyp_token = alignment[a]
+            hyp_token = hypothesis_tokens[a]
             phones = hyp_token.get("phones", [])
             start = hyp_token["start"]
             end = hyp_token["start"] + hyp_token["duration"]
@@ -38,7 +38,7 @@ def align(alignment, ms):
             start_offset, end_offset = txt_offsets[b]
 
         if op == 'equal':
-            out.append({
+            out_tokens.append({
                 "case": "success",
                 "startOffset": start_offset,
                 "endOffset": end_offset,
@@ -49,7 +49,7 @@ def align(alignment, ms):
                 "end": end,
             })
         elif op == 'delete':
-            out.append({
+            out_tokens.append({
                 "case": "not-found-in-transcript",
                 "alignedWord": hyp_word,
                 "phones": phones,
@@ -57,13 +57,13 @@ def align(alignment, ms):
                 "end": end,
             })
         elif op in 'insert':
-            out.append({
+            out_tokens.append({
                 "case": "not-found-in-audio",
                 "startOffset": start_offset,
                 "endOffset": end_offset,
                 "word": display_word,
             })
-    return out
+    return out_tokens
 
 def word_diff(a, b):
     '''Like difflib.SequenceMatcher but it only compares one word

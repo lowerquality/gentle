@@ -10,7 +10,7 @@ def to_ctm(alignment):
 	channel is always specified.
 	'''
 	buf = ''
-	tokens = [tok for tok in alignment['words'] if tok["case"] in ("success", "not-found-in-transcript")]
+	tokens = [tok for tok in alignment['tokens'] if tok["case"] in ("success", "not-found-in-transcript")]
 	tokens = sorted(tokens, key=lambda tok: tok['start'])
 	for tok in tokens:
 		if 'word' in tok:
@@ -36,18 +36,18 @@ def to_csv(alignment):
 	'''Return a CSV representation of the alignment. Format:
 	<word> <token> <start seconds> <end seconds>
 	'''
-	if not 'words' in alignment:
+	if not 'tokens' in alignment:
 		return ''
 	buf = io.BytesIO()
 	w = csv.writer(buf)
-	for X in alignment["words"]:
-		if X.get("case") not in ("success", "not-found-in-audio"):
+	for token in alignment["tokens"]:
+		if token.get("case") not in ("success", "not-found-in-audio"):
 			continue
 		row = [
-			X["word"],
-			X.get("alignedWord"),
-			X.get("start"),
-			X.get("end")
+			token["word"],
+			token.get("alignedWord"),
+			token.get("start"),
+			token.get("end")
 		]
 		w.writerow(row)
 	return buf.getvalue()

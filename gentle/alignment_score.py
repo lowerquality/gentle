@@ -12,11 +12,11 @@ def alignment_score(hypothesis, reference):
 	and returns the number of words correct, inserted, deleted, and substituted
 	divided by the number of reference words.
 	'''
-	def aligned_words(tran):
-		for t in tran:
-			if t['case'] == 'not-found-in-audio':
+	def aligned_words(tokens):
+		for token in tokens:
+			if token['case'] == 'not-found-in-audio':
 				continue
-			yield t['alignedWord']
+			yield token['alignedWord']
 	ref_words = list(aligned_words(reference))
 	hyp_words = list(aligned_words(hypothesis))
 
@@ -52,8 +52,8 @@ if __name__=='__main__':
 
 	args = parser.parse_args()
 
-	hypothesis = json.load(args.hypothesis)['words']
-	reference = json.load(args.reference)['words']
+	hypothesis = json.load(args.hypothesis)['tokens']
+	reference = json.load(args.reference)['tokens']
 
 	score = alignment_score(hypothesis, reference)
 	for label, s in score.iteritems():

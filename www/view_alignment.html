@@ -138,8 +138,8 @@ window.onkeydown = function(ev) {
 var $trans = document.getElementById("transcript");
 var $preloader = document.getElementById('preloader');
 
-var wds = [];
-var cur_wd;
+var tokens = [];
+var current_token;
 
 var $phones = document.createElement("div");
 $phones.className = "phones";
@@ -148,79 +148,80 @@ document.body.appendChild($phones);
 var cur_phones$ = [];           // List of phoneme $divs
 var $active_phone;
 
-function render_phones(wd) {
+function render_phones(token) {
     cur_phones$ = [];
     $phones.innerHTML = "";
     $active_phone = null;
 
-    $phones.style.top = wd.$div.offsetTop + 18;
-    $phones.style.left = wd.$div.offsetLeft;
+    $phones.style.top = token.$div.offsetTop + 18;
+    $phones.style.left = token.$div.offsetLeft;
 
-    var dur = wd.end - wd.start;
+    var dur = token.end - token.start;
 
-    var start_x = wd.$div.offsetLeft;
+    var start_x = token.$div.offsetLeft;
     
-    wd.phones
-        .forEach(function(ph){
-            var $p = document.createElement("span");
-            $p.className = "phone";
-            $p.textContent = ph.phone.split("_")[0];
+    token.phones
+        .forEach(function(phone) {
+            var $phone = document.createElement("span");
+            $phone.className = "phone";
+            $phone.textContent = phone.phone.split("_")[0];
             
-            $phones.appendChild($p);
-            cur_phones$.push($p);
+            $phones.appendChild($phone);
+            cur_phones$.push($phone);
         });
 
-    var offsetToCenter = (wd.$div.offsetWidth - $phones.offsetWidth) / 2;
-    $phones.style.left = wd.$div.offsetLeft + offsetToCenter;
+    var offsetToCenter = (token.$div.offsetWidth - $phones.offsetWidth) / 2;
+    $phones.style.left = token.$div.offsetLeft + offsetToCenter;
 }
 function highlight_phone(t) {
-    if(!cur_wd) {
+    if(!current_token) {
         $phones.innerHTML = "";
         return;
     }
     var hit;
-    var cur_t = cur_wd.start;
+    var current_time = current_token.start;
     
-    cur_wd.phones.forEach(function(ph, idx) {
-        if(cur_t <= t && cur_t + ph.duration >= t) {
+    current_token.phones.forEach(function(phone, idx) {
+        if (current_time <= t &&
+            current_time + phone.duration >= t) {
             hit = idx;
         }
-        cur_t += ph.duration;
+        current_time += phone.duration;
     });
 
-    if(hit) {
-        var $ph = cur_phones$[hit];
-        if($ph != $active_phone) {
-            if($active_phone) {
+    if (hit) {
+        var $phone = cur_phones$[hit];
+        if ($phone != $active_phone) {
+            if ($active_phone) {
                 $active_phone.classList.remove("phactive");
             }
-            if($ph) {
-                $ph.classList.add("phactive");
+            if ($phone) {
+                $phone.classList.add("phactive");
             }
         }
-        $active_phone = $ph;
+        $active_phone = $phone;
     }
 }
 
 function highlight_word() {
     var t = $a.currentTime;
     // XXX: O(N); use binary search
-    var hits = wds.filter(function(x) {
-        return (t - x.start) > 0.01 && (x.end - t) > 0.01;
-    }, wds);
-    var next_wd = hits[hits.length - 1];
+    var hits = tokens.filter(function(token) {
+        return (t - token.start) > 0.01 && (token.end - t) > 0.01;
+    }, tokens);
+    var next_token = hits[hits.length - 1];
 
-    if(cur_wd != next_wd) {
+    if (current_token != next_token) {
         var active = document.querySelectorAll('.active');
-        for(var i = 0; i < active.length; i++) {
+        for (var i = 0; i < active.length; i++) {
             active[i].classList.remove('active');
         }
-        if(next_wd && next_wd.$div) {
-            next_wd.$div.classList.add('active');
-            render_phones(next_wd);
+        if (next_token && next_token.$div) {
+            next_token.$div.classList.add('active');
+            render_phones(next_token);
         }
     }
-    cur_wd = next_wd;
+    current_token = next_token;
     highlight_phone(t);
 
     window.requestAnimationFrame(highlight_word);
@@ -230,44 +231,44 @@ window.requestAnimationFrame(highlight_word);
 $trans.innerHTML = "Loading...";
 
 function render(alignment) {
-    wds = alignment['words'] || [];
+    tokens = alignment['tokens'] || [];
     transcript = alignment['transcript'];
 
     $trans.innerHTML = '';
 
     var currentOffset = 0;
 
-    wds.forEach(function(wd) {
-        if(wd['case'] == 'not-found-in-transcript') {
+    tokens.forEach(function(token) {
+        if(token['case'] == 'not-found-in-transcript') {
             // TODO: show phonemes somewhere
             return;
         }
 
         // Add non-linked text
-        if(wd.startOffset > currentOffset) {
-            var txt = transcript.slice(currentOffset, wd.startOffset);
+        if(token.startOffset > currentOffset) {
+            var txt = transcript.slice(currentOffset, token.startOffset);
             var $plaintext = document.createTextNode(txt);
             $trans.appendChild($plaintext);
-            currentOffset = wd.startOffset;
+            currentOffset = token.startOffset;
         }
 
-        var $wd = document.createElement('span');
-        var txt = transcript.slice(wd.startOffset, wd.endOffset);
-        var $wdText = document.createTextNode(txt);
-        $wd.appendChild($wdText);
-        wd.$div = $wd;
-        if(wd.start !== undefined) {
-            $wd.className = 'success';
+        var $token = document.createElement('span');
+        var txt = transcript.slice(token.startOffset, token.endOffset);
+        var $tokenText = document.createTextNode(txt);
+        $token.appendChild($tokenText);
+        token.$div = $token;
+        if (token.start !== undefined) {
+            $token.className = 'success';
         }
-        $wd.onclick = function() {
-            if(wd.start !== undefined) {
-                console.log(wd.start);
-                $a.currentTime = wd.start;
+        $token.onclick = function() {
+            if (token.start !== undefined) {
+                console.log(token.start);
+                $a.currentTime = token.start;
                 $a.play();
             }
         };
-        $trans.appendChild($wd);
-        currentOffset = wd.endOffset;
+        $trans.appendChild($token);
+        currentOffset = token.endOffset;
     });
 
     var txt = transcript.slice(currentOffset, transcript.length);
@@ -297,7 +298,7 @@ function show_downloads() {
 }
 
 function update() {
-    if(INLINE_JSON && INLINE_JSON.alignment) {
+    if (INLINE_JSON && INLINE_JSON.alignment) {
         // We want this to work from file:/// domains, so we provide a
         // mechanism for inlining the alignment data.
         render(INLINE_JSON.alignment);
@@ -305,8 +306,7 @@ function update() {
         if (INLINE_JSON.status == 'OK') {
             show_downloads();
         }
-    }
-    else  {
+    } else {
         get_json('align.json', function(job) {
             if (job.status == 'ERROR') {
                 $preloader.style.visibility = 'hidden';

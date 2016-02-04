@@ -4,10 +4,10 @@ from nose.tools import assert_equals
 
 def test_to_ctm():
 	tests = [
-		[{"words": []}, '', 'empty'],
+		[{"tokens": []}, '', 'empty'],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "success", "word": "Art", "alignedWord": "[oov]", "start": 1, "end": 2},
 				]
 			},
@@ -16,7 +16,7 @@ def test_to_ctm():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "not-found-in-transcript", "alignedWord": "[oov]", "start": 1, "end": 2},
 				]
 			},
@@ -25,7 +25,7 @@ def test_to_ctm():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "success", "word": "Art", "alignedWord": "art", "start": 0, "end": 1},
 					{"case": "not-found-in-transcript", "alignedWord": "test", "start": 2, "end": 3},
 				]
@@ -35,7 +35,7 @@ def test_to_ctm():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "not-found-in-transcript", "alignedWord": "b", "start": 2, "end": 3},
 					{"case": "success", "word": "Reverse", "alignedWord": "reverse", "start": 0, "end": 1},
 				]
@@ -45,7 +45,7 @@ def test_to_ctm():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "not-found-in-transcript", "alignedWord": "art", "start": 0, "end": 1},
 				]
 			},
@@ -54,7 +54,7 @@ def test_to_ctm():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "not-found-in-audio", "word": "Art", "alignedWord": "art"},
 				]
 			},
@@ -69,7 +69,7 @@ def test_to_ctm():
 
 def test_to_json():
 	tests = [
-		[{"words": []}, '{"words": []}', 'empty'],
+		[{"tokens": []}, '{"tokens": []}', 'empty'],
 		# TODO(maxhawkins): add more
 	]
 	for test in tests:
@@ -79,10 +79,10 @@ def test_to_json():
 
 def test_to_csv():
 	tests = [
-		[{"words": []}, '', 'empty'],
+		[{"tokens": []}, '', 'empty'],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "success", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
 				]
 			},
@@ -91,7 +91,7 @@ def test_to_csv():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "success", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
 					{"case": "not-found-in-audio", "word": "B", "alignedWord": "b", "start": 2, "end": 3},
 				]
@@ -101,7 +101,7 @@ def test_to_csv():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "not-found-in-audio", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
 				]
 			},
@@ -110,7 +110,7 @@ def test_to_csv():
 		],
 		[
 			{
-				"words": [
+				"tokens": [
 					{"case": "not-found-in-transcript", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
 				]
 			},

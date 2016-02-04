@@ -40,12 +40,11 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
-        ret = None
         for trans in k.transcribe_progress(audio_f):
-            ret = diff_align.align(trans["words"], ms)
+            aligned_tokens = diff_align.align(trans["words"], ms)
             yield {
                 "transcript": transcript,
-                "words": ret,
+                "tokens": aligned_tokens,
             }
     finally:
         k.stop()
@@ -57,32 +56,32 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
         logging.warn("No general-purpose language model available")
         yield {
             "transcript": "",
-            "words": [],
+            "tokens": [],
         }
 
     k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)
     for trans in k.transcribe_progress(audio_f, batch_size=5):
         # Spoof the `diff_align` output format
         transcript = ""
-        words = []
+        tokens = []
 
-        for t_wd in trans["words"]:
-            word = {
+        for trans_word in trans["words"]:
+            token = {
                 "case": "success",
                 "startOffset": len(transcript),
-                "endOffset": len(transcript) + len(t_wd["word"]),
-                "word": t_wd["word"],
-                "alignedWord": t_wd["word"],
-                "phones": t_wd["phones"],
-                "start": t_wd["start"],
-                "end": t_wd["start"] + t_wd["duration"]}
-            words.append(word)
+                "endOffset": len(transcript) + len(trans_word["word"]),
+                "word": trans_word["word"],
+                "alignedWord": trans_word["word"],
+                "phones": trans_word["phones"],
+                "start": trans_word["start"],
+                "end": trans_word["start"] + trans_word["duration"]}
+            tokens.append(token)
 
-            transcript += word["word"] + " "
+            transcript += token["word"] + " "
 
         yield {
             "transcript": transcript,
-            "words": words
+            "tokens": tokens
         }
     k.stop()
 

@@ -21,6 +21,6 @@ def test_e2e():
 		"PROTO_LANGDIR",
 		"data/nnet_a_gpu_online")
 	
-	score = alignment_score(golden['words'], alignment['words'])
+	score = alignment_score(golden['tokens'], alignment['tokens'])
 	assert_greater(score['correct'], 0.85)
 	assert_less(score['error'], 0.35)

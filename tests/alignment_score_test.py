@@ -9,7 +9,7 @@ def test_no_ref_text():
 
 def test_golden_master_identity():
 	with open("tests/data/lucier_golden.json") as f:
-		golden = json.load(f)['words']
+		golden = json.load(f)['tokens']
 	got = alignment_score(golden, golden)
 	want = {
 		'inserted': 0.0,
