@@ -30,8 +30,10 @@ def align(hypothesis_tokens, ms):
             hyp_word = hypothesis[a]
             hyp_token = hypothesis_tokens[a]
             phones = hyp_token.get("phones", [])
-            start = hyp_token["start"]
-            end = hyp_token["start"] + hyp_token["duration"]
+            time = {
+                "start": hyp_token["start"],
+                "duration": hyp_token["duration"],
+            }
         if b < len(reference):
             ref_word = reference[b]
             display_word = display_seq[b]
@@ -45,16 +47,14 @@ def align(hypothesis_tokens, ms):
                 "word": display_word,
                 "alignedWord": hyp_word,
                 "phones": phones,
-                "start": start,
-                "end": end,
+                "time": time,
             })
         elif op == 'delete':
             out_tokens.append({
                 "case": "not-found-in-transcript",
                 "alignedWord": hyp_word,
                 "phones": phones,
-                "start": start,
-                "end": end,
+                "time": time,
             })
         elif op in 'insert':
             out_tokens.append({

@@ -66,6 +66,10 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
         tokens = []
 
         for trans_word in trans["words"]:
+            time = {
+                "start": trans_word["start"],
+                "duration": trans_word["duration"],
+            }
             token = {
                 "case": "success",
                 "startOffset": len(transcript),
@@ -73,8 +77,8 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
                 "word": trans_word["word"],
                 "alignedWord": trans_word["word"],
                 "phones": trans_word["phones"],
-                "start": trans_word["start"],
-                "end": trans_word["start"] + trans_word["duration"]}
+                "time": time,
+            }
             tokens.append(token)
 
             transcript += token["word"] + " "

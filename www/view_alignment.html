@@ -156,8 +156,6 @@ function render_phones(token) {
     $phones.style.top = token.$div.offsetTop + 18;
     $phones.style.left = token.$div.offsetLeft;
 
-    var dur = token.end - token.start;
-
     var start_x = token.$div.offsetLeft;
     
     token.phones
@@ -174,12 +172,13 @@ function render_phones(token) {
     $phones.style.left = token.$div.offsetLeft + offsetToCenter;
 }
 function highlight_phone(t) {
-    if(!current_token) {
+    if (!current_token || !current_token.time) {
         $phones.innerHTML = "";
         return;
     }
     var hit;
-    var current_time = current_token.start;
+
+    var current_time = current_token.time.start;
     
     current_token.phones.forEach(function(phone, idx) {
         if (current_time <= t &&
@@ -207,7 +206,11 @@ function highlight_word() {
     var t = $a.currentTime;
     // XXX: O(N); use binary search
     var hits = tokens.filter(function(token) {
-        return (t - token.start) > 0.01 && (token.end - t) > 0.01;
+        return token.time !== undefined;
+    }).filter(function(token) {
+        var start = token.time.start;
+        var end = start + token.time.duration;
+        return (t - start) > 0.01 && (end - t) > 0.01;
     }, tokens);
     var next_token = hits[hits.length - 1];
 
@@ -257,13 +260,12 @@ function render(alignment) {
         var $tokenText = document.createTextNode(txt);
         $token.appendChild($tokenText);
         token.$div = $token;
-        if (token.start !== undefined) {
+        if (token.time) {
             $token.className = 'success';
         }
         $token.onclick = function() {
-            if (token.start !== undefined) {
-                console.log(token.start);
-                $a.currentTime = token.start;
+            if (token.time) {
+                $a.currentTime = token.time.start;
                 $a.play();
             }
         };

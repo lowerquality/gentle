@@ -10,21 +10,20 @@ def to_ctm(alignment):
 	channel is always specified.
 	'''
 	buf = ''
-	tokens = [tok for tok in alignment['tokens'] if tok["case"] in ("success", "not-found-in-transcript")]
-	tokens = sorted(tokens, key=lambda tok: tok['start'])
-	for tok in tokens:
-		if 'word' in tok:
-			word = tok['word']
+	tokens = [token for token in alignment['tokens'] if 'time' in token]
+	tokens = sorted(tokens, key=lambda token: token['time']['start'])
+	for token in tokens:
+		if 'word' in token:
+			word = token['word']
 		else:
-			word = tok['alignedWord']
+			word = token['alignedWord']
 		word = word.upper()
 		if word == '[OOV]':
 			# TODO(maxhawkins): how are OOVs
 			# usually represented by sctk?
 			continue
-		start = tok['start']
-		end = tok['end']
-		duration = end - start
+		start = token['time']['start']
+		duration = token['time']['duration']
 		buf += 'gentle A %g %g %s\n' % (start, duration, word)
 	return buf
 
@@ -34,7 +33,7 @@ def to_json(alignment, **kwargs):
 
 def to_csv(alignment):
 	'''Return a CSV representation of the alignment. Format:
-	<word> <token> <start seconds> <end seconds>
+	<word> <token> <start seconds> <duration seconds>
 	'''
 	if not 'tokens' in alignment:
 		return ''
@@ -46,8 +45,8 @@ def to_csv(alignment):
 		row = [
 			token["word"],
 			token.get("alignedWord"),
-			token.get("start"),
-			token.get("end")
+			token['time']['start'],
+			token['time']['duration'],
 		]
 		w.writerow(row)
 	return buf.getvalue()

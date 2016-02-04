@@ -24,8 +24,8 @@ def test_golden_master_identity():
 def test_alignment_score():
 	tests = [
 		[
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 1.0,
@@ -36,8 +36,8 @@ def test_alignment_score():
 			'one correct',
 		],
 		[
-			[{'case': 'success', 'alignedWord': 'one', 'start': 0, 'end': 1}, {'case': 'success', 'alignedWord': 'two', 'start': 2, 'end': 3}],
-			[{'case': 'success', 'alignedWord': 'one', 'start': 0, 'end': 1}, {'case': 'success', 'alignedWord': 'two', 'start': 2, 'end': 3}],
+			[{'case': 'success', 'alignedWord': 'one', 'time': {'start': 0, 'duration': 1}}, {'case': 'success', 'alignedWord': 'two', 'time': {'start': 2, 'duration': 1}}],
+			[{'case': 'success', 'alignedWord': 'one', 'time': {'start': 0, 'duration': 1}}, {'case': 'success', 'alignedWord': 'two', 'time': {'start': 2, 'duration': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 1.0,
@@ -48,8 +48,8 @@ def test_alignment_score():
 			'two correct',
 		],
 		[
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}, {'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}, {'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duratino': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 0.5,
@@ -60,8 +60,8 @@ def test_alignment_score():
 			'one deleted, one correct',
 		],
 		[
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}, {'case': 'not-found-in-transcript', 'alignedWord': 'two', 'start': 2, 'end': 3}],
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}, {'case': 'not-found-in-transcript', 'alignedWord': 'two', 'time': {'start': 2, 'duration': 3}}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 1.0,
 				'correct': 1.0,
@@ -72,8 +72,8 @@ def test_alignment_score():
 			'one inserted',
 		],
 		[
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}, {'case': 'not-found-in-transcript', 'alignedWord': 'two', 'start': 2, 'end': 3}, {'case': 'not-found-in-transcript', 'alignedWord': 'three', 'start': 4, 'end': 5}],
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}, {'case': 'not-found-in-transcript', 'alignedWord': 'two', 'time': {'start': 2, 'duration': 1}}, {'case': 'not-found-in-transcript', 'alignedWord': 'three', 'time': {'start': 4, 'duration': 1}}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 2.0,
 				'correct': 1.0,
@@ -85,7 +85,7 @@ def test_alignment_score():
 		],
 		[
 			[],
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 0.0,
@@ -97,7 +97,7 @@ def test_alignment_score():
 		],
 		[
 			[],
-			[{'case': 'success', 'alignedWord': 'one', 'start': 0, 'end': 1}, {'case': 'success', 'alignedWord': 'two', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'one', 'time': {'start': 0, 'duration': 1}}, {'case': 'success', 'alignedWord': 'two', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 0.0,
@@ -108,8 +108,8 @@ def test_alignment_score():
 			'two deleted',
 		],
 		[
-			[{'case': 'not-found-in-transcript', 'alignedWord': 'yes', 'start': 0, 'end': 1}],
-			[{'case': 'success', 'alignedWord': 'no', 'start': 0, 'end': 1}],
+			[{'case': 'not-found-in-transcript', 'alignedWord': 'yes', 'time': {'start': 0, 'duration': 1}}],
+			[{'case': 'success', 'alignedWord': 'no', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 0.0,
@@ -120,8 +120,8 @@ def test_alignment_score():
 			'one substituted',
 		],
 		[
-			[{'case': 'not-found-in-transcript', 'alignedWord': 'yes', 'start': 0, 'end': 1}, {'case': 'not-found-in-transcript', 'alignedWord': 'yes2', 'start': 2, 'end': 3}],
-			[{'case': 'success', 'alignedWord': 'no', 'start': 0, 'end': 1}, {'case': 'success', 'alignedWord': 'no2', 'start': 2, 'end': 3}],
+			[{'case': 'not-found-in-transcript', 'alignedWord': 'yes', 'time': {'start': 0, 'duration': 1}}, {'case': 'not-found-in-transcript', 'alignedWord': 'yes2', 'time': {'start': 2, 'duration': 1}}],
+			[{'case': 'success', 'alignedWord': 'no', 'time': {'start': 0, 'duration': 1}}, {'case': 'success', 'alignedWord': 'no2', 'time': {'start': 2, 'duration': 3}}],
 			{
 				'inserted': 0.0,
 				'correct': 0.0,
@@ -132,8 +132,8 @@ def test_alignment_score():
 			'two substituted',
 		],
 		[
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}, {'case': 'not-found-in-audio', 'alignedWord': 'hello'}],
-			[{'case': 'success', 'alignedWord': 'hello', 'start': 0, 'end': 1}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}, {'case': 'not-found-in-audio', 'alignedWord': 'hello'}],
+			[{'case': 'success', 'alignedWord': 'hello', 'time': {'start': 0, 'duration': 1}}],
 			{
 				'inserted': 0.0,
 				'correct': 1.0,

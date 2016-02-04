@@ -8,7 +8,7 @@ def test_to_ctm():
 		[
 			{
 				"tokens": [
-					{"case": "success", "word": "Art", "alignedWord": "[oov]", "start": 1, "end": 2},
+					{"case": "success", "word": "Art", "alignedWord": "[oov]", "time": {"start": 1, "duration": 1}},
 				]
 			},
 			'gentle A 1 1 ART\n',
@@ -17,7 +17,7 @@ def test_to_ctm():
 		[
 			{
 				"tokens": [
-					{"case": "not-found-in-transcript", "alignedWord": "[oov]", "start": 1, "end": 2},
+					{"case": "not-found-in-transcript", "alignedWord": "[oov]", "time": {"start": 1, "duration": 1}},
 				]
 			},
 			'',
@@ -26,8 +26,8 @@ def test_to_ctm():
 		[
 			{
 				"tokens": [
-					{"case": "success", "word": "Art", "alignedWord": "art", "start": 0, "end": 1},
-					{"case": "not-found-in-transcript", "alignedWord": "test", "start": 2, "end": 3},
+					{"case": "success", "word": "Art", "alignedWord": "art", "time": {"start": 0, "duration": 1}},
+					{"case": "not-found-in-transcript", "alignedWord": "test", "time": {"start": 2, "duration": 1}},
 				]
 			},
 			'gentle A 0 1 ART\ngentle A 2 1 TEST\n',
@@ -36,8 +36,8 @@ def test_to_ctm():
 		[
 			{
 				"tokens": [
-					{"case": "not-found-in-transcript", "alignedWord": "b", "start": 2, "end": 3},
-					{"case": "success", "word": "Reverse", "alignedWord": "reverse", "start": 0, "end": 1},
+					{"case": "not-found-in-transcript", "alignedWord": "b", "time": {"start": 2, "duration": 1}},
+					{"case": "success", "word": "Reverse", "alignedWord": "reverse", "time": {"start": 0, "duration": 1}},
 				]
 			},
 			'gentle A 0 1 REVERSE\ngentle A 2 1 B\n',
@@ -46,7 +46,7 @@ def test_to_ctm():
 		[
 			{
 				"tokens": [
-					{"case": "not-found-in-transcript", "alignedWord": "art", "start": 0, "end": 1},
+					{"case": "not-found-in-transcript", "alignedWord": "art", "time": {"start": 0, "duration": 1}},
 				]
 			},
 			'gentle A 0 1 ART\n',
@@ -83,7 +83,7 @@ def test_to_csv():
 		[
 			{
 				"tokens": [
-					{"case": "success", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
+					{"case": "success", "word": "A", "alignedWord": "a", "time": {"start": 0, "duration": 1}},
 				]
 			},
 			'A,a,0,1\r\n',
@@ -92,17 +92,17 @@ def test_to_csv():
 		[
 			{
 				"tokens": [
-					{"case": "success", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
-					{"case": "not-found-in-audio", "word": "B", "alignedWord": "b", "start": 2, "end": 3},
+					{"case": "success", "word": "A", "alignedWord": "a", "time": {"start": 0, "duration": 1}},
+					{"case": "not-found-in-audio", "word": "B", "alignedWord": "b", "time": {"start": 2, "duration": 1}},
 				]
 			},
-			'A,a,0,1\r\nB,b,2,3\r\n',
+			'A,a,0,1\r\nB,b,2,1\r\n',
 			'multi-word',
 		],
 		[
 			{
 				"tokens": [
-					{"case": "not-found-in-audio", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
+					{"case": "not-found-in-audio", "word": "A", "alignedWord": "a", "time": {"start": 0, "duration": 1}},
 				]
 			},
 			'A,a,0,1\r\n',
@@ -111,7 +111,7 @@ def test_to_csv():
 		[
 			{
 				"tokens": [
-					{"case": "not-found-in-transcript", "word": "A", "alignedWord": "a", "start": 0, "end": 1},
+					{"case": "not-found-in-transcript", "word": "A", "alignedWord": "a", "time": {"start": 0, "duration": 1}},
 				]
 			},
 			'',
