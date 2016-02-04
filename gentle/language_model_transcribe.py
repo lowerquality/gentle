@@ -41,7 +41,7 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
         for trans in k.transcribe_progress(audio_f):
-            aligned_tokens = diff_align.align(trans["words"], ms)
+            aligned_tokens = diff_align.align(trans["tokens"], ms)
             yield {
                 "transcript": transcript,
                 "tokens": aligned_tokens,
@@ -65,23 +65,21 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
         transcript = ""
         tokens = []
 
-        for trans_word in trans["words"]:
-            time = {
-                "start": trans_word["start"],
-                "duration": trans_word["duration"],
-            }
+        for trans_token in trans["tokens"]:
+
+            word = trans_token['alignedWord']
             token = {
                 "case": "success",
                 "startOffset": len(transcript),
-                "endOffset": len(transcript) + len(trans_word["word"]),
-                "word": trans_word["word"],
-                "alignedWord": trans_word["word"],
-                "phones": trans_word["phones"],
-                "time": time,
+                "endOffset": len(transcript) + len(word),
+                "word": word,
+                "alignedWord": word,
+                "phones": trans_token["phones"],
+                "time": trans_token['time'],
             }
             tokens.append(token)
 
-            transcript += token["word"] + " "
+            transcript += word + " "
 
         yield {
             "transcript": transcript,

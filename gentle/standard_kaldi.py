@@ -27,8 +27,6 @@ class Kaldi(object):
             stdout=subprocess.PIPE,
             stderr=devnull)
 
-        self._transitions = None
-        self._words = None
         self._stopped = False
 
     def _write(self, data):
@@ -74,7 +72,7 @@ class Kaldi(object):
     def get_final(self):
         '''Dump the final, phone-aligned transcript'''
         self._cmd("get-final")
-        words = []
+        tokens = []
         while True:
             line = self._subprocess.stdout.readline()
             logging.info(line)
@@ -82,22 +80,28 @@ class Kaldi(object):
                 break
             parts = line.split(' / ')
             if parts[0].startswith('word'):
-                word = {}
-                word['word'] = parts[0].split(': ')[1]
-                word['start'] = float(parts[1].split(': ')[1])
-                word['duration'] = float(parts[2].split(': ')[1])
-                word['phones'] = []
-                words.append(word)
+                word = parts[0].split(': ')[1]
+                time = {
+                    'start': float(parts[1].split(': ')[1]),
+                    'duration': float(parts[2].split(': ')[1]),
+                }
+                token = {
+                    'alignedWord': word,
+                    'time': time,
+                    'phones': [],
+                }
+                tokens.append(token)
             elif parts[0].startswith('phone'):
-                word = words[-1]
-                phones = word['phones']
-                phone = {}
-                phone['phone'] = parts[0].split(': ')[1]
-                phone['duration'] = float(parts[1].split(': ')[1])
+                token = tokens[-1]
+                phones = token['phones']
+                phone = {
+                    'phone': parts[0].split(': ')[1],
+                    'duration': float(parts[1].split(': ')[1]),
+                }
                 phones.append(phone)
 
-        words = prons.tweak(words)
-        return words
+        tokens = prons.tweak(tokens)
+        return tokens
 
     def reset(self):
         '''Reset the decoder, delete the decoding state'''
@@ -113,47 +117,49 @@ class Kaldi(object):
 
     def transcribe(self, infile):
         '''Read the given file as a wav and output a transcription'''
-        words = []
-        for words in self.transcribe_progress(infile):
+        tokens = []
+        for tokens in self.transcribe_progress(infile):
             pass
-        return words
+        return tokens
 
     def transcribe_progress(self, infile, batch_size=10):
         '''Read the given file as a wav and output a transcription with progress.'''
-        words = []
+        tokens = []
 
         yield {
-            "words": words,
+            "tokens": tokens,
         }
 
         input_wav = read_wav(infile)
 
-        def _add_words_arr(wds, arr, offset):
+        def _add_tokens_arr(tokens, arr, offset):
             '''Add the output from the decoder to our data structure, accounting
-            for words that have been duplicated due to boundary conditions'''
+            for tokens that have been duplicated due to boundary conditions'''
             # There may be some overlap between the end of the last
             # transcription and the beginning of this one.
             #
             # First approach: remove the last item of `arr' and
             # start afterwards.
-            lst = None
+            last_token = None
             if len(arr) > 0:
-                lst = arr[-1]
-                if lst["start"] > offset:
-                    logging.info('trimming %s', lst)
+                last_token = arr[-1]
+                if last_token["time"]["start"] > offset:
+                    logging.info('trimming %s', last_token)
                     arr.pop()
 
-            for word in wds:
-                word["start"] += offset
-                if lst is not None and (word["start"] - lst["start"]) < -0.05:
-                    logging.info('skipping %s %f\n', word, (word["start"] - lst["start"]))
-                    continue
-                arr.append(word)
+            for token in tokens:
+                token["time"]["start"] += offset
+                if last_token is not None:
+                    gap = token["time"]["start"] - last_token["time"]["start"]
+                    if gap < -0.05:
+                        logging.info('skipping %s %f\n', token, gap)
+                        continue
+                arr.append(token)
 
-        def _add_words(wds, offset):
+        def _add_tokens(new, offset):
             '''Add the output from the decoder to our data structure and
             optionally send the partial results to a status callback'''
-            _add_words_arr(wds, words, offset)
+            _add_tokens_arr(new, tokens, offset)
 
         idx = 0
         seg_offset = 0
@@ -165,10 +171,10 @@ class Kaldi(object):
 
             if idx > 0 and idx % batch_size == 0:
                 logging.info('endpoint!\n')
-                ret = self.get_final()
-                _add_words(ret, seg_offset*2)
+                new = self.get_final()
+                _add_tokens(new, seg_offset*2)
                 yield {
-                    "words": words,
+                    "tokens": tokens,
                 }
 
                 self.reset()
@@ -188,11 +194,11 @@ class Kaldi(object):
             idx += 1
 
         logging.info('done with audio!')
-        ret = self.get_final()
+        new = self.get_final()
         self.reset()
-        _add_words(ret, seg_offset*2)
+        _add_tokens(new, seg_offset*2)
         yield {
-            "words": words,
+            "tokens": tokens,
         }
 
     def __del__(self):
@@ -236,12 +242,12 @@ def main():
     else:
         k = Kaldi()
 
-    words = None
-    for words in k.transcribe_progress(infile, batch_size=1):
+    tokens = None
+    for tokens in k.transcribe_progress(infile, batch_size=1):
         sys.stderr.write(".")
     sys.stderr.write("\n")
     with open(outfile, 'w') as out:
-        json.dump(words, out, indent=2)
+        json.dump(tokens, out, indent=2)
 
 if __name__ == '__main__':
     main()

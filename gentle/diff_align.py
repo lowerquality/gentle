@@ -18,7 +18,7 @@ def align(hypothesis_tokens, ms):
     correctly-aligned words as well as words that Kaldi failed to recognize
     and extra words not found in the original transcript.
     '''
-    hypothesis = [token["word"] for token in hypothesis_tokens]
+    hypothesis = [token["alignedWord"] for token in hypothesis_tokens]
     reference = ms.get_kaldi_sequence()
 
     display_seq = ms.get_display_sequence()
@@ -29,11 +29,8 @@ def align(hypothesis_tokens, ms):
         if a < len(hypothesis):
             hyp_word = hypothesis[a]
             hyp_token = hypothesis_tokens[a]
+            time = hyp_token['time']
             phones = hyp_token.get("phones", [])
-            time = {
-                "start": hyp_token["start"],
-                "duration": hyp_token["duration"],
-            }
         if b < len(reference):
             ref_word = reference[b]
             display_word = display_seq[b]

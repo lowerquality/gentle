@@ -4,13 +4,13 @@ def tweak(tokens, max_phone_offset=99):
     # Strip silence from ends of words
     for token in tokens:
         if len(token['phones']) > 0 and token['phones'][0]['phone'] == 'sil':
-            p = token['phones'].pop(0)
-            token['start'] += p['duration']
-            token['duration'] -= p['duration']
+            phone = token['phones'].pop(0)
+            token['time']['start'] += phone['duration']
+            token['time']['duration'] -= phone['duration']
 
         if len(token['phones']) > 0 and token['phones'][-1]['phone'] == 'sil':
-            p = token['phones'].pop()
-            token['duration'] -= p['duration']
+            phone = token['phones'].pop()
+            token['time']['duration'] -= phone['duration']
     
     # Move mis-aligned phones
     last_token = None
@@ -26,8 +26,8 @@ def tweak(tokens, max_phone_offset=99):
                 next_phones = next_phones[:-1]
 
             token['phones'] = next_phones + token['phones']
-            token['start'] -= duration
-            token['duration'] += duration
+            token['time']['start'] -= duration
+            token['time']['duration'] += duration
 
             next_phones = []
 
@@ -41,14 +41,14 @@ def tweak(tokens, max_phone_offset=99):
             
             first_phone = token['phones'][0]
             token['phones'] = token['phones'][1:]
-            token['duration'] -= first_phone['duration']
-            token['start'] += first_phone['duration']
+            token['time']['duration'] -= first_phone['duration']
+            token['time']['start'] += first_phone['duration']
 
             if len(last_token['phones']) > 0 and last_token['phones'][-1]['phone'] == first_phone['phone']:
                 last_token['phones'][-1]['duration'] += first_phone['duration']
             else:
                 last_token['phones'].append(first_phone)
-            last_token['duration'] += first_phone['duration']
+            last_token['time']['duration'] += first_phone['duration']
 
         if len(token['phones']) > 1:
             if not (token['phones'][0]['phone'].endswith('_B') or token['phones'][0]['phone'].endswith('_S')):
@@ -73,7 +73,7 @@ def tweak(tokens, max_phone_offset=99):
                             continue
                         offset_duration = sum([phone['duration'] for phone in next_phones])
                         token['phones'] = token['phones'][:idx]
-                        token['duration'] -= offset_duration
+                        token['time']['duration'] -= offset_duration
                         logging.info('Word contains the next beginning (%d)', idx)
                         break
 
@@ -83,12 +83,12 @@ def tweak(tokens, max_phone_offset=99):
     for token in tokens:
         if len(token['phones']) > 0 and token['phones'][0]['phone'] == 'sil':
             phone = token['phones'].pop(0)
-            token['start'] += phone['duration']
-            token['duration'] -= phone['duration']
+            token['time']['start'] += phone['duration']
+            token['time']['duration'] -= phone['duration']
 
         if len(token['phones']) > 0 and token['phones'][-1]['phone'] == 'sil':
             phone = token['phones'].pop()
-            token['duration'] -= phone['duration']
+            token['time']['duration'] -= phone['duration']
 
     return tokens
 
@@ -103,17 +103,7 @@ if __name__=='__main__':
     alignment = json.load(open(IN_JSON))
 
     tokens = [token for token in alignment['tokens'] if token['case'] != 'not-found-in-audio']
-
-    # ugh. normalize to start/duration
-    for token in tokens:
-        token['duration'] = token['end'] - token['start']
-    
     tokens = tweak(tokens)
-
-    # ...and back to start/end
-    for token in tokens:
-        token['end'] = token['duration'] + token['start']
-
     alignment['tokens'] = tokens
 
     json.dump(inp, open(OUT_JSON, 'w'), indent=2)
