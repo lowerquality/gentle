@@ -52,8 +52,8 @@ def tweak(tokens, max_phone_offset=99):
 
         if len(token['phones']) > 1:
             if not (token['phones'][0]['phone'].endswith('_B') or token['phones'][0]['phone'].endswith('_S')):
-                logging.info('Word does not start correctly, %s', str(wd))
-                logging.info('previously: %s', str(last_wd))                
+                logging.info('Word does not start correctly, %s', str(token))
+                logging.info('previously: %s', str(last_token))                
                 # XXX: In this (rare!) case, I think getting rid of
                 # the starting phoneme may be the right thing to do
                 # (if, say, the second looks reasonable).
