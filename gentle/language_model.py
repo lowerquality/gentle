@@ -7,7 +7,6 @@ import sys
 import tempfile
 
 from paths import get_binary
-from metasentence import MetaSentence
 
 MKGRAPH_PATH = get_binary("ext/mkgraph")
 

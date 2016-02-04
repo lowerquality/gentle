@@ -248,15 +248,19 @@ function render(alignment) {
         }
 
         // Add non-linked text
-        if(token.startOffset > currentOffset) {
-            var txt = transcript.slice(currentOffset, token.startOffset);
+        if(token.source.characterOffsetStart > currentOffset) {
+            var txt = transcript.slice(
+                currentOffset,
+                token.source.characterOffsetStart);
             var $plaintext = document.createTextNode(txt);
             $trans.appendChild($plaintext);
-            currentOffset = token.startOffset;
+            currentOffset = token.source.characterOffsetStart;
         }
 
         var $token = document.createElement('span');
-        var txt = transcript.slice(token.startOffset, token.endOffset);
+        var txt = transcript.slice(
+            token.source.characterOffsetStart,
+            token.source.characterOffsetEnd);
         var $tokenText = document.createTextNode(txt);
         $token.appendChild($tokenText);
         token.$div = $token;
@@ -270,7 +274,7 @@ function render(alignment) {
             }
         };
         $trans.appendChild($token);
-        currentOffset = token.endOffset;
+        currentOffset = token.source.characterOffsetEnd;
     });
 
     var txt = transcript.slice(currentOffset, transcript.length);

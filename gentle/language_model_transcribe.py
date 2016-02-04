@@ -7,9 +7,10 @@ import shutil
 import sys
 
 from paths import get_resource
+from vocabulary import Vocabulary
+import text
 import diff_align
 import language_model
-import metasentence
 import standard_kaldi
 import alignment
 
@@ -29,20 +30,15 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
         return
     
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
-    with open(vocab_path) as f:
-        vocab = metasentence.load_vocabulary(f)
+    vocab = Vocabulary.from_file(vocab_path)
 
-    ms = metasentence.MetaSentence(transcript, vocab)
-    reference_words = ms.get_kaldi_sequence()
-    sources = ms.get_display_sequence()
-    offsets = ms.get_text_offsets()
+    text_tokens = text.tokenize(transcript)
+    reference_words = [vocab.normalize(token['text']) for token in text_tokens]
     reference = []
-    for word, src_text, offset in zip(reference_words, sources, offsets):
+    for word, token in zip(reference_words, text_tokens):
         reference.append({
             'alignedWord': word,
-            'word': src_text,
-            'startOffset': offset[0],
-            'endOffset': offset[1],
+            'source': token,
         })
 
     gen_hclg_filename = language_model.make_bigram_language_model(reference_words, proto_langdir)
@@ -78,12 +74,15 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
         for trans_token in trans["tokens"]:
 
             word = trans_token['alignedWord']
+            source = {
+                "text": word,
+                "characterOffsetStart": len(transcript),
+                "characterOffsetEnd": len(transcript) + len(word),
+            }
             token = {
                 "case": "success",
-                "startOffset": len(transcript),
-                "endOffset": len(transcript) + len(word),
-                "word": word,
                 "alignedWord": word,
+                "source": source,
                 "phones": trans_token["phones"],
                 "time": trans_token['time'],
             }

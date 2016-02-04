@@ -3,7 +3,6 @@ import json
 import os
 import sys
 
-import metasentence
 import language_model
 import standard_kaldi
 
@@ -12,7 +11,7 @@ import standard_kaldi
 # http://www1.icsi.berkeley.edu/Speech/docs/sctk-1.2/sclite.htm#time-mediated
 def align(hypothesis, reference):
     '''Use the diff algorithm to align the words recognized by Kaldi
-    to the words in the transcript (tokenized by MetaSentence).
+    to the words in the (tokenized) transcript.
     
     The output combines information about the timing and alignment of
     correctly-aligned words as well as words that Kaldi failed to recognize
@@ -28,16 +27,12 @@ def align(hypothesis, reference):
             time = hypothesis[a]['time']
             phones = hypothesis[a]['phones']
         if b < len(reference):
-            source_text = reference[b]['word']
-            start_offset = reference[b]['startOffset']
-            end_offset = reference[b]['endOffset']
+            source = reference[b]['source']
 
         if op == 'equal':
             out_tokens.append({
                 "case": "success",
-                "startOffset": start_offset,
-                "endOffset": end_offset,
-                "word": source_text,
+                "source": source,
                 "alignedWord": word,
                 "phones": phones,
                 "time": time,
@@ -52,9 +47,7 @@ def align(hypothesis, reference):
         elif op in 'insert':
             out_tokens.append({
                 "case": "not-found-in-audio",
-                "startOffset": start_offset,
-                "endOffset": end_offset,
-                "word": source_text,
+                "source": source,
             })
     return out_tokens
 
@@ -92,14 +85,25 @@ def by_word(opcodes):
                 yield (op, i1, i1 + 1, i2, i2 + 1)
 
 if __name__=='__main__':
+    import text
+    from vocabulary import Vocabulary
+
     TEXT_FILE = sys.argv[1]
     JSON_FILE = sys.argv[2]
     OUTPUT_FILE = sys.argv[3]
 
-    with open('data/graph/words.txt') as f:
-        vocab = metasentence.load_vocabulary(f)
+    vocab = Vocabulary.from_file('data/graph/words.txt')
 
-    ms = metasentence.MetaSentence(open(TEXT_FILE).read(), vocab)
+    text_tokens = text.tokenize(open(TEXT_FILE).read())
+    # TODO(maxhawkins): de-dupe. this code is duplicated in language_model_transcribe.py
+    reference_words = [vocab.normalize(token['text']) for token in text_tokens]
+    reference = []
+    for word, token in zip(reference_words, text_tokens):
+        reference.append({
+            'alignedWord': word,
+            'source': token,
+        })
+
     hypothesis = json.load(open(JSON_FILE))['tokens']
 
     out = align(hypothesis, ms)

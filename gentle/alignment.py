@@ -13,8 +13,8 @@ def to_ctm(alignment):
 	tokens = [token for token in alignment['tokens'] if 'time' in token]
 	tokens = sorted(tokens, key=lambda token: token['time']['start'])
 	for token in tokens:
-		if 'word' in token:
-			word = token['word']
+		if 'source' in token:
+			word = token['source']['text']
 		else:
 			word = token['alignedWord']
 		word = word.upper()
@@ -43,7 +43,7 @@ def to_csv(alignment):
 		if token.get("case") not in ("success", "not-found-in-audio"):
 			continue
 		row = [
-			token["word"],
+			token['source']['text'],
 			token.get("alignedWord"),
 			token['time']['start'],
 			token['time']['duration'],
