@@ -33,8 +33,8 @@ class Aligner():
     def __init__(self, data_dir):
         self.data_dir = data_dir
 
-    def out_dir(self, uid):
-        return os.path.join(self.data_dir, 'alignments', uid)
+    def out_dir(self, alignment_id):
+        return os.path.join(self.data_dir, 'alignments', alignment_id)
 
     # TODO(maxhawkins): refactor so this is returned by align()
     def next_id(self):
@@ -43,9 +43,10 @@ class Aligner():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def align(self, uid, transcript, audio):
+    def align(self, alignment_id, transcript, audio):
         output = {
             'status': 'STARTED',
+            'alignmentID': alignment_id,
             'alignment': {
                 'transcript': transcript,
             },
@@ -57,7 +58,7 @@ class Aligner():
             with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
                 csvfile.write(to_csv(output))
 
-        outdir = os.path.join(self.data_dir, 'alignments', uid)
+        outdir = os.path.join(self.data_dir, 'alignments', alignment_id)
         os.makedirs(outdir)
 
         # Copy over the HTML
@@ -117,13 +118,13 @@ class AlignmentsController(Resource):
         self.aligner = aligner
         self.reactor = reactor
     
-    def getChild(self, uid, req):
-        out_dir = self.aligner.out_dir(uid)
+    def getChild(self, alignment_id, req):
+        out_dir = self.aligner.out_dir(alignment_id)
         alignment_ctrl = File(out_dir)
         return alignment_ctrl
 
     def render_POST(self, req):
-        uid = self.aligner.next_id()
+        alignment_id = self.aligner.next_id()
 
         tran = req.args['transcript'][0]
         audio = req.args['audio'][0]
@@ -135,7 +136,7 @@ class AlignmentsController(Resource):
         result_promise = threads.deferToThreadPool(
             self.reactor, self.reactor.getThreadPool(),
             self.aligner.align,
-            uid, tran, audio)
+            alignment_id, tran, audio)
 
         if not async:
             def write_result(result):
@@ -151,19 +152,19 @@ class AlignmentsController(Resource):
             return NOT_DONE_YET
 
         req.setResponseCode(FOUND)
-        req.setHeader(b"Location", "/alignments/%s" % (uid))
+        req.setHeader(b"Location", "/alignments/%s" % (alignment_id))
         return ''
 
 class LazyZipper(Insist):
-    def __init__(self, cachedir, aligner, uid):
+    def __init__(self, cachedir, aligner, alignment_id):
         self.aligner = aligner
-        self.uid = uid
-        Insist.__init__(self, os.path.join(cachedir, '%s.zip' % (uid)))
+        self.alignment_id = alignment_id
+        Insist.__init__(self, os.path.join(cachedir, '%s.zip' % (alignment_id)))
 
     def serialize_computation(self, outpath):
         shutil.make_archive('.'.join(outpath.split('.')[:-1]), # We need to strip the ".zip" from the end
                             "zip",                             # ...because `shutil.make_archive` adds it back
-                            os.path.join(self.aligner.out_dir(self.uid)))
+                            os.path.join(self.aligner.out_dir(self.alignment_id)))
 
 class AlignmentsZipper(Resource):
     def __init__(self, cachedir, aligner):
@@ -172,13 +173,13 @@ class AlignmentsZipper(Resource):
         Resource.__init__(self)
     
     def getChild(self, path, req):
-        uid = path.split('.')[0]
-        t_dir = self.aligner.out_dir(uid)
+        alignment_id = path.split('.')[0]
+        t_dir = self.aligner.out_dir(alignment_id)
         if os.path.exists(t_dir):
             # TODO: Check that "status" is complete and only create a LazyZipper if so
             # Otherwise, we could have incomplete alignments that get permanently zipped.
             # For now, a solution will be hiding the button in the client until it's done.
-            lz = LazyZipper(self.cachedir, self.aligner, uid)
+            lz = LazyZipper(self.cachedir, self.aligner, alignment_id)
             self.putChild(path, lz)
             return lz
         else:
