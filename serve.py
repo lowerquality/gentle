@@ -15,7 +15,7 @@ import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import lm_transcribe_progress
-from gentle.transcription import to_csv
+from gentle.alignment import to_csv
 from gentle.cyst import Insist
 import gentle
 
