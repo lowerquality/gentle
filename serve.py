@@ -15,7 +15,7 @@ import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import lm_transcribe_progress
-from gentle.transcription import to_csv
+from gentle.alignment import to_csv
 from gentle.cyst import Insist
 import gentle
 
@@ -29,24 +29,27 @@ def to_wav(infile, outfile):
                      '-acodec', 'pcm_s16le',
                      outfile])
 
-class Transcriber():
+class Aligner():
     def __init__(self, data_dir):
         self.data_dir = data_dir
 
-    def out_dir(self, uid):
-        return os.path.join(self.data_dir, 'transcriptions', uid)
+    def out_dir(self, alignment_id):
+        return os.path.join(self.data_dir, 'alignments', alignment_id)
 
-    # TODO(maxhawkins): refactor so this is returned by transcribe()
+    # TODO(maxhawkins): refactor so this is returned by align()
     def next_id(self):
         uid = None
         while uid is None or os.path.exists(os.path.join(self.data_dir, uid)):
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def transcribe(self, uid, transcript, audio):
+    def align(self, alignment_id, transcript, audio):
         output = {
             'status': 'STARTED',
-            'transcript': transcript,
+            'alignmentID': alignment_id,
+            'alignment': {
+                'transcript': transcript,
+            },
         }
 
         def save():
@@ -55,7 +58,7 @@ class Transcriber():
             with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
                 csvfile.write(to_csv(output))
 
-        outdir = os.path.join(self.data_dir, 'transcriptions', uid)
+        outdir = os.path.join(self.data_dir, 'alignments', alignment_id)
         os.makedirs(outdir)
 
         # Copy over the HTML
@@ -79,10 +82,10 @@ class Transcriber():
             save()
             return
 
-        output['status'] = 'TRANSCRIBING'
+        output['status'] = 'ALIGNING'
         save()
 
-        # Run transcription
+        # Run alignment
         progress = lm_transcribe_progress(
             wavfile,
             transcript,
@@ -90,9 +93,8 @@ class Transcriber():
             get_resource('PROTO_LANGDIR'),
             get_resource('data/nnet_a_gpu_online'))
         result = None
-        for result in progress:
-            output['words'] = result['words']
-            output['transcript'] = result['transcript']
+        for alignment in progress:
+            output['alignment'] = alignment
             save()
 
         # ...and remove the original upload
@@ -106,23 +108,23 @@ class Transcriber():
         htmltxt = htmltxt.replace("var INLINE_JSON;", "var INLINE_JSON=%s;" % (json.dumps(output)));
         open(os.path.join(outdir, 'index.html'), 'w').write(htmltxt)
 
-        logging.info('done with transcription.')
+        logging.info('done with alignment.')
 
         return result
 
-class TranscriptionsController(Resource):
-    def __init__(self, transcriber, reactor=default_reactor):
+class AlignmentsController(Resource):
+    def __init__(self, aligner, reactor=default_reactor):
         Resource.__init__(self)
-        self.transcriber = transcriber
+        self.aligner = aligner
         self.reactor = reactor
     
-    def getChild(self, uid, req):
-        out_dir = self.transcriber.out_dir(uid)
-        trans_ctrl = File(out_dir)
-        return trans_ctrl
+    def getChild(self, alignment_id, req):
+        out_dir = self.aligner.out_dir(alignment_id)
+        alignment_ctrl = File(out_dir)
+        return alignment_ctrl
 
     def render_POST(self, req):
-        uid = self.transcriber.next_id()
+        alignment_id = self.aligner.next_id()
 
         tran = req.args['transcript'][0]
         audio = req.args['audio'][0]
@@ -133,8 +135,8 @@ class TranscriptionsController(Resource):
 
         result_promise = threads.deferToThreadPool(
             self.reactor, self.reactor.getThreadPool(),
-            self.transcriber.transcribe,
-            uid, tran, audio)
+            self.aligner.align,
+            alignment_id, tran, audio)
 
         if not async:
             def write_result(result):
@@ -150,34 +152,34 @@ class TranscriptionsController(Resource):
             return NOT_DONE_YET
 
         req.setResponseCode(FOUND)
-        req.setHeader(b"Location", "/transcriptions/%s" % (uid))
+        req.setHeader(b"Location", "/alignments/%s" % (alignment_id))
         return ''
 
 class LazyZipper(Insist):
-    def __init__(self, cachedir, transcriber, uid):
-        self.transcriber = transcriber
-        self.uid = uid
-        Insist.__init__(self, os.path.join(cachedir, '%s.zip' % (uid)))
+    def __init__(self, cachedir, aligner, alignment_id):
+        self.aligner = aligner
+        self.alignment_id = alignment_id
+        Insist.__init__(self, os.path.join(cachedir, '%s.zip' % (alignment_id)))
 
     def serialize_computation(self, outpath):
         shutil.make_archive('.'.join(outpath.split('.')[:-1]), # We need to strip the ".zip" from the end
                             "zip",                             # ...because `shutil.make_archive` adds it back
-                            os.path.join(self.transcriber.out_dir(self.uid)))
+                            os.path.join(self.aligner.out_dir(self.alignment_id)))
 
-class TranscriptionZipper(Resource):
-    def __init__(self, cachedir, transcriber):
+class AlignmentsZipper(Resource):
+    def __init__(self, cachedir, aligner):
         self.cachedir = cachedir
-        self.transcriber = transcriber
+        self.aligner = aligner
         Resource.__init__(self)
     
     def getChild(self, path, req):
-        uid = path.split('.')[0]
-        t_dir = self.transcriber.out_dir(uid)
+        alignment_id = path.split('.')[0]
+        t_dir = self.aligner.out_dir(alignment_id)
         if os.path.exists(t_dir):
             # TODO: Check that "status" is complete and only create a LazyZipper if so
-            # Otherwise, we could have incomplete transcriptions that get permanently zipped.
+            # Otherwise, we could have incomplete alignments that get permanently zipped.
             # For now, a solution will be hiding the button in the client until it's done.
-            lz = LazyZipper(self.cachedir, self.transcriber, uid)
+            lz = LazyZipper(self.cachedir, self.aligner, alignment_id)
             self.putChild(path, lz)
             return lz
         else:
@@ -199,12 +201,12 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
     f.putChild('status.html', File(get_resource('www/status.html')))
     f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
 
-    trans = Transcriber(data_dir)
-    trans_ctrl = TranscriptionsController(trans)
-    f.putChild('transcriptions', trans_ctrl)
+    aligner = Aligner(data_dir)
+    alignments_ctrl = AlignmentsController(aligner)
+    f.putChild('alignments', alignments_ctrl)
 
-    trans_zippr = TranscriptionZipper(zip_dir, trans)
-    f.putChild('zip', trans_zippr)
+    alignments_zipper = AlignmentsZipper(zip_dir, aligner)
+    f.putChild('zip', alignments_zipper)
     
     s = Site(f)
     logging.info("about to listen")

@@ -1,4 +1,4 @@
-'''Unit tests for TranscriptionsController'''
+'''Unit tests for AlignmentsController'''
 
 import unittest
 import json
@@ -11,34 +11,34 @@ from twisted.python.failure import Failure
 from twisted.web.server import NOT_DONE_YET
 from twisted.web.test.requesthelper import DummyRequest
 
-from serve import TranscriptionsController
+from serve import AlignmentsController
 
 
-class StubTranscriber(object):
-    '''Fake transcriber that returns canned respones'''
-    def __init__(self, transcribe_stub='', uid_stub='stub-uid'):
-        self.transcribe_stub = transcribe_stub
+class StubAligner(object):
+    '''Fake aligner that returns canned respones'''
+    def __init__(self, align_stub='', uid_stub='stub-uid'):
+        self.align_stub = align_stub
         self.uid_stub = uid_stub
     def next_id(self):
         '''returns canned uid'''
         return self.uid_stub
     # pylint: disable=unused-argument
-    def transcribe(self, uid, tran, audio):
-        '''returns canned transcribe result'''
-        return self.transcribe_stub
+    def align(self, uid, tran, audio):
+        '''returns canned align result'''
+        return self.align_stub
 
 # pylint: disable=no-init
-class TranscriptionsControllerTestsBuilder(ReactorBuilder):
-    '''Suite for testing TranscriptionsController'''
+class AlignmentsControllerTestsBuilder(ReactorBuilder):
+    '''Suite for testing AlignmentsController'''
     def test_async(self):
         '''Test the redirect works when async=true'''
         reactor = self.buildReactor()
 
         uid = 'myuid'
-        want_location = '/transcriptions/' + uid
+        want_location = '/alignments/' + uid
 
-        stub_transcriber = StubTranscriber(uid_stub=uid)
-        controller = TranscriptionsController(stub_transcriber, reactor=reactor)
+        stub_aligner = StubAligner(uid_stub=uid)
+        controller = AlignmentsController(stub_aligner, reactor=reactor)
 
         req = DummyRequest([])
         req.method = 'POST'
@@ -56,8 +56,8 @@ class TranscriptionsControllerTestsBuilder(ReactorBuilder):
         '''Test that the controller doesn't try to render when the request is cancelled.'''
         reactor = self.buildReactor()
 
-        stub_transcriber = StubTranscriber()
-        controller = TranscriptionsController(stub_transcriber, reactor=reactor)
+        stub_aligner = StubAligner()
+        controller = AlignmentsController(stub_aligner, reactor=reactor)
 
         req = DummyRequest([])
         req.method = 'POST'
@@ -74,13 +74,13 @@ class TranscriptionsControllerTestsBuilder(ReactorBuilder):
         assert_equals(req.finished, 0)
 
     def test_sync(self):
-        '''Test the threading/transcription works when async=false'''
+        '''Test the threading/alignment works when async=false'''
         reactor = self.buildReactor()
 
         expected = {'some': 'result'}
 
-        stub_transcriber = StubTranscriber(transcribe_stub=expected)
-        controller = TranscriptionsController(stub_transcriber, reactor=reactor)
+        stub_aligner = StubAligner(align_stub=expected)
+        controller = AlignmentsController(stub_aligner, reactor=reactor)
 
         req = DummyRequest([])
         req.method = 'POST'
@@ -98,7 +98,7 @@ class TranscriptionsControllerTestsBuilder(ReactorBuilder):
         got = json.loads(req.written[0])
         assert_equals(got, expected)
 
-globals().update(TranscriptionsControllerTestsBuilder.makeTestCaseClasses())
+globals().update(AlignmentsControllerTestsBuilder.makeTestCaseClasses())
 
 if __name__ == '__main__':
     unittest.main()

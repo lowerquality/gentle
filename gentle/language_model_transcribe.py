@@ -7,45 +7,50 @@ import shutil
 import sys
 
 from paths import get_resource
+from vocabulary import Vocabulary
+import text
 import diff_align
 import language_model
-import metasentence
 import standard_kaldi
-import transcription
+import alignment
 
 def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
-    ret = None
-    for ret in lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
+    align = None
+    for align in lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
         pass
-    return ret
+    return align
 
 def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
 
     if len(transcript.strip()) == 0:
         # Fall back on normal transcription if no transcript is provided
         logging.info("Falling back on normal transcription")
-        for ret in _normal_transcribe(audio_f, proto_langdir, nnet_dir):
-            yield ret
+        for align in _normal_transcribe(audio_f, proto_langdir, nnet_dir):
+            yield align
         return
     
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
-    with open(vocab_path) as f:
-        vocab = metasentence.load_vocabulary(f)
+    vocab = Vocabulary.from_file(vocab_path)
 
-    ms = metasentence.MetaSentence(transcript, vocab)
+    text_tokens = text.tokenize(transcript)
+    reference_words = [vocab.normalize(token['text']) for token in text_tokens]
+    reference = []
+    for word, token in zip(reference_words, text_tokens):
+        reference.append({
+            'alignedWord': word,
+            'source': token,
+        })
 
-    ks = ms.get_kaldi_sequence()
-
-    gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
+    gen_hclg_filename = language_model.make_bigram_language_model(reference_words, proto_langdir)
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
-        ret = None
         for trans in k.transcribe_progress(audio_f):
-            ret = diff_align.align(trans["words"], ms)
+            hypothesis = trans["tokens"]
+            aligned_tokens = diff_align.align(hypothesis, reference)
             yield {
                 "transcript": transcript,
-                "words": ret,
+                "tokens": aligned_tokens,
             }
     finally:
         k.stop()
@@ -57,32 +62,37 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
         logging.warn("No general-purpose language model available")
         yield {
             "transcript": "",
-            "words": [],
+            "tokens": [],
         }
 
     k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)
     for trans in k.transcribe_progress(audio_f, batch_size=5):
         # Spoof the `diff_align` output format
         transcript = ""
-        words = []
+        tokens = []
 
-        for t_wd in trans["words"]:
-            word = {
+        for trans_token in trans["tokens"]:
+
+            word = trans_token['alignedWord']
+            source = {
+                "text": word,
+                "characterOffsetStart": len(transcript),
+                "characterOffsetEnd": len(transcript) + len(word),
+            }
+            token = {
                 "case": "success",
-                "startOffset": len(transcript),
-                "endOffset": len(transcript) + len(t_wd["word"]),
-                "word": t_wd["word"],
-                "alignedWord": t_wd["word"],
-                "phones": t_wd["phones"],
-                "start": t_wd["start"],
-                "end": t_wd["start"] + t_wd["duration"]}
-            words.append(word)
+                "alignedWord": word,
+                "source": source,
+                "phones": trans_token["phones"],
+                "time": trans_token['time'],
+            }
+            tokens.append(token)
 
-            transcript += word["word"] + " "
+            transcript += word + " "
 
         yield {
             "transcript": transcript,
-            "words": words
+            "tokens": tokens
         }
     k.stop()
 
@@ -102,7 +112,7 @@ if __name__=='__main__':
     parser.add_argument('input_file', type=argparse.FileType('r'),
                         help='input transcript as plain text or json')
     parser.add_argument('output_file', type=argparse.FileType('w'),
-                       help='output file for aligned transcript (json or csv)')
+                       help='output file for the alignment (json or csv)')
 
     args = parser.parse_args()
 
@@ -122,16 +132,16 @@ if __name__=='__main__':
     elif outfile.name.endswith('.ctm'):
         out_format = 'ctm'
 
-    ret = None
-    for ret in lm_transcribe_progress(args.audio_file, intxt, args.proto_langdir, args.nnet_dir):
+    align = None
+    for align in lm_transcribe_progress(args.audio_file, intxt, args.proto_langdir, args.nnet_dir):
         sys.stderr.write('.')
     sys.stderr.write('\n')
     
     if out_format == 'csv':
-        formatted = transcription.to_csv(ret)
+        formatted = alignment.to_csv(align)
     elif out_format == 'ctm':
-        formatted = transcription.to_ctm(ret)
+        formatted = alignment.to_ctm(align)
     else:
-        formatted = transcription.to_json(ret, indent=2)
+        formatted = alignment.to_json(align, indent=2)
     outfile.write(formatted)
     

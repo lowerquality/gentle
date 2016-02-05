@@ -1,20 +1,9 @@
 # -*- coding: utf-8 -*-
 from nose.tools import assert_equals
 
-from gentle.metasentence import kaldi_normalize, MetaSentence, load_vocabulary
+from gentle.text import tokenize
 
-def test_load_vocabulary():
-	tests = [
-		[['<eps> 0'], set(['<eps>'])],
-		[['<eps> 0', ''], set(['<eps>'])],
-		[['a 66', 'zulu 124944'], set(['a', 'zulu'])],
-	]
-	for test in tests:
-		input, want = test
-		got = load_vocabulary(input)
-		assert_equals(got, want)
-
-def test_metasentence_tokenization():
+def test_tokenize():
 	tests = [
 		['', [], 'blank'],
 		[' ', [], 'just space'],
@@ -36,24 +25,12 @@ def test_metasentence_tokenization():
 
 	for test in tests:
 		input, want, name = test
-		ms = MetaSentence(input, [])
-		got = ms.get_text_offsets()
-		assert_equals(got, want)
+		tokens = tokenize(input)
 
-def test_kaldi_normalization():
-	vocab = [
-		'test',
-		'duchamp\'s',
-	]
-
-	tests = [
-		['', '', 'preserves empty'],
-		['TEST', 'test', 'makes lower case'],
-		['unknown', '[oov]', 'removes oov words'],
-		['duchamp’s', 'duchamp\'s', 'simplifies fancy quotes'],
-	]
-
-	for test in tests:
-		input, want, name = test
-		got = kaldi_normalize(input, vocab)
+		got = []
+		for token in tokens:
+			got.append((
+				token['characterOffsetStart'],
+				token['characterOffsetEnd'],
+			))
 		assert_equals(got, want)

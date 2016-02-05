@@ -121,7 +121,15 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
 
     for (size_t j = 0; j < phone_lengths[i].size(); j++) {
       Phoneme phone;
-      phone.token = this->phone_syms_->Find(prons[i][j]);
+
+      std::string token = this->phone_syms_->Find(prons[i][j]);
+      // Remove phone position annotation at end of token.
+      size_t pos = token.find('_');
+      if (pos != std::string::npos) {
+        token = token.substr(0, pos);
+      }
+      phone.token = token;
+
       phone.duration = phone_lengths[i][j] * this->frame_shift_;
       phone.has_duration = true;
       aligned.phones.push_back(phone);

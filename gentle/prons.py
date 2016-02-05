@@ -1,63 +1,59 @@
 import logging
 
-def tweak(words, max_phoneme_offset=99):
+def tweak(tokens, max_phone_offset=99):
     # Strip silence from ends of words
-    for wd in words:
-        if len(wd['phones']) > 0 and wd['phones'][0]['phone'] == 'sil':
-            p = wd['phones'].pop(0)
-            wd['start'] += p['duration']
-            wd['duration'] -= p['duration']
+    for token in tokens:
+        if len(token['phones']) > 0 and token['phones'][0]['phone'] == 'sil':
+            phone = token['phones'].pop(0)
+            token['time']['start'] += phone['duration']
+            token['time']['duration'] -= phone['duration']
 
-        if len(wd['phones']) > 0 and wd['phones'][-1]['phone'] == 'sil':
-            p = wd['phones'].pop()
-            wd['duration'] -= p['duration']
+        if len(token['phones']) > 0 and token['phones'][-1]['phone'] == 'sil':
+            phone = token['phones'].pop()
+            token['time']['duration'] -= phone['duration']
     
-    # Move mis-aligned phonemes
-    last_wd = None
-    next_phonemes = []
-    for wd in words:
-        if len(next_phonemes) > 0:
-            # Add the previous phonemes
-            duration = sum([X['duration'] for X in next_phonemes])
+    # Move mis-aligned phones
+    last_token = None
+    next_phones = []
+    for token in tokens:
+        if len(next_phones) > 0:
+            # Add the previous phones
+            duration = sum([phone['duration'] for X in next_phones])
 
             # Merge if the edge is identical
-            if len(wd['phones']) > 0 and next_phonemes[-1]['phone'] == wd['phones'][0]['phone']:
-                wd['phones'][0]['duration'] += next_phonemes[-1]['duration']
-                next_phonemes = next_phonemes[:-1]
+            if len(token['phones']) > 0 and next_phones[-1]['phone'] == token['phones'][0]['phone']:
+                token['phones'][0]['duration'] += next_phones[-1]['duration']
+                next_phones = next_phones[:-1]
 
-            wd['phones'] = next_phonemes + wd['phones']
-            wd['start'] -= duration
-            wd['duration'] += duration
+            token['phones'] = next_phones + token['phones']
+            token['time']['start'] -= duration
+            token['time']['duration'] += duration
 
-            next_phonemes = []
+            next_phones = []
 
         # Did we get the end of the last word
-        elif len(wd['phones']) >= 1 \
-             and last_wd is not None \
-             and wd['phones'][0]['phone'][-1] in 'ES' \
-             and (len(last_wd['phones']) == 0 or \
-                  (not last_wd['phones'][-1]['phone'].endswith('_E')) \
-                   or last_wd['phones'][-1]['phone'] == wd['phones'][0]['phone']):
-             
-            logging.info('moving the end back')
-            logging.info('last_wd: %s', str(last_wd))
-            logging.info('wd: %s', str(wd))
+        elif len(token['phones']) >= 1 \
+             and last_token is not None \
+             and token['phones'][0]['phone'][-1] in 'ES' \
+             and (len(last_token['phones']) == 0 or \
+                  (not last_token['phones'][-1]['phone'].endswith('_E')) \
+                   or last_token['phones'][-1]['phone'] == token['phones'][0]['phone']):
             
-            first_phone = wd['phones'][0]
-            wd['phones'] = wd['phones'][1:]
-            wd['duration'] -= first_phone['duration']
-            wd['start'] += first_phone['duration']
+            first_phone = token['phones'][0]
+            token['phones'] = token['phones'][1:]
+            token['time']['duration'] -= first_phone['duration']
+            token['time']['start'] += first_phone['duration']
 
-            if len(last_wd['phones']) > 0 and last_wd['phones'][-1]['phone'] == first_phone['phone']:
-                last_wd['phones'][-1]['duration'] += first_phone['duration']
+            if len(last_token['phones']) > 0 and last_token['phones'][-1]['phone'] == first_phone['phone']:
+                last_token['phones'][-1]['duration'] += first_phone['duration']
             else:
-                last_wd['phones'].append(first_phone)
-            last_wd['duration'] += first_phone['duration']
+                last_token['phones'].append(first_phone)
+            last_token['time']['duration'] += first_phone['duration']
 
-        if len(wd['phones']) > 1:
-            if not (wd['phones'][0]['phone'].endswith('_B') or wd['phones'][0]['phone'].endswith('_S')):
-                logging.info('Word does not start correctly, %s', str(wd))
-                logging.info('previously: %s', str(last_wd))                
+        if len(token['phones']) > 1:
+            if not (token['phones'][0]['phone'].endswith('_B') or token['phones'][0]['phone'].endswith('_S')):
+                logging.info('Word does not start correctly, %s', str(token))
+                logging.info('previously: %s', str(last_token))                
                 # XXX: In this (rare!) case, I think getting rid of
                 # the starting phoneme may be the right thing to do
                 # (if, say, the second looks reasonable).
@@ -68,33 +64,33 @@ def tweak(words, max_phoneme_offset=99):
 
             else:
                 # Is the beginning of the next word here?
-                for idx,ph in enumerate(wd['phones']):
-                    if idx > 0 and ph['phone'].endswith('_B'):
-                        next_phonemes = wd['phones'][idx:]
-                        if len(next_phonemes) > max_phoneme_offset:
-                            logging.info("Skipping long offset adjustment (%d): %s", len(next_phonemes), str(wd))
-                            next_phonemes = []
+                for idx, phone in enumerate(token['phones']):
+                    if idx > 0 and phone['phone'].endswith('_B'):
+                        next_phones = token['phones'][idx:]
+                        if len(next_phones) > max_phone_offset:
+                            logging.info("Skipping long offset adjustment (%d): %s", len(next_phones), str(token))
+                            next_phones = []
                             continue
-                        offset_duration = sum([X['duration'] for X in next_phonemes])
-                        wd['phones'] = wd['phones'][:idx]
-                        wd['duration'] -= offset_duration
+                        offset_duration = sum([phone['duration'] for phone in next_phones])
+                        token['phones'] = token['phones'][:idx]
+                        token['time']['duration'] -= offset_duration
                         logging.info('Word contains the next beginning (%d)', idx)
                         break
 
-        last_wd = wd
+        last_token = token
 
     # Strip silence from ends of words
-    for wd in words:
-        if len(wd['phones']) > 0 and wd['phones'][0]['phone'] == 'sil':
-            p = wd['phones'].pop(0)
-            wd['start'] += p['duration']
-            wd['duration'] -= p['duration']
+    for token in tokens:
+        if len(token['phones']) > 0 and token['phones'][0]['phone'] == 'sil':
+            phone = token['phones'].pop(0)
+            token['time']['start'] += phone['duration']
+            token['time']['duration'] -= phone['duration']
 
-        if len(wd['phones']) > 0 and wd['phones'][-1]['phone'] == 'sil':
-            p = wd['phones'].pop()
-            wd['duration'] -= p['duration']
+        if len(token['phones']) > 0 and token['phones'][-1]['phone'] == 'sil':
+            phone = token['phones'].pop()
+            token['time']['duration'] -= phone['duration']
 
-    return words
+    return tokens
 
 if __name__=='__main__':
     import json
@@ -104,20 +100,10 @@ if __name__=='__main__':
     IN_JSON = sys.argv[1]
     OUT_JSON = sys.argv[2]
 
-    inp = json.load(open(IN_JSON))
+    alignment = json.load(open(IN_JSON))
 
-    words = [X for X in inp['words'] if X['case'] != 'not-found-in-audio']
-
-    # ugh. normalize to start/duration
-    for wd in words:
-        wd['duration'] = wd['end'] - wd['start']
-    
-    words = tweak(words)
-
-    # ...and back to start/end
-    for wd in words:
-        wd['end'] = wd['duration'] + wd['start']
-
-    inp['words'] = words
+    tokens = [token for token in alignment['tokens'] if token['case'] != 'not-found-in-audio']
+    tokens = tweak(tokens)
+    alignment['tokens'] = tokens
 
     json.dump(inp, open(OUT_JSON, 'w'), indent=2)

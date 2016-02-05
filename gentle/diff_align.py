@@ -3,67 +3,53 @@ import json
 import os
 import sys
 
-import metasentence
 import language_model
 import standard_kaldi
 
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
 # programming algorithm used in sclite's alignment process:
 # http://www1.icsi.berkeley.edu/Speech/docs/sctk-1.2/sclite.htm#time-mediated
-def align(alignment, ms):
-    '''Use the diff algorithm to align the raw tokens recognized by Kaldi
-    to the words in the transcript (tokenized by MetaSentence).
+def align(hypothesis, reference):
+    '''Use the diff algorithm to align the words recognized by Kaldi
+    to the words in the (tokenized) transcript.
     
     The output combines information about the timing and alignment of
     correctly-aligned words as well as words that Kaldi failed to recognize
     and extra words not found in the original transcript.
     '''
-    hypothesis = [X["word"] for X in alignment]
-    reference = ms.get_kaldi_sequence()
+    hypothesis_words = [token['alignedWord'] for token in hypothesis]
+    reference_words = [token['alignedWord'] for token in reference]
 
-    display_seq = ms.get_display_sequence()
-    txt_offsets = ms.get_text_offsets()
-
-    out = []
-    for op, a, b in word_diff(hypothesis, reference):
+    out_tokens = []
+    for op, a, b in word_diff(hypothesis_words, reference_words):
         if a < len(hypothesis):
-            hyp_word = hypothesis[a]
-            hyp_token = alignment[a]
-            phones = hyp_token.get("phones", [])
-            start = hyp_token["start"]
-            end = hyp_token["start"] + hyp_token["duration"]
+            word = hypothesis[a]['alignedWord']
+            time = hypothesis[a]['time']
+            phones = hypothesis[a]['phones']
         if b < len(reference):
-            ref_word = reference[b]
-            display_word = display_seq[b]
-            start_offset, end_offset = txt_offsets[b]
+            source = reference[b]['source']
 
         if op == 'equal':
-            out.append({
+            out_tokens.append({
                 "case": "success",
-                "startOffset": start_offset,
-                "endOffset": end_offset,
-                "word": display_word,
-                "alignedWord": hyp_word,
+                "source": source,
+                "alignedWord": word,
                 "phones": phones,
-                "start": start,
-                "end": end,
+                "time": time,
             })
         elif op == 'delete':
-            out.append({
+            out_tokens.append({
                 "case": "not-found-in-transcript",
-                "alignedWord": hyp_word,
+                "alignedWord": word,
                 "phones": phones,
-                "start": start,
-                "end": end,
+                "time": time,
             })
         elif op in 'insert':
-            out.append({
+            out_tokens.append({
                 "case": "not-found-in-audio",
-                "startOffset": start_offset,
-                "endOffset": end_offset,
-                "word": display_word,
+                "source": source,
             })
-    return out
+    return out_tokens
 
 def word_diff(a, b):
     '''Like difflib.SequenceMatcher but it only compares one word
@@ -99,16 +85,27 @@ def by_word(opcodes):
                 yield (op, i1, i1 + 1, i2, i2 + 1)
 
 if __name__=='__main__':
+    import text
+    from vocabulary import Vocabulary
+
     TEXT_FILE = sys.argv[1]
     JSON_FILE = sys.argv[2]
     OUTPUT_FILE = sys.argv[3]
 
-    with open('data/graph/words.txt') as f:
-        vocab = metasentence.load_vocabulary(f)
+    vocab = Vocabulary.from_file('data/graph/words.txt')
 
-    ms = metasentence.MetaSentence(open(TEXT_FILE).read(), vocab)
-    alignment = json.load(open(JSON_FILE))['words']
+    text_tokens = text.tokenize(open(TEXT_FILE).read())
+    # TODO(maxhawkins): de-dupe. this code is duplicated in language_model_transcribe.py
+    reference_words = [vocab.normalize(token['text']) for token in text_tokens]
+    reference = []
+    for word, token in zip(reference_words, text_tokens):
+        reference.append({
+            'alignedWord': word,
+            'source': token,
+        })
 
-    out = align(alignment, ms)
+    hypothesis = json.load(open(JSON_FILE))['tokens']
+
+    out = align(hypothesis, ms)
     
     json.dump(out, open(OUTPUT_FILE, 'w'), indent=2)

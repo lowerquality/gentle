@@ -15,12 +15,12 @@ def test_e2e():
 		golden = json.load(f)
 	with open("tests/data/lucier.txt") as f:
 		transcript = f.read()
-	ret = lm_transcribe(
+	alignment = lm_transcribe(
 		"tests/data/lucier.mp3",
 		transcript,
 		"PROTO_LANGDIR",
 		"data/nnet_a_gpu_online")
 	
-	score = alignment_score(golden['words'], ret['words'])
+	score = alignment_score(golden['tokens'], alignment['tokens'])
 	assert_greater(score['correct'], 0.85)
 	assert_less(score['error'], 0.35)
