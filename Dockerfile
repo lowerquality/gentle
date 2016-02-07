@@ -6,10 +6,13 @@ RUN DEBIAN_FRONTEND=noninteractive && \
 		libtool subversion libatlas3-base ffmpeg python-pip \
 		python-dev wget unzip && \
 	apt-get clean
-ADD . /gentle
-RUN MAKEFLAGS=' -j8' cd /gentle && \
+
+ADD ext /gentle/ext
+RUN MAKEFLAGS=' -j8' cd /gentle/ext && \
 	./install_kaldi.sh && \
-	cd ext && make && rm -rf kaldi
+	make && rm -rf kaldi *.o
+
+ADD . /gentle
 RUN cd /gentle && pip install .
 RUN cd /gentle && ./install_models.sh
 
