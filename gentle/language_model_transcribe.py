@@ -37,6 +37,7 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
     ks = ms.get_kaldi_sequence()
 
     gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
+    k = None
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
@@ -48,7 +49,8 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
                 "words": ret,
             }
     finally:
-        k.stop()
+        if k:
+            k.stop()
         os.unlink(gen_hclg_filename)
 
 def _normal_transcribe(audio_f, proto_langdir, nnet_dir):

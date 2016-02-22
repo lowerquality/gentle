@@ -2,6 +2,7 @@ PROTO_LANGDIR/
 data/
 ext/standard_kaldi
 ext/mkgraph
+ext/*-test
 *.pyc
 *~
 webdata/
