@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
   }
 
   const string nnet_dir = argv[1];
-  const string fst_rxfilename = argv[2];
+  const string hclg_filename = argv[2];
   const string proto_lang_dir = argv[3];
 
   const string ivector_model_dir = nnet_dir + "/ivector_extractor";
@@ -121,8 +121,11 @@ int main(int argc, char* argv[]) {
     nnet.Read(ki.Stream(), binary);
   }
 
-  // This one is much slower than the others.
-  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst(ReadFstKaldi(fst_rxfilename));
+  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst;
+  // Optionally load an existing decoding graph if it exists
+  if (std::ifstream(hclg_filename.c_str())) {
+    hclg_fst.reset(ReadFstKaldi(hclg_filename));
+  }
 
   std::unique_ptr<const fst::SymbolTable> word_syms(
       fst::SymbolTable::ReadText(word_syms_rxfilename));
@@ -138,9 +141,21 @@ int main(int argc, char* argv[]) {
   kaldi::OnlineIvectorExtractorAdaptationState adaptation_state(
       feature_info.ivector_extractor_info);
 
-  std::unique_ptr<Decoder> decoder(new Decoder(feature_info, trans_model,
-                                               nnet2_decoding_config, nnet,
-                                               hclg_fst.get(), adaptation_state));
+  std::unique_ptr<Decoder> current_decoder;
+
+  auto get_decoder = [&]() -> Decoder* {
+    Decoder *decoder = current_decoder.get();
+    if (decoder != nullptr) {
+      return decoder;
+    }
+    if (hclg_fst.get() == nullptr) {
+      throw "no model loaded";
+    }
+    current_decoder.reset(new Decoder(feature_info, trans_model,
+                                      nnet2_decoding_config, nnet,
+                                      hclg_fst.get(), adaptation_state));
+    return current_decoder.get();
+  };
 
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
@@ -170,9 +185,7 @@ int main(int argc, char* argv[]) {
 
       } else if (method == "reset") {
         // Reset all decoding state.
-        decoder.reset(new Decoder(feature_info, trans_model,
-                                  nnet2_decoding_config, nnet,
-                                  hclg_fst.get(), adaptation_state));
+        current_decoder.reset(nullptr);
         RPCWriteReply(out_stream, STATUS_OK, "");
 
       } else if (method == "push-chunk") {
@@ -185,6 +198,7 @@ int main(int argc, char* argv[]) {
           wave_part(i) = sample;
         }
 
+        auto decoder = get_decoder();
         decoder->AddChunk(arate, wave_part);
         RPCWriteReply(out_stream, STATUS_OK, "");
 
@@ -192,6 +206,7 @@ int main(int argc, char* argv[]) {
         // Dump the provisional (non-word-aligned) transcript for the current
         // lattice.
 
+        auto decoder = get_decoder();
         kaldi::Lattice partial_lat = decoder->GetBestPath();
         Hypothesis partial = hypothesizer.GetPartial(partial_lat);
         string serialized = MarshalHypothesis(partial);
@@ -200,6 +215,7 @@ int main(int argc, char* argv[]) {
 
       } else if (method == "get-final") {
         // Dump the final, phone-aligned transcript for the current lattice.
+        auto decoder = get_decoder();
         kaldi::Lattice final_lat = decoder->GetBestPath();
         Hypothesis final = hypothesizer.GetFull(final_lat);
         string serialized = MarshalHypothesis(final);
