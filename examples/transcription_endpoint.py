@@ -2,7 +2,7 @@ import os
 import sys
 import tempfile
 
-from gentle.language_model_transcribe import lm_transcribe
+from gentle.language_model_transcribe import align
 
 
 from flask import jsonify, request, Flask, render_template
@@ -43,8 +43,8 @@ def transcribe():
     proto_langdir = app.config['proto_langdir']
     nnet_dir = app.config['nnet_dir']
 
-    aligned = lm_transcribe(audio_file.name, transcript,
-        proto_langdir, nnet_dir)
+    aligned = align(audio_file.name, transcript,
+        proto_langdir, nnet_dir, want_progress=False)
     return jsonify(transcript=aligned)
 
 

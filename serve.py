@@ -14,7 +14,7 @@ import sys
 import uuid
 
 from gentle.paths import get_binary, get_resource, get_datadir
-from gentle.language_model_transcribe import lm_transcribe_progress
+from gentle.language_model_transcribe import align_progress
 from gentle.transcription import to_csv
 from gentle.cyst import Insist
 import gentle
@@ -43,7 +43,7 @@ class Transcriber():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def transcribe(self, uid, transcript, audio):
+    def transcribe(self, uid, transcript, audio, async):
         output = {
             'status': 'STARTED',
             'transcript': transcript,
@@ -83,12 +83,13 @@ class Transcriber():
         save()
 
         # Run transcription
-        progress = lm_transcribe_progress(
+        progress = align_progress(
             wavfile,
             transcript,
             # XXX: should be configurable
             get_resource('PROTO_LANGDIR'),
-            get_resource('data/nnet_a_gpu_online'))
+            get_resource('data/nnet_a_gpu_online'),
+            want_progress=(not async))
         result = None
         for result in progress:
             output['words'] = result['words']
@@ -134,7 +135,7 @@ class TranscriptionsController(Resource):
         result_promise = threads.deferToThreadPool(
             self.reactor, self.reactor.getThreadPool(),
             self.transcriber.transcribe,
-            uid, tran, audio)
+            uid, tran, audio, async)
 
         if not async:
             def write_result(result):

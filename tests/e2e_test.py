@@ -6,7 +6,7 @@ import unittest
 
 from nose.tools import assert_greater, assert_less
 
-from gentle.language_model_transcribe import lm_transcribe
+from gentle.language_model_transcribe import align
 from gentle.alignment_score import alignment_score
 
 @unittest.skipIf(os.environ.get('SHORT') == 'true', 'skipping for short test')
@@ -15,7 +15,7 @@ def test_e2e():
 		golden = json.load(f)
 	with open("tests/data/lucier.txt") as f:
 		transcript = f.read()
-	ret = lm_transcribe(
+	ret = align(
 		"tests/data/lucier.mp3",
 		transcript,
 		"PROTO_LANGDIR",
