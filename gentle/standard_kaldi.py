@@ -146,7 +146,7 @@ class Kaldi(object):
         }
 
     def __del__(self):
-        if not self._stopped:
+        if not self._stopped and self.rpc:
             self.stop()
 
 def read_wav(infile):
