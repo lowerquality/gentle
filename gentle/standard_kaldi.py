@@ -58,7 +58,7 @@ class Kaldi(object):
 
     def stop(self):
         '''Quit the program'''
-        self.rpc.do('stop')
+        self._subprocess.terminate()
         self._stopped = True
 
     def transcribe(self, infile):
