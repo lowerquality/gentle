@@ -122,25 +122,25 @@ int main(int argc, char* argv[]) {
   }
 
   // This one is much slower than the others.
-  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(fst_rxfilename);
+  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst(ReadFstKaldi(fst_rxfilename));
 
-  fst::SymbolTable* word_syms =
-      fst::SymbolTable::ReadText(word_syms_rxfilename);
-  fst::SymbolTable* phone_syms =
-      fst::SymbolTable::ReadText(phone_syms_rxfilename);
+  std::unique_ptr<const fst::SymbolTable> word_syms(
+      fst::SymbolTable::ReadText(word_syms_rxfilename));
+  std::unique_ptr<const fst::SymbolTable> phone_syms(
+      fst::SymbolTable::ReadText(phone_syms_rxfilename));
 
   OnlineSilenceWeighting silence_weighting(
       trans_model, feature_info.silence_weighting_config);
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
-                            word_syms, phone_syms);
+                            word_syms.get(), phone_syms.get());
 
   kaldi::OnlineIvectorExtractorAdaptationState adaptation_state(
       feature_info.ivector_extractor_info);
 
   std::unique_ptr<Decoder> decoder(new Decoder(feature_info, trans_model,
                                                nnet2_decoding_config, nnet,
-                                               decode_fst, adaptation_state));
+                                               hclg_fst.get(), adaptation_state));
 
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
@@ -171,8 +171,8 @@ int main(int argc, char* argv[]) {
       } else if (method == "reset") {
         // Reset all decoding state.
         decoder.reset(new Decoder(feature_info, trans_model,
-                                  nnet2_decoding_config, nnet, decode_fst,
-                                  adaptation_state));
+                                  nnet2_decoding_config, nnet,
+                                  hclg_fst.get(), adaptation_state));
         RPCWriteReply(out_stream, STATUS_OK, "");
 
       } else if (method == "push-chunk") {
