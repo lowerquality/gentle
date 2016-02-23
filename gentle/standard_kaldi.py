@@ -52,6 +52,11 @@ class Kaldi(object):
         words = prons.tweak(hypothesis)
         return words
 
+    def make_model(self, grammar_fst):
+        '''Build a new language model using the given grammar_fst
+        model (as a textual fst)'''
+        self.rpc.do('make-model', body=grammar_fst)
+
     def reset(self):
         '''Reset the decoder, delete the decoding state'''
         self.rpc.do('reset')

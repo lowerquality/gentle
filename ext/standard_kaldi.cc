@@ -10,6 +10,7 @@
 #include "online2/onlinebin-util.h"
 #include "online2/online-timing.h"
 #include "online2/online-endpoint.h"
+#include "fst/script/compile.h"
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
 #include "lat/word-align-lattice.h"
@@ -17,6 +18,7 @@
 #include "thread/kaldi-thread.h"
 
 #include "decoder.h"
+#include "hclg.h"
 #include "hypothesis.h"
 #include "hypothesizer.h"
 #include "rpc.h"
@@ -87,6 +89,12 @@ int main(int argc, char* argv[]) {
   const string hclg_filename = argv[2];
   const string proto_lang_dir = argv[3];
 
+  const string ctx_dep_filename = proto_lang_dir + "/modeldir/tree";
+  const string disambig_phones_filename =
+    proto_lang_dir + "/langdir/phones/disambig.int";
+  const string lang_disambig_fst_filename =
+      proto_lang_dir + "/langdir/L_disambig.fst";
+
   const string ivector_model_dir = nnet_dir + "/ivector_extractor";
   const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
   const string word_syms_rxfilename = proto_lang_dir + "/langdir/words.txt";
@@ -132,6 +140,21 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<const fst::SymbolTable> phone_syms(
       fst::SymbolTable::ReadText(phone_syms_rxfilename));
 
+  // Load BuildHCLG data
+  std::unique_ptr<const VectorFst<StdArc>> lang_disambig_fst(
+      ReadFstKaldi(lang_disambig_fst_filename));
+  if (lang_disambig_fst->Properties(fst::kOLabelSorted, true) == 0) {
+    KALDI_WARN << "L_disambig.fst is not olabel sorted.";
+  }
+  std::vector<int32> disambig_symbols;
+  ReadIntegerVectorSimple(disambig_phones_filename, &disambig_symbols);
+  if (disambig_symbols.empty()) {
+    KALDI_WARN << "Disambiguation symbols list is empty; this likely "
+               << "indicates an error in data preparation.";
+  }
+  ContextDependency ctx_dep;
+  ReadKaldiObject(ctx_dep_filename, &ctx_dep);
+
   OnlineSilenceWeighting silence_weighting(
       trans_model, feature_info.silence_weighting_config);
 
@@ -176,7 +199,6 @@ int main(int argc, char* argv[]) {
       }
       continue;
     }
-    std::cerr << "method=" << method << std::endl;
 
     try {
       if (method == "stop") {
@@ -186,6 +208,24 @@ int main(int argc, char* argv[]) {
       } else if (method == "reset") {
         // Reset all decoding state.
         current_decoder.reset(nullptr);
+        RPCWriteReply(out_stream, STATUS_OK, "");
+
+      } else if (method == "make-model") {
+        // Make a new model using the grammar provided in body.
+        // It will be used the next time the decoder is reset.
+        fst::SymbolTableTextOptions opts;
+
+        std::stringstream body_stream(string(body.begin(), body.end()));
+
+        fst::FstCompiler<fst::StdArc> fstcompiler(
+            body_stream, "", word_syms.get(), word_syms.get(), nullptr, false,
+            false, false, false, false);
+        VectorFst<StdArc> grammar_fst = fstcompiler.Fst();
+
+        hclg_fst.reset(new VectorFst<StdArc>(
+            BuildHCLG(grammar_fst, *lang_disambig_fst, ctx_dep, trans_model,
+                      disambig_symbols)));
+
         RPCWriteReply(out_stream, STATUS_OK, "");
 
       } else if (method == "push-chunk") {
