@@ -51,7 +51,13 @@ def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=F
 
         for tran in k.transcribe_progress(audio_f):
             if want_progress:
-                yield make_alignment(tran, ms)
+                if tran.get("preview") is not None:
+                    # Yield some partial information
+                    yield {"preview": tran["preview"],
+                           "t": tran["t"]}
+                else:
+                    # We're done
+                    yield make_alignment(tran, ms)
         if not want_progress:
             yield make_alignment(tran, ms)
     finally:

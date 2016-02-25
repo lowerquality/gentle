@@ -117,8 +117,15 @@ class Kaldi(object):
                 logging.info('endpoint!\n')
                 ret = self.get_final()
                 _add_words(ret, seg_offset*2)
+                
+                t = 0
+                if len(words) > 0:
+                    t = words[-1]["start"]
+
                 yield {
                     "words": words,
+                    "preview": " ".join([alignedWord["word"] for alignedWord in ret]),
+                    "t": t
                 }
 
                 self.reset()
@@ -143,6 +150,7 @@ class Kaldi(object):
         _add_words(ret, seg_offset*2)
         yield {
             "words": words,
+            "end": True
         }
 
     def __del__(self):

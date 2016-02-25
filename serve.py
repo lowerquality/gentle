@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+import wave
 
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.language_model_transcribe import align_progress
@@ -29,9 +30,22 @@ def to_wav(infile, outfile):
                      '-acodec', 'pcm_s16le',
                      outfile])
 
+class TranscriptionStatus(Resource):
+    def __init__(self, status_dict):
+        self.status_dict = status_dict
+        Resource.__init__(self)
+        
+    def render_GET(self, req):
+        req.headers["Content-Type"] = "application/json"
+        return json.dumps(self.status_dict)
+
 class Transcriber():
     def __init__(self, data_dir):
         self.data_dir = data_dir
+        self._status_dicts = {}
+
+    def get_status(self, uid):
+        return self._status_dicts.setdefault(uid, {})
 
     def out_dir(self, uid):
         return os.path.join(self.data_dir, 'transcriptions', uid)
@@ -44,9 +58,11 @@ class Transcriber():
         return uid
 
     def transcribe(self, uid, transcript, audio, async):
+        status = self.get_status(uid)
+
+        status['status'] = 'STARTED'
         output = {
-            'status': 'STARTED',
-            'transcript': transcript,
+            'transcript': transcript
         }
 
         def save():
@@ -68,19 +84,28 @@ class Transcriber():
         with open(audio_path, 'w') as wavfile:
             wavfile.write(audio)
 
-        output['status'] = 'ENCODING'
-        with open(os.path.join(outdir, 'align.json'), 'w') as alignfile:
-            json.dump(output, alignfile, indent=2)
+        status['status'] = 'ENCODING'
+        # with open(os.path.join(outdir, 'align.json'), 'w') as alignfile:
+            # json.dump(output, alignfile, indent=2)
 
         wavfile = os.path.join(outdir, 'a.wav')
         if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
-            output['status'] = 'ERROR'
-            output['error'] = "Encoding failed. Make sure that you've uploaded a valid media file."
-            save()
+            status['status'] = 'ERROR'
+            status['error'] = "Encoding failed. Make sure that you've uploaded a valid media file."
+            # Save the status so that errors are recovered on restart of the server
+            # XXX: This won't work, because the endpoint will override this file
+            with open(os.path.join(outdir, 'status.json'), 'w') as jsfile:
+                json.dump(status, jsfile, indent=2)
             return
 
-        output['status'] = 'TRANSCRIBING'
-        save()
+        # Find the duration
+
+        #XXX: Maybe we should pass this wave object instead of the
+        # file path to align_progress
+        wav_obj = wave.open(wavfile, 'r')
+        status['duration'] = wav_obj.getnframes() / float(wav_obj.getframerate())
+
+        status['status'] = 'TRANSCRIBING'
 
         # Run transcription
         progress = align_progress(
@@ -89,23 +114,28 @@ class Transcriber():
             # XXX: should be configurable
             get_resource('PROTO_LANGDIR'),
             get_resource('data/nnet_a_gpu_online'),
-            want_progress=(not async))
+            want_progress=True)
         result = None
         for result in progress:
-            output['words'] = result['words']
-            output['transcript'] = result['transcript']
-            save()
+            if result.get("preview") is not None:
+                status["message"] = result["preview"]
+                status["t"] = result["t"]
+            else:
+                output['words'] = result['words']
+                output['transcript'] = result['transcript']
+            #save()
 
         # ...and remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
-        output['status'] = 'OK'
         save()
 
         # Inline the alignment into the index.html file.
         htmltxt = open(get_resource('www/view_alignment.html')).read()
         htmltxt = htmltxt.replace("var INLINE_JSON;", "var INLINE_JSON=%s;" % (json.dumps(output)));
         open(os.path.join(outdir, 'index.html'), 'w').write(htmltxt)
+
+        status['status'] = 'OK'
 
         logging.info('done with transcription.')
 
@@ -120,6 +150,11 @@ class TranscriptionsController(Resource):
     def getChild(self, uid, req):
         out_dir = self.transcriber.out_dir(uid)
         trans_ctrl = File(out_dir)
+
+        # Add a Status endpoint to the file
+        trans_status = TranscriptionStatus(self.transcriber.get_status(uid))
+        trans_ctrl.putChild("status.json", trans_status)
+        
         return trans_ctrl
 
     def render_POST(self, req):

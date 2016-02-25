@@ -296,6 +296,11 @@ function show_downloads() {
         });
 }
 
+function render_status(ret) {
+    // We'll clobber the $trans field
+    $trans.innerHTML = ret.message + "(" + ret.t + "/" + ret.duration + ")";
+}
+
 function update() {
     if(INLINE_JSON) {
         // We want this to work from file:/// domains, so we provide a
@@ -304,17 +309,20 @@ function update() {
         show_downloads();
     }
     else  {
-        get_json('align.json', function(ret) {
+	// Show the status
+        get_json('status.json', function(ret) {
             if (ret.status == 'ERROR') {
                 $preloader.style.visibility = 'hidden';
                 $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
             } else if (ret.status == 'TRANSCRIBING') {
                 $preloader.style.visibility = 'visible';
-                render(ret);
+                render_status(ret);
                 setTimeout(update, 2000);
             } else if (ret.status == 'OK') {
                 $preloader.style.visibility = 'hidden';
-                render(ret);
+                //render(ret);
+		// XXX: should we fetch the align.json?
+		window.location.reload();
                 show_downloads();
             } else if (ret.status == 'ENCODING') {
                 $preloader.style.visibility = 'visible';
