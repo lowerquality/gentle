@@ -23,7 +23,7 @@ class StubTranscriber(object):
         '''returns canned uid'''
         return self.uid_stub
     # pylint: disable=unused-argument
-    def transcribe(self, uid, tran, audio):
+    def transcribe(self, uid, tran, audio, async):
         '''returns canned transcribe result'''
         return self.transcribe_stub
 

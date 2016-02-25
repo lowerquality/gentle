@@ -13,21 +13,29 @@ import metasentence
 import standard_kaldi
 import transcription
 
-def lm_transcribe(audio_f, transcript, proto_langdir, nnet_dir):
-    ret = None
-    for ret in lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
+def make_alignment(transcript, ms):
+    aligned = diff_align.align(transcript["words"], ms)
+    return {
+        "transcript": ms.raw_sentence,
+        "words": aligned,
+    }
+
+def align(audio_f, transcript, proto_langdir, nnet_dir):
+    progress = align_progress(audio_f, transcript,
+        proto_langdir, nnet_dir, want_progress=False)
+    aligned = None
+    for aligned in progress:
         pass
-    return ret
+    return aligned
 
-def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
-
+def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=False):
     if len(transcript.strip()) == 0:
         # Fall back on normal transcription if no transcript is provided
         logging.info("Falling back on normal transcription")
-        for ret in _normal_transcribe(audio_f, proto_langdir, nnet_dir):
+        for ret in _normal_transcribe(audio_f, proto_langdir, nnet_dir, want_progress=want_progress):
             yield ret
         return
-    
+
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
     with open(vocab_path) as f:
         vocab = metasentence.load_vocabulary(f)
@@ -41,19 +49,40 @@ def lm_transcribe_progress(audio_f, transcript, proto_langdir, nnet_dir):
     try:
         k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
 
-        ret = None
-        for trans in k.transcribe_progress(audio_f):
-            ret = diff_align.align(trans["words"], ms)
-            yield {
-                "transcript": transcript,
-                "words": ret,
-            }
+        for tran in k.transcribe_progress(audio_f):
+            if want_progress:
+                yield make_alignment(tran, ms)
+        if not want_progress:
+            yield make_alignment(tran, ms)
     finally:
         if k:
             k.stop()
         os.unlink(gen_hclg_filename)
 
-def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
+def make_transcription_alignment(trans):
+    # Spoof the `diff_align` output format
+    transcript = ""
+    words = []
+    for t_wd in trans["words"]:
+        word = {
+            "case": "success",
+            "startOffset": len(transcript),
+            "endOffset": len(transcript) + len(t_wd["word"]),
+            "word": t_wd["word"],
+            "alignedWord": t_wd["word"],
+            "phones": t_wd["phones"],
+            "start": t_wd["start"],
+            "end": t_wd["start"] + t_wd["duration"]}
+        words.append(word)
+
+        transcript += word["word"] + " "
+
+    return {
+        "transcript": transcript,
+        "words": words
+    }
+
+def _normal_transcribe(audio_f, proto_langdir, nnet_dir, want_progress=False):
     hclg_path = get_resource("data/graph/HCLG.fst")
     if not os.path.exists(hclg_path):
         logging.warn("No general-purpose language model available")
@@ -62,31 +91,18 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir):
             "words": [],
         }
 
-    k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)
-    for trans in k.transcribe_progress(audio_f, batch_size=5):
-        # Spoof the `diff_align` output format
-        transcript = ""
-        words = []
+    try:
+        k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)
 
-        for t_wd in trans["words"]:
-            word = {
-                "case": "success",
-                "startOffset": len(transcript),
-                "endOffset": len(transcript) + len(t_wd["word"]),
-                "word": t_wd["word"],
-                "alignedWord": t_wd["word"],
-                "phones": t_wd["phones"],
-                "start": t_wd["start"],
-                "end": t_wd["start"] + t_wd["duration"]}
-            words.append(word)
-
-            transcript += word["word"] + " "
-
-        yield {
-            "transcript": transcript,
-            "words": words
-        }
-    k.stop()
+        trans = None
+        for trans in k.transcribe_progress(audio_f, batch_size=5):
+            if want_progress:
+                yield make_transcription_alignment(trans)
+        if not want_progress:
+            yield make_transcription_alignment(trans)
+    finally:
+        if k:
+            k.stop()
 
 
 if __name__=='__main__':
@@ -125,7 +141,7 @@ if __name__=='__main__':
         out_format = 'ctm'
 
     ret = None
-    for ret in lm_transcribe_progress(args.audio_file, intxt, args.proto_langdir, args.nnet_dir):
+    for ret in align_progress(args.audio_file, intxt, args.proto_langdir, args.nnet_dir):
         sys.stderr.write('.')
     sys.stderr.write('\n')
     
