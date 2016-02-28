@@ -12,7 +12,7 @@ There are three ways to install Gentle.
 
 2. Use the [Docker](https://www.docker.com/) image. Just run ```docker run -P lowerquality/gentle```. This works anywhere Docker is installed.
 
-2. Download the source code and run ```./install.sh```. Then run ```python gentle.py``` to start the server. This works on Mac and Linux.
+3. Download the source code and run ```./install.sh```. Then run ```python serve.py``` to start the server. This works on Mac and Linux.
 
 ## Using Gentle
 
