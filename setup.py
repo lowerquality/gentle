@@ -17,7 +17,4 @@ setup(
     packages=['gentle'],
     install_requires=['twisted'],
     setup_requires=['nose>=1.0'],
-    extras_require = {
-        'gui':  ["pyqt4"]
-    }
 )
