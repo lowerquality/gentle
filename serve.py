@@ -71,11 +71,7 @@ class Transcriber():
             with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
                 csvfile.write(to_csv(output))
 
-        outdir = os.path.join(self.data_dir, 'transcriptions', uid)
-        os.makedirs(outdir)
-
-        # Copy over the HTML
-        shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
+        outdir = os.path.join(self.data_dir, 'transcriptions', uid)                
 
         tran_path = os.path.join(outdir, 'transcript.txt')
         with open(tran_path, 'w') as tranfile:
@@ -166,6 +162,15 @@ class TranscriptionsController(Resource):
         async = True
         if 'async' in req.args and req.args['async'][0] == 'false':
             async = False
+
+        # We need to make the transcription directory here, so that
+        # when we redirect the user we are sure that there's a place
+        # for them to go.
+        outdir = os.path.join(self.transcriber.data_dir, 'transcriptions', uid)
+        os.makedirs(outdir)
+
+        # Copy over the HTML
+        shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
 
         result_promise = threads.deferToThreadPool(
             self.reactor, self.reactor.getThreadPool(),
