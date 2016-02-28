@@ -33,7 +33,7 @@ def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=F
         # Fall back on normal transcription if no transcript is provided
         logging.info("Falling back on normal transcription")
         for ret in _normal_transcribe(audio_f, proto_langdir, nnet_dir, want_progress=want_progress):
-            yield ret
+            yield show_progress(ret)
         return
 
     vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
@@ -51,19 +51,24 @@ def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=F
 
         for tran in k.transcribe_progress(audio_f):
             if want_progress:
-                if tran.get("preview") is not None:
-                    # Yield some partial information
-                    yield {"preview": tran["preview"],
-                           "t": tran["t"]}
-                else:
-                    # We're done
-                    yield make_alignment(tran, ms)
+                yield show_progress(tran, ms)
         if not want_progress:
             yield make_alignment(tran, ms)
     finally:
         if k:
             k.stop()
         os.unlink(gen_hclg_filename)
+
+def show_progress(tran, ms=None):
+    if tran.get("preview") is not None:
+        # Yield some partial information
+        return {"preview": tran["preview"],
+               "t": tran["t"]}
+    elif ms is not None:
+        return make_alignment(tran, ms)
+    else:
+        # Spoof...
+        return make_transcription_alignment(tran)
 
 def make_transcription_alignment(trans):
     # Spoof the `diff_align` output format
@@ -83,10 +88,9 @@ def make_transcription_alignment(trans):
 
         transcript += word["word"] + " "
 
-    return {
-        "transcript": transcript,
-        "words": words
-    }
+    trans["transcript"] = transcript
+    trans["words"] = words
+    return trans
 
 def _normal_transcribe(audio_f, proto_langdir, nnet_dir, want_progress=False):
     hclg_path = get_resource("data/graph/HCLG.fst")
@@ -103,9 +107,9 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir, want_progress=False):
         trans = None
         for trans in k.transcribe_progress(audio_f, batch_size=5):
             if want_progress:
-                yield make_transcription_alignment(trans)
+                yield trans
         if not want_progress:
-            yield make_transcription_alignment(trans)
+            yield trans
     finally:
         if k:
             k.stop()

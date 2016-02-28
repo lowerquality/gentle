@@ -61,6 +61,26 @@ html, body {
     max-width: 600px;
     color: #999;
 }
+#transcript.status {
+    background-color: #333;
+    color: #fff;
+    font-family: Courier, mono;
+    line-height: 1em;
+    font-size: 10pt;
+    max-width: 100%;
+}
+#transcript.status h2 {
+    padding: 10px;
+}
+#transcript.status .entry {
+    margin-bottom: 10px;
+    padding: 10px;
+}
+#transcript.status progress {
+    width: 100%;
+    height: 30px;
+    margin-bottom: 20px;
+}
 .success {
     color: black;
 }
@@ -296,9 +316,43 @@ function show_downloads() {
         });
 }
 
+var status_init = false;
+var status_log  = [];		// [ status ]
+var $status_pro;
+
 function render_status(ret) {
-    // We'll clobber the $trans field
-    $trans.innerHTML = ret.message + "(" + ret.t + "/" + ret.duration + ")";
+    if(!status_init) {
+	// Clobber the $trans div and use it for status updates
+	$trans.innerHTML = "<h2>transcription in progress</h2>";
+	$trans.className = "status";
+	$status_pro = document.createElement("progress");
+	$status_pro.setAttribute("min", "0");
+	$status_pro.setAttribute("max", "100");
+	$status_pro.value = 0;
+	$trans.appendChild($status_pro);
+	
+	status_init = true;
+    }
+
+    if(ret.t && (status_log.length == 0 || status_log[status_log.length-1].t+1 < ret.t)) {
+	// New entry
+	var $entry = document.createElement("div");
+	$entry.className = "entry";
+	$entry.textContent = ret.message;
+	ret.$div = $entry;
+
+	if(ret.t) {
+	    $status_pro.value = (100*ret.t) / ret.duration;
+	}
+
+	if(status_log.length > 0) {
+	    $trans.insertBefore($entry, status_log[status_log.length-1].$div);
+	}
+	else {
+	    $trans.appendChild($entry);
+	}
+	status_log.push(ret);
+    }
 }
 
 function update() {
@@ -311,6 +365,7 @@ function update() {
     else  {
 	// Show the status
         get_json('status.json', function(ret) {
+	    $a.style.visibility = 'hidden';
             if (ret.status == 'ERROR') {
                 $preloader.style.visibility = 'hidden';
                 $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
@@ -320,17 +375,18 @@ function update() {
                 setTimeout(update, 2000);
             } else if (ret.status == 'OK') {
                 $preloader.style.visibility = 'hidden';
-                //render(ret);
 		// XXX: should we fetch the align.json?
 		window.location.reload();
                 show_downloads();
-            } else if (ret.status == 'ENCODING') {
+            } else if (ret.status == 'ENCODING' || ret.status == 'STARTED') {
                 $preloader.style.visibility = 'visible';
                 $trans.innerHTML = 'Encoding, please wait...';
                 setTimeout(update, 2000);
             } else {
+		console.log("unknown status", ret);
                 $preloader.style.visibility = 'hidden';
                 $trans.innerHTML = ret.status + '...';
+                setTimeout(update, 5000);		
             }
         });
     }
