@@ -60,6 +60,8 @@ def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=F
         os.unlink(gen_hclg_filename)
 
 def show_progress(tran, ms=None):
+    if tran.get("error"):
+        return tran
     if tran.get("preview") is not None:
         # Yield some partial information
         return {"preview": tran["preview"],
@@ -99,7 +101,9 @@ def _normal_transcribe(audio_f, proto_langdir, nnet_dir, want_progress=False):
         yield {
             "transcript": "",
             "words": [],
+            "error": "No transcript provided."
         }
+        return
 
     try:
         k = standard_kaldi.Kaldi(nnet_dir, hclg_path, proto_langdir)

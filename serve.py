@@ -113,7 +113,18 @@ class Transcriber():
             want_progress=True)
         result = None
         for result in progress:
-            if result.get("preview") is not None:
+            if result.get("error") is not None:
+                status["status"] = "ERROR"
+                status["error"] = result["error"]
+                
+                # Save the status so that errors are recovered on restart of the server
+                # XXX: This won't work, because the endpoint will override this file
+                # XXX(2): duplicated code.
+                with open(os.path.join(outdir, 'status.json'), 'w') as jsfile:
+                    json.dump(status, jsfile, indent=2)
+                return
+                
+            elif result.get("preview") is not None:
                 status["message"] = result["preview"]
                 status["t"] = result["t"]
             else:
