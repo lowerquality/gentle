@@ -42,7 +42,7 @@ class Kaldi(object):
         '''Dump the provisional (non-word-aligned) transcript'''
         body, _ = self.rpc.do('get-partial')
         hypothesis = json.loads(body)['hypothesis']
-        words = [h.word for h in hypothesis]
+        words = [h['word'] for h in hypothesis]
         return words.join(" ")
 
     def get_final(self):
