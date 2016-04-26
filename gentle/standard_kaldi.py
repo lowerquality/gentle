@@ -43,7 +43,7 @@ class Kaldi(object):
         body, _ = self.rpc.do('get-partial')
         hypothesis = json.loads(body)['hypothesis']
         words = [h['word'] for h in hypothesis]
-        return words.join(" ")
+        return " ".join(words)
 
     def get_final(self):
         '''Dump the final, phone-aligned transcript'''
