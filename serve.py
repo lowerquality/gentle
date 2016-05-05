@@ -6,7 +6,11 @@ from twisted.web._responses import FOUND
 
 import json
 import logging
+import math
+import multiprocessing
+from multiprocessing.pool import ThreadPool as Pool
 import os
+from Queue import Queue
 import shutil
 import subprocess
 import sys
@@ -14,9 +18,13 @@ import uuid
 import wave
 
 from gentle.paths import get_binary, get_resource, get_datadir
-from gentle.language_model_transcribe import align_progress
 from gentle.transcription import to_csv
 from gentle.cyst import Insist
+from gentle import diff_align
+from gentle import language_model
+from gentle import language_model_transcribe
+from gentle import metasentence
+from gentle import standard_kaldi
 import gentle
 
 # The `ffmpeg.to_wav` function doesn't set headers properly for web
@@ -39,8 +47,15 @@ class TranscriptionStatus(Resource):
         return json.dumps(self.status_dict)
 
 class Transcriber():
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, nthreads=4):
         self.data_dir = data_dir
+        self.nthreads = nthreads
+
+        proto_langdir = get_resource('PROTO_LANGDIR')
+        vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
+        with open(vocab_path) as f:
+            self.vocab = metasentence.load_vocabulary(f)
+
         self._status_dicts = {}
 
     def get_status(self, uid):
@@ -57,18 +72,15 @@ class Transcriber():
         return uid
 
     def transcribe(self, uid, transcript, audio, async):
+
+        proto_langdir = get_resource('PROTO_LANGDIR')
+        
         status = self.get_status(uid)
 
         status['status'] = 'STARTED'
         output = {
             'transcript': transcript
         }
-
-        def save():
-            with open(os.path.join(outdir, 'align.json'), 'w') as jsfile:
-                json.dump(output, jsfile, indent=2)
-            with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
-                csvfile.write(to_csv(output))
 
         outdir = os.path.join(self.data_dir, 'transcriptions', uid)                
 
@@ -93,8 +105,6 @@ class Transcriber():
                 json.dump(status, jsfile, indent=2)
             return
 
-        # Find the duration
-
         #XXX: Maybe we should pass this wave object instead of the
         # file path to align_progress
         wav_obj = wave.open(wavfile, 'r')
@@ -102,39 +112,93 @@ class Transcriber():
 
         status['status'] = 'TRANSCRIBING'
 
-        # Run transcription
-        progress = align_progress(
-            wavfile,
-            transcript,
-            # XXX: should be configurable
-            get_resource('PROTO_LANGDIR'),
-            get_resource('data/nnet_a_gpu_online'),
-            want_progress=True)
-        result = None
-        for result in progress:
-            if result.get("error") is not None:
-                status["status"] = "ERROR"
-                status["error"] = result["error"]
-                
-                # Save the status so that errors are recovered on restart of the server
-                # XXX: This won't work, because the endpoint will override this file
-                # XXX(2): duplicated code.
-                with open(os.path.join(outdir, 'status.json'), 'w') as jsfile:
-                    json.dump(status, jsfile, indent=2)
-                return
-                
-            elif result.get("preview") is not None:
-                status["message"] = result["preview"]
-                status["t"] = result["t"]
-            else:
-                output['words'] = result['words']
-                output['transcript'] = result['transcript']
-            #save()
+        T_PER_CHUNK = 20
+        OVERLAP_T = 2
+        n_chunks = int(math.ceil(status['duration'] / float(T_PER_CHUNK - OVERLAP_T)))
 
-        # ...and remove the original upload
+        if len(transcript.strip()) > 0:
+            ms = metasentence.MetaSentence(transcript, self.vocab)
+            ks = ms.get_kaldi_sequence()
+            gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
+        else:
+            # TODO: We shouldn't load full language models every time;
+            # these should stay in-memory.
+            gen_hclg_filename = get_resource('data/graph/HCLG.fst')
+            if not os.path.exists(gen_hclg_filename):
+                status["status"] = "ERROR"
+                status["error"] = 'No transcript provided'
+                return
+
+        nthreads = min(self.nthreads, n_chunks)
+        
+        kaldi_queue = Queue()
+        for i in range(nthreads):
+            kaldi_queue.put(standard_kaldi.Kaldi(
+                get_resource('data/nnet_a_gpu_online'),
+                gen_hclg_filename,
+                proto_langdir)
+            )
+
+        chunks = []
+
+        def transcribe_chunk(idx):
+            wav_obj = wave.open(wavfile, 'r')
+            start_t = idx * (T_PER_CHUNK - OVERLAP_T)
+            # Seek
+            wav_obj.setpos(start_t * wav_obj.getframerate())
+            # Read
+            buf = wav_obj.readframes(T_PER_CHUNK * wav_obj.getframerate())
+
+            k = kaldi_queue.get()
+            k.push_chunk(buf)
+            ret = k.get_final()
+            k.reset()
+            kaldi_queue.put(k)
+
+            chunks.append({"start": start_t, "words": ret})
+
+            # Add status info
+            status["message"] = ' '.join([X['word'] for X in ret])
+            status["percent"] = len(chunks) / float(n_chunks)
+
+
+        pool = Pool(nthreads)
+        pool.map(transcribe_chunk, range(n_chunks))
+        pool.close()
+        
+        # Clear queue
+        for i in range(nthreads):
+            k = kaldi_queue.get()
+            k.stop()
+
+        chunks.sort(key=lambda x: x['start'])
+
+        # Combine chunks
+        # TODO: remove overlap
+        words = []
+        for c in chunks:
+            chunk_start = c['start']
+            for wd in c['words']:
+                wd['start'] += chunk_start
+                words.append(wd)
+
+        output = {}
+        if len(transcript.strip()) > 0:
+            # Align words
+            output['words'] = diff_align.align(words, ms)
+            output['transcript'] = transcript
+        else:
+            # Match format
+            output = language_model_transcribe.make_transcription_alignment({"words": words})
+
+        # ...remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
 
-        save()
+        # Save
+        with open(os.path.join(outdir, 'align.json'), 'w') as jsfile:
+            json.dump(output, jsfile, indent=2)
+        with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
+            csvfile.write(to_csv(output))
 
         # Inline the alignment into the index.html file.
         htmltxt = open(get_resource('www/view_alignment.html')).read()
@@ -145,7 +209,7 @@ class Transcriber():
 
         logging.info('done with transcription.')
 
-        return result
+        return output
 
 class TranscriptionsController(Resource):
     def __init__(self, transcriber):
@@ -233,7 +297,7 @@ class TranscriptionZipper(Resource):
         else:
             return Resource.getChild(self, path, req)
 
-def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_datadir('webdata')):
+def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
     
     if not os.path.exists(data_dir):
@@ -249,7 +313,7 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
     f.putChild('status.html', File(get_resource('www/status.html')))
     f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
 
-    trans = Transcriber(data_dir)
+    trans = Transcriber(data_dir, nthreads=nthreads)
     trans_ctrl = TranscriptionsController(trans)
     f.putChild('transcriptions', trans_ctrl)
 
@@ -273,6 +337,8 @@ if __name__=='__main__':
                        help='host to run http server on')
     parser.add_argument('--port', default=8765, type=int,
                         help='port number to run http server on')
+    parser.add_argument('--nthreads', default=multiprocessing.cpu_count(), type=int,
+                        help='number of alignment threads')
     parser.add_argument('--log', default="INFO",
                         help='the log level (DEBUG, INFO, WARNING, ERROR, or CRITICAL)')
 
@@ -284,4 +350,4 @@ if __name__=='__main__':
     logging.info('gentle %s' % (gentle.__version__))
     logging.info('listening at %s:%d\n' % (args.host, args.port))
 
-    serve(args.port, args.host, installSignalHandlers=1)
+    serve(args.port, args.host, nthreads=args.nthreads, installSignalHandlers=1)

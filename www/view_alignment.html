@@ -341,8 +341,8 @@ function render_status(ret) {
 	$entry.textContent = ret.message;
 	ret.$div = $entry;
 
-	if(ret.t) {
-	    $status_pro.value = (100*ret.t) / ret.duration;
+	if(ret.percent) {
+	    $status_pro.value = (100*ret.percent);
 	}
 
 	if(status_log.length > 0) {
