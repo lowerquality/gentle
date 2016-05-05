@@ -1,9 +1,8 @@
 from twisted.web.static import File
 from twisted.web.resource import Resource
 from twisted.web.server import Site, NOT_DONE_YET
-from twisted.internet import reactor as default_reactor
+from twisted.internet import reactor, threads
 from twisted.web._responses import FOUND
-from twisted.internet import threads
 
 import json
 import logging
@@ -149,10 +148,9 @@ class Transcriber():
         return result
 
 class TranscriptionsController(Resource):
-    def __init__(self, transcriber, reactor=default_reactor):
+    def __init__(self, transcriber):
         Resource.__init__(self)
         self.transcriber = transcriber
-        self.reactor = reactor
     
     def getChild(self, uid, req):
         out_dir = self.transcriber.out_dir(uid)
@@ -184,7 +182,7 @@ class TranscriptionsController(Resource):
         shutil.copy(get_resource('www/view_alignment.html'), os.path.join(outdir, 'index.html'))
 
         result_promise = threads.deferToThreadPool(
-            self.reactor, self.reactor.getThreadPool(),
+            reactor, reactor.getThreadPool(),
             self.transcriber.transcribe,
             uid, tran, audio, async)
 
@@ -260,10 +258,10 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, data_dir=get_
     
     s = Site(f)
     logging.info("about to listen")
-    default_reactor.listenTCP(port, s, interface=interface)
+    reactor.listenTCP(port, s, interface=interface)
     logging.info("listening")
 
-    default_reactor.run(installSignalHandlers=installSignalHandlers)
+    reactor.run(installSignalHandlers=installSignalHandlers)
     
     
 if __name__=='__main__':
