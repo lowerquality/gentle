@@ -334,7 +334,7 @@ function render_status(ret) {
 	status_init = true;
     }
 
-    if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.05 < ret.percent)) {
+    if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.0001 < ret.percent)) {
 	// New entry
 	var $entry = document.createElement("div");
 	$entry.className = "entry";
