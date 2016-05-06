@@ -174,7 +174,7 @@ class Transcriber():
         chunks.sort(key=lambda x: x['start'])
 
         # Combine chunks
-        # TODO: remove overlap
+        # TODO: remove overlap? ...or just let the sequence aligner deal with it.
         words = []
         for c in chunks:
             chunk_start = c['start']
@@ -187,6 +187,98 @@ class Transcriber():
             # Align words
             output['words'] = diff_align.align(words, ms)
             output['transcript'] = transcript
+
+            # Perform a second-pass with unaligned words
+            logging.info("%d unaligned words (of %d)" % (len([X for X in output['words'] if X.get("case") == "not-found-in-audio"]), len(output['words'])))
+
+            to_realign = []
+            last_aligned_word = None
+            cur_unaligned_words = []
+
+            for wd_idx,wd in enumerate(output['words']):
+                if wd['case'] == 'not-found-in-audio':
+                    cur_unaligned_words.append(wd)
+                elif wd['case'] == 'success':
+                    if len(cur_unaligned_words) > 0:
+                        to_realign.append({
+                            "start": last_aligned_word,
+                            "end": wd,
+                            "words": cur_unaligned_words})
+                        cur_unaligned_words = []
+
+                    last_aligned_word = wd
+
+            if len(cur_unaligned_words) > 0:
+                to_realign.append({
+                    "start": last_aligned_word,
+                    "end": None,
+                    "words": cur_unaligned_words})
+
+            realignments = []
+            
+            def realign(chunk):
+                start_t = (chunk["start"] or {"end": 0})["end"]
+                end_t = (chunk["end"] or {"start": status["duration"]})["start"]
+                duration = end_t - start_t
+                if duration < 0.01 or duration > 60:
+                    logging.info("cannot realign %d words with duration %f" % (len(chunk['words']), duration))
+                    return
+
+                # Create a language model
+                offset_offset = chunk['words'][0]['startOffset']
+                chunk_len = chunk['words'][-1]['endOffset'] - offset_offset
+                chunk_transcript = ms.raw_sentence[offset_offset:offset_offset+chunk_len].encode("utf-8")
+                chunk_ms = metasentence.MetaSentence(chunk_transcript, self.vocab)
+                chunk_ks = chunk_ms.get_kaldi_sequence()
+                
+                chunk_gen_hclg_filename = language_model.make_bigram_language_model(chunk_ks, proto_langdir)
+                
+                k = standard_kaldi.Kaldi(
+                    get_resource('data/nnet_a_gpu_online'),
+                    chunk_gen_hclg_filename,
+                    proto_langdir)
+
+                wav_obj = wave.open(wavfile, 'r')
+                wav_obj.setpos(start_t * wav_obj.getframerate())
+                buf = wav_obj.readframes(int(duration * wav_obj.getframerate()))
+                
+                k.push_chunk(buf)
+                ret = k.get_final()
+                k.stop()
+
+                word_alignment = diff_align.align(ret, chunk_ms)
+
+                # Adjust startOffset, endOffset, and timing to match originals
+                for wd in word_alignment:
+                    if wd.get("end"):
+                        # Apply timing offset
+                        wd['start'] += start_t
+                        wd['end'] += start_t
+                    
+                    if wd.get("endOffset"):
+                        wd['startOffset'] += offset_offset
+                        wd['endOffset'] += offset_offset
+
+                # "chunk" should be replaced by "words"
+                realignments.append({"chunk": chunk, "words": word_alignment})
+
+            pool = Pool(nthreads)
+            pool.map(realign, to_realign)
+            pool.close()
+
+            # Sub in the replacements
+            o_words = output['words']
+            for ret in realignments:
+                st_idx = o_words.index(ret["chunk"]["words"][0])
+                end_idx= o_words.index(ret["chunk"]["words"][-1])+1
+                logging.info('splice in: "%s' % (str(ret["words"])))
+                logging.info('splice out: "%s' % (str(o_words[st_idx:end_idx])))
+                o_words = o_words[:st_idx] + ret["words"] + o_words[end_idx:]
+
+            output['words'] = o_words
+
+            logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in output['words'] if X.get("case") == "not-found-in-audio"]), len(output['words'])))
+            
         else:
             # Match format
             output = language_model_transcribe.make_transcription_alignment({"words": words})
