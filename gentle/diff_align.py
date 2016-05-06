@@ -56,7 +56,7 @@ def align(alignment, ms):
                 "start": start,
                 "end": end,
             })
-        elif op in 'insert':
+        elif op in ['insert', 'replace']:
             out.append({
                 "case": "not-found-in-audio",
                 "startOffset": start_offset,
