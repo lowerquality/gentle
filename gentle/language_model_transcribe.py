@@ -44,10 +44,12 @@ def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=F
 
     ks = ms.get_kaldi_sequence()
 
-    gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
     k = None
     try:
-        k = standard_kaldi.Kaldi(nnet_dir, gen_hclg_filename, proto_langdir)
+        k = standard_kaldi.Kaldi(nnet_dir, "HACK_dummy_remove_me", proto_langdir)
+
+        grammar_fst = language_model.make_bigram_lm_fst(ks)
+        k.make_model(grammar_fst)
 
         for tran in k.transcribe_progress(audio_f):
             if want_progress:
@@ -57,7 +59,6 @@ def align_progress(audio_f, transcript, proto_langdir, nnet_dir, want_progress=F
     finally:
         if k:
             k.stop()
-        os.unlink(gen_hclg_filename)
 
 def show_progress(tran, ms=None):
     if tran.get("error"):

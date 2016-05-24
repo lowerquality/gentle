@@ -9,8 +9,6 @@ import tempfile
 from paths import get_binary
 from metasentence import MetaSentence
 
-MKGRAPH_PATH = get_binary("ext/mkgraph")
-
 def make_bigram_lm_fst(word_sequence):
     '''
     Use the given token sequence to make a bigram language model
@@ -48,42 +46,3 @@ def make_bigram_lm_fst(word_sequence):
     output += "%d    0\n" % (len(node_ids))
 
     return output
-
-def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
-    """Generates a language model to fit the text.
-
-    Returns the filename of the generated language model FST.
-    The caller is resposible for removing the generated file.
-
-    `proto_langdir` is a path to a directory containing prototype model data
-    `kaldi_seq` is a list of words within kaldi's vocabulary.
-    """
-
-    # Generate a textual FST
-    txt_fst = make_bigram_lm_fst(kaldi_seq)
-    txt_fst_file = tempfile.NamedTemporaryFile(delete=False)
-    txt_fst_file.write(txt_fst)
-    txt_fst_file.close()
-    
-    hclg_filename = tempfile.mktemp(suffix='_HCLG.fst')
-    try:
-        devnull = open(os.devnull, 'wb')
-        subprocess.check_output([MKGRAPH_PATH,
-                        proto_langdir,
-                        txt_fst_file.name,
-                        hclg_filename],
-                        stderr=devnull)
-    except Exception, e:
-        try:
-            os.unlink(hclg_filename)
-        except:
-            pass
-        raise e
-    finally:
-        os.unlink(txt_fst_file.name)
-
-    return hclg_filename
-
-if __name__=='__main__':
-    import sys
-    make_bigram_language_model(open(sys.argv[1]).read())

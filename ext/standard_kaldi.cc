@@ -10,6 +10,7 @@
 #include "online2/onlinebin-util.h"
 #include "online2/online-timing.h"
 #include "online2/online-endpoint.h"
+#include "fst/script/compile.h"
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
 #include "lat/word-align-lattice.h"
@@ -17,6 +18,7 @@
 #include "thread/kaldi-thread.h"
 
 #include "decoder.h"
+#include "hclg.h"
 #include "hypothesis.h"
 #include "hypothesizer.h"
 #include "rpc.h"
@@ -84,8 +86,14 @@ int main(int argc, char* argv[]) {
   }
 
   const string nnet_dir = argv[1];
-  const string fst_rxfilename = argv[2];
+  const string hclg_filename = argv[2];
   const string proto_lang_dir = argv[3];
+
+  const string ctx_dep_filename = proto_lang_dir + "/modeldir/tree";
+  const string disambig_phones_filename =
+    proto_lang_dir + "/langdir/phones/disambig.int";
+  const string lang_disambig_fst_filename =
+      proto_lang_dir + "/langdir/L_disambig.fst";
 
   const string ivector_model_dir = nnet_dir + "/ivector_extractor";
   const string nnet2_rxfilename = proto_lang_dir + "/modeldir/final.mdl";
@@ -121,26 +129,56 @@ int main(int argc, char* argv[]) {
     nnet.Read(ki.Stream(), binary);
   }
 
-  // This one is much slower than the others.
-  fst::Fst<fst::StdArc>* decode_fst = ReadFstKaldi(fst_rxfilename);
+  std::unique_ptr<fst::Fst<fst::StdArc>> hclg_fst;
+  // Optionally load an existing decoding graph if it exists
+  if (std::ifstream(hclg_filename.c_str())) {
+    hclg_fst.reset(ReadFstKaldi(hclg_filename));
+  }
 
-  fst::SymbolTable* word_syms =
-      fst::SymbolTable::ReadText(word_syms_rxfilename);
-  fst::SymbolTable* phone_syms =
-      fst::SymbolTable::ReadText(phone_syms_rxfilename);
+  std::unique_ptr<const fst::SymbolTable> word_syms(
+      fst::SymbolTable::ReadText(word_syms_rxfilename));
+  std::unique_ptr<const fst::SymbolTable> phone_syms(
+      fst::SymbolTable::ReadText(phone_syms_rxfilename));
+
+  // Load BuildHCLG data
+  std::unique_ptr<const VectorFst<StdArc>> lang_disambig_fst(
+      ReadFstKaldi(lang_disambig_fst_filename));
+  if (lang_disambig_fst->Properties(fst::kOLabelSorted, true) == 0) {
+    KALDI_WARN << "L_disambig.fst is not olabel sorted.";
+  }
+  std::vector<int32> disambig_symbols;
+  ReadIntegerVectorSimple(disambig_phones_filename, &disambig_symbols);
+  if (disambig_symbols.empty()) {
+    KALDI_WARN << "Disambiguation symbols list is empty; this likely "
+               << "indicates an error in data preparation.";
+  }
+  ContextDependency ctx_dep;
+  ReadKaldiObject(ctx_dep_filename, &ctx_dep);
 
   OnlineSilenceWeighting silence_weighting(
       trans_model, feature_info.silence_weighting_config);
 
   Hypothesizer hypothesizer(frame_shift, trans_model, word_boundary_info,
-                            word_syms, phone_syms);
+                            word_syms.get(), phone_syms.get());
 
   kaldi::OnlineIvectorExtractorAdaptationState adaptation_state(
       feature_info.ivector_extractor_info);
 
-  std::unique_ptr<Decoder> decoder(new Decoder(feature_info, trans_model,
-                                               nnet2_decoding_config, nnet,
-                                               decode_fst, adaptation_state));
+  std::unique_ptr<Decoder> current_decoder;
+
+  auto get_decoder = [&]() -> Decoder* {
+    Decoder *decoder = current_decoder.get();
+    if (decoder != nullptr) {
+      return decoder;
+    }
+    if (hclg_fst.get() == nullptr) {
+      throw "no model loaded";
+    }
+    current_decoder.reset(new Decoder(feature_info, trans_model,
+                                      nnet2_decoding_config, nnet,
+                                      hclg_fst.get(), adaptation_state));
+    return current_decoder.get();
+  };
 
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
@@ -161,7 +199,6 @@ int main(int argc, char* argv[]) {
       }
       continue;
     }
-    std::cerr << "method=" << method << std::endl;
 
     try {
       if (method == "stop") {
@@ -170,9 +207,25 @@ int main(int argc, char* argv[]) {
 
       } else if (method == "reset") {
         // Reset all decoding state.
-        decoder.reset(new Decoder(feature_info, trans_model,
-                                  nnet2_decoding_config, nnet, decode_fst,
-                                  adaptation_state));
+        current_decoder.reset(nullptr);
+        RPCWriteReply(out_stream, STATUS_OK, "");
+
+      } else if (method == "make-model") {
+        // Make a new model using the grammar provided in body.
+        // It will be used the next time the decoder is reset.
+        fst::SymbolTableTextOptions opts;
+
+        std::stringstream body_stream(string(body.begin(), body.end()));
+
+        fst::FstCompiler<fst::StdArc> fstcompiler(
+            body_stream, "", word_syms.get(), word_syms.get(), nullptr, false,
+            false, false, false, false);
+        VectorFst<StdArc> grammar_fst = fstcompiler.Fst();
+
+        hclg_fst.reset(new VectorFst<StdArc>(
+            BuildHCLG(grammar_fst, *lang_disambig_fst, ctx_dep, trans_model,
+                      disambig_symbols)));
+
         RPCWriteReply(out_stream, STATUS_OK, "");
 
       } else if (method == "push-chunk") {
@@ -185,6 +238,7 @@ int main(int argc, char* argv[]) {
           wave_part(i) = sample;
         }
 
+        auto decoder = get_decoder();
         decoder->AddChunk(arate, wave_part);
         RPCWriteReply(out_stream, STATUS_OK, "");
 
@@ -192,6 +246,7 @@ int main(int argc, char* argv[]) {
         // Dump the provisional (non-word-aligned) transcript for the current
         // lattice.
 
+        auto decoder = get_decoder();
         kaldi::Lattice partial_lat = decoder->GetBestPath();
         Hypothesis partial = hypothesizer.GetPartial(partial_lat);
         string serialized = MarshalHypothesis(partial);
@@ -200,6 +255,7 @@ int main(int argc, char* argv[]) {
 
       } else if (method == "get-final") {
         // Dump the final, phone-aligned transcript for the current lattice.
+        auto decoder = get_decoder();
         kaldi::Lattice final_lat = decoder->GetBestPath();
         Hypothesis final = hypothesizer.GetFull(final_lat);
         string serialized = MarshalHypothesis(final);
