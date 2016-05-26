@@ -48,14 +48,6 @@ def align(alignment, ms):
                 "start": start,
                 "end": end,
             })
-        elif op == 'delete':
-            out.append({
-                "case": "not-found-in-transcript",
-                "alignedWord": hyp_word,
-                "phones": phones,
-                "start": start,
-                "end": end,
-            })
         elif op in ['insert', 'replace']:
             out.append({
                 "case": "not-found-in-audio",
@@ -72,16 +64,6 @@ def word_diff(a, b):
     matcher = difflib.SequenceMatcher(a=a, b=b)
     for op, a_idx, _, b_idx, _ in by_word(matcher.get_opcodes()):
         yield (op, a_idx, b_idx)
-
-def without_replace(opcodes):
-    '''Substitute insert/delete pairs for replace opcodes in
-    difflib.SequenceMatcher.get_opcodes() output'''
-    for op, s1, e1, s2, e2 in opcodes:
-        if op == 'replace':
-            yield ('delete', s1, e1, s2, s2)
-            yield ('insert', e1, e1, s2, e2)
-        else:
-            yield (op, s1, e1, s2, e2)
 
 def by_word(opcodes):
     '''Take difflib.SequenceMatcher.get_opcodes() output and
