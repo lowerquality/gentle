@@ -230,7 +230,7 @@ class Transcriber():
                     proto_langdir)
 
                 wav_obj = wave.open(wavfile, 'r')
-                wav_obj.setpos(start_t * wav_obj.getframerate())
+                wav_obj.setpos(int(start_t * wav_obj.getframerate()))
                 buf = wav_obj.readframes(int(duration * wav_obj.getframerate()))
                 
                 k.push_chunk(buf)
