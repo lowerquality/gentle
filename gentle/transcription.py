@@ -15,7 +15,7 @@ class MultiThreadedTranscriber:
             
         self.kaldi_queue = kaldi_queue
 
-    def transcribe(self, wavfile):
+    def transcribe(self, wavfile, progress_cb=None):
         wav_obj = wave.open(wavfile, 'r')
         duration = wav_obj.getnframes() / float(wav_obj.getframerate())
         n_chunks = int(math.ceil(duration / float(self.chunk_len - self.overlap_t)))
@@ -38,6 +38,10 @@ class MultiThreadedTranscriber:
 
             chunks.append({"start": start_t, "words": ret})
             logging.info('%d/%d' % (len(chunks), n_chunks))
+            if progress_cb is not None:
+                progress_cb({"message": ' '.join([X['word'] for X in ret]),
+                             "percent": len(chunks) / float(n_chunks)})
+
 
         pool = Pool(min(n_chunks, self.nthreads))
         pool.map(transcribe_chunk, range(n_chunks))

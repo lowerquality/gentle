@@ -123,8 +123,12 @@ class Transcriber():
                 proto_langdir)
             )
 
+        def on_progress(p):
+            for k,v in p.items():
+                status[k] = v
+
         mtt = MultiThreadedTranscriber(kaldi_queue, nthreads=self.nthreads)
-        words = mtt.transcribe(wavfile)
+        words = mtt.transcribe(wavfile, progress_cb=on_progress)
 
         # Clear queue
         for i in range(self.nthreads):
