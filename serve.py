@@ -23,7 +23,6 @@ from gentle.cyst import Insist
 from gentle.ffmpeg import to_wav
 from gentle import diff_align
 from gentle import language_model
-from gentle import language_model_transcribe
 from gentle import metasentence
 from gentle import standard_kaldi
 import gentle
@@ -83,8 +82,6 @@ class Transcriber():
             wavfile.write(audio)
 
         status['status'] = 'ENCODING'
-        # with open(os.path.join(outdir, 'align.json'), 'w') as alignfile:
-            # json.dump(output, alignfile, indent=2)
 
         wavfile = os.path.join(outdir, 'a.wav')
         if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
@@ -224,8 +221,8 @@ class Transcriber():
             for ret in realignments:
                 st_idx = o_words.index(ret["chunk"]["words"][0])
                 end_idx= o_words.index(ret["chunk"]["words"][-1])+1
-                logging.info('splice in: "%s' % (str(ret["words"])))
-                logging.info('splice out: "%s' % (str(o_words[st_idx:end_idx])))
+                logging.debug('splice in: "%s' % (str(ret["words"])))
+                logging.debug('splice out: "%s' % (str(o_words[st_idx:end_idx])))
                 o_words = o_words[:st_idx] + ret["words"] + o_words[end_idx:]
 
             output['words'] = o_words
@@ -234,7 +231,7 @@ class Transcriber():
             
         else:
             # Match format
-            output = language_model_transcribe.make_transcription_alignment({"words": words})
+            output = make_transcription_alignment({"words": words})
 
         # ...remove the original upload
         os.unlink(os.path.join(outdir, 'upload'))
@@ -341,6 +338,28 @@ class TranscriptionZipper(Resource):
             return lz
         else:
             return Resource.getChild(self, path, req)
+
+def make_transcription_alignment(trans):
+    # Spoof the `diff_align` output format
+    transcript = ""
+    words = []
+    for t_wd in trans["words"]:
+        word = {
+            "case": "success",
+            "startOffset": len(transcript),
+            "endOffset": len(transcript) + len(t_wd["word"]),
+            "word": t_wd["word"],
+            "alignedWord": t_wd["word"],
+            "phones": t_wd["phones"],
+            "start": t_wd["start"],
+            "end": t_wd["start"] + t_wd["duration"]}
+        words.append(word)
+
+        transcript += word["word"] + " "
+
+    trans["transcript"] = transcript
+    trans["words"] = words
+    return trans
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
