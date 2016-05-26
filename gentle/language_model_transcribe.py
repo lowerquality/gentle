@@ -161,8 +161,6 @@ if __name__=='__main__':
     
     if out_format == 'csv':
         formatted = transcription.to_csv(ret)
-    elif out_format == 'ctm':
-        formatted = transcription.to_ctm(ret)
     else:
         formatted = transcription.to_json(ret, indent=2)
     outfile.write(formatted)
