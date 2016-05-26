@@ -34,7 +34,7 @@ class TranscriptionStatus(Resource):
         Resource.__init__(self)
         
     def render_GET(self, req):
-        req.headers["Content-Type"] = "application/json"
+        req.setHeader("Content-Type", "application/json")
         return json.dumps(self.status_dict)
 
 class Transcriber():
