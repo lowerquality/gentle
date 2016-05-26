@@ -6,18 +6,14 @@ from twisted.web._responses import FOUND
 
 import json
 import logging
-import math
 import multiprocessing
-from multiprocessing.pool import ThreadPool as Pool
 import os
 from Queue import Queue
 import shutil
-import subprocess
-import sys
 import uuid
 import wave
 
-from gentle.paths import get_binary, get_resource, get_datadir
+from gentle.paths import get_resource, get_datadir
 from gentle.transcription import to_csv, MultiThreadedTranscriber
 from gentle.cyst import Insist
 from gentle.ffmpeg import to_wav
@@ -206,7 +202,7 @@ class TranscriptionsController(Resource):
     def render_POST(self, req):
         uid = self.transcriber.next_id()
 
-        tran = req.args['transcript'][0]
+        tran = req.args.get('transcript', [''])[0]
         audio = req.args['audio'][0]
 
         async = True
@@ -230,7 +226,7 @@ class TranscriptionsController(Resource):
         if not async:
             def write_result(result):
                 '''Write JSON to client on completion'''
-                req.headers["Content-Type"] = "application/json"
+                req.setHeader("Content-Type", "application/json")
                 req.write(json.dumps(result, indent=2))
                 req.finish()
             result_promise.addCallback(write_result)
