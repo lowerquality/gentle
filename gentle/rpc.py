@@ -9,10 +9,10 @@ class RPCProtocol(object):
         self.send_pipe = send_pipe
         self.recv_pipe = recv_pipe
 
-        # wait for startup
-        body, _ = self._read_reply()
-        if body != 'loaded':
-            raise RuntimeError('unexpected message from standard_kaldi on load')
+        # don't wait for startup
+        # body, _ = self._read_reply()
+        # if body != 'loaded':
+        #     raise RuntimeError('unexpected message from standard_kaldi on load')
 
     def do(self, method, *args, **kwargs):
         '''Performs the method requested and returns the response body.

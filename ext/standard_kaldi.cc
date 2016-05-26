@@ -145,7 +145,8 @@ int main(int argc, char* argv[]) {
   std::ostream& out_stream = std::cout;
   std::istream& in_stream = std::cin;
 
-  RPCWriteReply(out_stream, STATUS_OK, "loaded");
+  std::cerr << "Loaded...\n";  
+  //RPCWriteReply(out_stream, STATUS_OK, "loaded");
 
   while (!in_stream.eof()) {
     string method;
