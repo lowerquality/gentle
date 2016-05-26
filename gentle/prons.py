@@ -39,9 +39,9 @@ def tweak(words, max_phoneme_offset=99):
                   (not last_wd['phones'][-1]['phone'].endswith('_E')) \
                    or last_wd['phones'][-1]['phone'] == wd['phones'][0]['phone']):
              
-            logging.info('moving the end back')
-            logging.info('last_wd: %s', str(last_wd))
-            logging.info('wd: %s', str(wd))
+            logging.debug('moving the end back')
+            logging.debug('last_wd: %s', str(last_wd))
+            logging.debug('wd: %s', str(wd))
             
             first_phone = wd['phones'][0]
             wd['phones'] = wd['phones'][1:]
@@ -56,8 +56,8 @@ def tweak(words, max_phoneme_offset=99):
 
         if len(wd['phones']) > 1:
             if not (wd['phones'][0]['phone'].endswith('_B') or wd['phones'][0]['phone'].endswith('_S')):
-                logging.info('Word does not start correctly, %s', str(wd))
-                logging.info('previously: %s', str(last_wd))                
+                logging.debug('Word does not start correctly, %s', str(wd))
+                logging.debug('previously: %s', str(last_wd))
                 # XXX: In this (rare!) case, I think getting rid of
                 # the starting phoneme may be the right thing to do
                 # (if, say, the second looks reasonable).
@@ -72,13 +72,13 @@ def tweak(words, max_phoneme_offset=99):
                     if idx > 0 and ph['phone'].endswith('_B'):
                         next_phonemes = wd['phones'][idx:]
                         if len(next_phonemes) > max_phoneme_offset:
-                            logging.info("Skipping long offset adjustment (%d): %s", len(next_phonemes), str(wd))
+                            logging.debug("Skipping long offset adjustment (%d): %s", len(next_phonemes), str(wd))
                             next_phonemes = []
                             continue
                         offset_duration = sum([X['duration'] for X in next_phonemes])
                         wd['phones'] = wd['phones'][:idx]
                         wd['duration'] -= offset_duration
-                        logging.info('Word contains the next beginning (%d)', idx)
+                        logging.debug('Word contains the next beginning (%d)', idx)
                         break
 
         last_wd = wd

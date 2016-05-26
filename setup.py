@@ -2,7 +2,7 @@ from setuptools import setup
 from gentle import __version__
 
 setup(
-    app=['gentle.py'],
+    app=['serve.py'],
     data_files=[],
     options={'py2app': {
         'argv_emulation': False,
@@ -16,5 +16,4 @@ setup(
     license='MIT',
     packages=['gentle'],
     install_requires=['twisted'],
-    setup_requires=['nose>=1.0'],
 )

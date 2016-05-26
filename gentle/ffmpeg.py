@@ -9,8 +9,9 @@ def to_wav(infile, outfile):
     Use FFMPEG to convert a media file to a wav file
     '''
     return subprocess.call([FFMPEG,
-                     '-loglevel', 'panic',
-                     '-i', infile,
-                     '-ac', '1', '-ar', '8000',
-                     '-acodec', 'pcm_s16le',
-                     outfile])
+                            '-loglevel', 'panic',
+                            '-y',
+                            '-i', infile,
+                            '-ac', '1', '-ar', '8000',
+                            '-acodec', 'pcm_s16le',
+                            outfile])

@@ -18,7 +18,7 @@ import uuid
 import wave
 
 from gentle.paths import get_binary, get_resource, get_datadir
-from gentle.transcription import to_csv
+from gentle.transcription import to_csv, MultiThreadedTranscriber
 from gentle.cyst import Insist
 from gentle.ffmpeg import to_wav
 from gentle import diff_align
@@ -100,12 +100,7 @@ class Transcriber():
         # file path to align_progress
         wav_obj = wave.open(wavfile, 'r')
         status['duration'] = wav_obj.getnframes() / float(wav_obj.getframerate())
-
         status['status'] = 'TRANSCRIBING'
-
-        T_PER_CHUNK = 20
-        OVERLAP_T = 2
-        n_chunks = int(math.ceil(status['duration'] / float(T_PER_CHUNK - OVERLAP_T)))
 
         if len(transcript.strip()) > 0:
             ms = metasentence.MetaSentence(transcript, self.vocab)
@@ -120,58 +115,21 @@ class Transcriber():
                 status["error"] = 'No transcript provided'
                 return
 
-        nthreads = min(self.nthreads, n_chunks)
-        
         kaldi_queue = Queue()
-        for i in range(nthreads):
+        for i in range(self.nthreads):
             kaldi_queue.put(standard_kaldi.Kaldi(
                 get_resource('data/nnet_a_gpu_online'),
                 gen_hclg_filename,
                 proto_langdir)
             )
 
-        chunks = []
+        mtt = MultiThreadedTranscriber(kaldi_queue, nthreads=self.nthreads)
+        words = mtt.transcribe(wavfile)
 
-        def transcribe_chunk(idx):
-            wav_obj = wave.open(wavfile, 'r')
-            start_t = idx * (T_PER_CHUNK - OVERLAP_T)
-            # Seek
-            wav_obj.setpos(start_t * wav_obj.getframerate())
-            # Read
-            buf = wav_obj.readframes(T_PER_CHUNK * wav_obj.getframerate())
-
-            k = kaldi_queue.get()
-            k.push_chunk(buf)
-            ret = k.get_final()
-            k.reset()
-            kaldi_queue.put(k)
-
-            chunks.append({"start": start_t, "words": ret})
-
-            # Add status info
-            status["message"] = ' '.join([X['word'] for X in ret])
-            status["percent"] = len(chunks) / float(n_chunks)
-
-
-        pool = Pool(nthreads)
-        pool.map(transcribe_chunk, range(n_chunks))
-        pool.close()
-        
         # Clear queue
-        for i in range(nthreads):
+        for i in range(self.nthreads):
             k = kaldi_queue.get()
             k.stop()
-
-        chunks.sort(key=lambda x: x['start'])
-
-        # Combine chunks
-        # TODO: remove overlap? ...or just let the sequence aligner deal with it.
-        words = []
-        for c in chunks:
-            chunk_start = c['start']
-            for wd in c['words']:
-                wd['start'] += chunk_start
-                words.append(wd)
 
         output = {}
         if len(transcript.strip()) > 0:
@@ -253,7 +211,7 @@ class Transcriber():
                 # "chunk" should be replaced by "words"
                 realignments.append({"chunk": chunk, "words": word_alignment})
 
-            pool = Pool(nthreads)
+            pool = Pool(self.nthreads)
             pool.map(realign, to_realign)
             pool.close()
 
