@@ -333,8 +333,12 @@ function render_status(ret) {
 	
 	status_init = true;
     }
-
-    if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.0001 < ret.percent)) {
+    if(ret.status !== "TRANSCRIBING") {
+	if(ret.percent) {
+	    $status_pro.value = (100*ret.percent);
+	}
+    }
+    else if(ret.percent && (status_log.length == 0 || status_log[status_log.length-1].percent+0.0001 < ret.percent)) {
 	// New entry
 	var $entry = document.createElement("div");
 	$entry.className = "entry";
@@ -369,7 +373,7 @@ function update() {
             if (ret.status == 'ERROR') {
                 $preloader.style.visibility = 'hidden';
                 $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
-            } else if (ret.status == 'TRANSCRIBING') {
+            } else if (ret.status == 'TRANSCRIBING' || ret.status == 'ALIGNING') {
                 $preloader.style.visibility = 'visible';
                 render_status(ret);
                 setTimeout(update, 2000);
