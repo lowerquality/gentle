@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import subprocess
+import tempfile
 import wave
 
 from gentle import ffmpeg, prons
@@ -162,19 +163,18 @@ def read_wav(infile):
     Create a stdlib wave object from the given input file.
 
     If the file isn't a wav or has the wrong sample format,
-    try to convert it using ffmpeg.
+    convert it using ffmpeg.
     '''
-    try:
+    input_wav = None
+    if infile.endswith('.wav'):
         input_wav = wave.open(infile, 'r')
-    except wave.Error, _:
-        input_wav = wave.open(ffmpeg.to_wav(infile), 'r')
 
-    if input_wav.getnchannels() != 1:
-        raise ValueError("input wav must be mono")
-    if input_wav.getframerate() != 8000:
-        raise ValueError("input wav must have 8kHZ sample rate")
-    if input_wav.getsampwidth() != 2:
-        raise ValueError("input wav must have 16 bit depth")
+    if input_wav is None or input_wav.getnchannels() != 1 or input_wav.getframerate() != 8000 or  input_wav.getsampwidth() != 2:
+        # Convert
+        _fd, wavpath = tempfile.mkstemp(suffix='.wav')
+        if ffmpeg.to_wav(infile, wavpath) != 0:
+            raise RuntimeError("Could not convert %s to wav" % (infile))
+        input_wav = wave.open(wavpath, 'r')
 
     return input_wav
 

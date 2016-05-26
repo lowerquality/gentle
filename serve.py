@@ -20,22 +20,13 @@ import wave
 from gentle.paths import get_binary, get_resource, get_datadir
 from gentle.transcription import to_csv
 from gentle.cyst import Insist
+from gentle.ffmpeg import to_wav
 from gentle import diff_align
 from gentle import language_model
 from gentle import language_model_transcribe
 from gentle import metasentence
 from gentle import standard_kaldi
 import gentle
-
-# The `ffmpeg.to_wav` function doesn't set headers properly for web
-# browser playback.
-def to_wav(infile, outfile):
-    return subprocess.call([get_binary('ffmpeg'),
-                     '-loglevel', 'panic',
-                     '-i', infile,
-                     '-ac', '1', '-ar', '8000',
-                     '-acodec', 'pcm_s16le',
-                     outfile])
 
 class TranscriptionStatus(Resource):
     def __init__(self, status_dict):
