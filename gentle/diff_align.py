@@ -26,18 +26,20 @@ def align(alignment, ms):
 
     out = []
     for op, a, b in word_diff(hypothesis, reference):
-        if a < len(hypothesis):
+
+        if op == 'delete':
+            continue
+
+        display_word = display_seq[b]
+        start_offset, end_offset = txt_offsets[b]
+
+        if op == 'equal':
             hyp_word = hypothesis[a]
             hyp_token = alignment[a]
             phones = hyp_token.get("phones", [])
             start = hyp_token["start"]
             end = hyp_token["start"] + hyp_token["duration"]
-        if b < len(reference):
-            ref_word = reference[b]
-            display_word = display_seq[b]
-            start_offset, end_offset = txt_offsets[b]
 
-        if op == 'equal':
             out.append({
                 "case": "success",
                 "startOffset": start_offset,
