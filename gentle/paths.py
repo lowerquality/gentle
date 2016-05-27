@@ -11,19 +11,22 @@ def get_binary(name):
     elif os.path.exists(name):
         binpath = "./%s" % (name)
 
-    logging.info("binpath %s", binpath)
+    logging.debug("binpath %s", binpath)
     return binpath
 
 def get_resource(path):
     rpath = path
     if hasattr(sys, "frozen"):
         rpath = os.path.abspath(os.path.join(sys._MEIPASS, '..', 'Resources', path))
-    logging.info("resourcepath %s", rpath)
+        if not os.path.exists(rpath):
+            # DMG may be read-only; fall-back to datadir (ie. so language models can be added)
+            rpath = get_datadir(path)
+    logging.debug("resourcepath %s", rpath)
     return rpath
 
 def get_datadir(path):
     datadir = path
     if hasattr(sys, "frozen"):# and sys.frozen == "macosx_app":
         datadir = os.path.join(os.environ['HOME'], '.gentle', path)
-    logging.info("datadir %s", datadir)
+    logging.debug("datadir %s", datadir)
     return datadir
