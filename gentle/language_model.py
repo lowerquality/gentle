@@ -11,18 +11,37 @@ from metasentence import MetaSentence
 
 MKGRAPH_PATH = get_binary("ext/mkgraph")
 
-def make_bigram_lm_fst(word_sequence):
+def make_bigram_lm_fst(word_sequences, conservative=False):
     '''
     Use the given token sequence to make a bigram language model
     in OpenFST plain text format.
-    '''
-    word_sequence = ['[oov]', '[oov]'] + word_sequence + ['[oov]']
 
-    bigrams = {}
-    prev_word = word_sequence[0]
-    for word in word_sequence[1:]:
-        bigrams.setdefault(prev_word, set()).add(word)
-        prev_word = word
+    When the "conservative" flag is set, an [oov] is interleaved 
+    between successive words.
+
+    `Word sequence` is a list of lists, each valid as a start
+    '''
+
+    if len(word_sequences) == 0 or type(word_sequences[0]) != list:
+        word_sequences = [word_sequences]
+
+    bigrams = {'[oov]': set(['[oov]'])}
+
+    for word_sequence in word_sequences:
+        if len(word_sequence) == 0:
+            continue
+        
+        prev_word = word_sequence[0]
+        bigrams['[oov]'].add(prev_word) # valid start (?)
+        
+        for word in word_sequence[1:]:
+            bigrams.setdefault(prev_word, set()).add(word)
+            if conservative:
+                bigrams[prev_word].add('[oov]')
+            prev_word = word
+
+        # ...valid end
+        bigrams.setdefault(prev_word, set()).add('[oov]')
 
     node_ids = {}
     def get_node_id(word):
@@ -49,7 +68,7 @@ def make_bigram_lm_fst(word_sequence):
 
     return output
 
-def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
+def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR', conservative=False):
     """Generates a language model to fit the text.
 
     Returns the filename of the generated language model FST.
@@ -60,7 +79,7 @@ def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR'):
     """
 
     # Generate a textual FST
-    txt_fst = make_bigram_lm_fst(kaldi_seq)
+    txt_fst = make_bigram_lm_fst(kaldi_seq, conservative=conservative)
     txt_fst_file = tempfile.NamedTemporaryFile(delete=False)
     txt_fst_file.write(txt_fst)
     txt_fst_file.close()
