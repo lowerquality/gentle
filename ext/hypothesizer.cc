@@ -36,7 +36,7 @@ Hypothesis Hypothesizer::GetFull(const kaldi::Lattice& lattice) {
   WordAlignLattice(clat, *this->transition_model_, *this->word_boundary_info_,
                    0, &aligned_clat);
 
-  CompactLatticeToWordProns(*this->transition_model_, clat, &words, &times,
+  CompactLatticeToWordProns(*this->transition_model_, aligned_clat, &words, &times,
                             &lengths, &prons, &phone_lengths);
 
   for (int i = 0; i < words.size(); i++) {

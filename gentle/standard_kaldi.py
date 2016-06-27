@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import wave
 
-from gentle import ffmpeg, prons
+from gentle import ffmpeg
 from gentle.paths import get_binary
 from gentle.rpc import RPCProtocol
 
@@ -50,8 +50,7 @@ class Kaldi(object):
         '''Dump the final, phone-aligned transcript'''
         body, _ = self.rpc.do('get-final')
         hypothesis = json.loads(body)['hypothesis']
-        words = prons.tweak(hypothesis)
-        return words
+        return hypothesis
 
     def reset(self):
         '''Reset the decoder, delete the decoding state'''
