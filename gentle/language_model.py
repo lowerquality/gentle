@@ -11,13 +11,16 @@ from metasentence import MetaSentence
 
 MKGRAPH_PATH = get_binary("ext/mkgraph")
 
-def make_bigram_lm_fst(word_sequences, conservative=False):
+def make_bigram_lm_fst(word_sequences, **kwargs):
     '''
     Use the given token sequence to make a bigram language model
     in OpenFST plain text format.
 
-    When the "conservative" flag is set, an [oov] is interleaved 
+    When the "conservative" flag is set, an [oov] is interleaved
     between successive words.
+
+    When the "disfluency" flag is set, a small set of disfluencies is
+    interleaved between successive words
 
     `Word sequence` is a list of lists, each valid as a start
     '''
@@ -25,19 +28,38 @@ def make_bigram_lm_fst(word_sequences, conservative=False):
     if len(word_sequences) == 0 or type(word_sequences[0]) != list:
         word_sequences = [word_sequences]
 
+    conservative = kwargs['conservative'] if 'conservative' in kwargs else False
+    disfluency = kwargs['disfluency'] if 'disfluency' in kwargs else False
+    disfluencies = kwargs['disfluencies'] if 'disfluencies' in kwargs else []
+
     bigrams = {'[oov]': set(['[oov]'])}
 
     for word_sequence in word_sequences:
         if len(word_sequence) == 0:
             continue
-        
+
         prev_word = word_sequence[0]
         bigrams['[oov]'].add(prev_word) # valid start (?)
-        
+
+        if disfluency:
+            bigrams['[oov]'].update(disfluencies)
+
+            for dis in disfluencies:
+                bigrams.setdefault(dis, set()).add(prev_word)
+                bigrams[dis].add('[oov]')
+
         for word in word_sequence[1:]:
             bigrams.setdefault(prev_word, set()).add(word)
+
             if conservative:
                 bigrams[prev_word].add('[oov]')
+
+            if disfluency:
+                bigrams[prev_word].update(disfluencies)
+
+                for dis in disfluencies:
+                    bigrams[dis].add(word)
+
             prev_word = word
 
         # ...valid end
@@ -68,7 +90,7 @@ def make_bigram_lm_fst(word_sequences, conservative=False):
 
     return output
 
-def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR', conservative=False):
+def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR', **kwargs):
     """Generates a language model to fit the text.
 
     Returns the filename of the generated language model FST.
@@ -79,11 +101,11 @@ def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR', conserv
     """
 
     # Generate a textual FST
-    txt_fst = make_bigram_lm_fst(kaldi_seq, conservative=conservative)
+    txt_fst = make_bigram_lm_fst(kaldi_seq, **kwargs)
     txt_fst_file = tempfile.NamedTemporaryFile(delete=False)
     txt_fst_file.write(txt_fst)
     txt_fst_file.close()
-    
+
     hclg_filename = tempfile.mktemp(suffix='_HCLG.fst')
     try:
         devnull = open(os.devnull, 'wb')
