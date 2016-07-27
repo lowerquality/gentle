@@ -10,14 +10,17 @@ import standard_kaldi
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
 # programming algorithm used in sclite's alignment process:
 # http://www1.icsi.berkeley.edu/Speech/docs/sctk-1.2/sclite.htm#time-mediated
-def align(alignment, ms):
+def align(alignment, ms, **kwargs):
     '''Use the diff algorithm to align the raw tokens recognized by Kaldi
     to the words in the transcript (tokenized by MetaSentence).
-    
+
     The output combines information about the timing and alignment of
     correctly-aligned words as well as words that Kaldi failed to recognize
     and extra words not found in the original transcript.
     '''
+    disfluency = kwargs['disfluency'] if 'disfluency' in kwargs else False
+    disfluencies = kwargs['disfluencies'] if 'disfluencies' in kwargs else []
+
     hypothesis = [X["word"] for X in alignment]
     reference = ms.get_kaldi_sequence()
 
@@ -28,6 +31,20 @@ def align(alignment, ms):
     for op, a, b in word_diff(hypothesis, reference):
 
         if op == 'delete':
+            word = hypothesis[a]
+            if disfluency and word in disfluencies:
+                hyp_token = alignment[a]
+                phones = hyp_token.get("phones", [])
+                start = hyp_token["start"]
+                end = hyp_token["start"] + hyp_token["duration"]
+
+                out.append({
+                    "case": "not-found-in-transcript",
+                    "phones": phones,
+                    "start": start,
+                    "end": end,
+                    "word": word
+                })
             continue
 
         display_word = display_seq[b]
@@ -50,6 +67,7 @@ def align(alignment, ms):
                 "start": start,
                 "end": end,
             })
+
         elif op in ['insert', 'replace']:
             out.append({
                 "case": "not-found-in-audio",
@@ -94,5 +112,5 @@ if __name__=='__main__':
     alignment = json.load(open(JSON_FILE))['words']
 
     out = align(alignment, ms)
-    
+
     json.dump(out, open(OUTPUT_FILE, 'w'), indent=2)
