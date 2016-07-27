@@ -44,6 +44,12 @@
         padding: 10px 30px;
         cursor: pointer;
       }
+      #alignment-flags {
+        background: #CCC;
+        border: 0;
+        font-size: 18px;
+        padding: 10px 30px;
+      }
       #footer {
         margin-top: 100px;
         border-top: 1px dotted black;
@@ -63,6 +69,8 @@
       <br>
       Transcript:<br>
       <textarea name="transcript"></textarea><br>
+      <input id=alignment-flags name=conservative type=checkbox> Conservative<br>
+      <input id=alignment-flags name=disfluency type=checkbox> Include disfluencies<br>
       <input id="align-button" type=submit value=Align>
     </form>
     <div id="footer">
