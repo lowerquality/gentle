@@ -28,7 +28,7 @@ class TranscriptionStatus(Resource):
     def __init__(self, status_dict):
         self.status_dict = status_dict
         Resource.__init__(self)
-        
+
     def render_GET(self, req):
         req.setHeader("Content-Type", "application/json")
         return json.dumps(self.status_dict)
@@ -46,11 +46,11 @@ class Transcriber():
 
         # load kaldi instances for full transcription
         gen_hclg_filename = get_resource('data/graph/HCLG.fst')
-        
+
         if os.path.exists(gen_hclg_filename) and self.ntranscriptionthreads > 0:
             proto_langdir = get_resource('PROTO_LANGDIR')
             nnet_gpu_path = get_resource('data/nnet_a_gpu_online')
-            
+
             kaldi_queue = Queue()
             for i in range(self.ntranscriptionthreads):
                 kaldi_queue.put(standard_kaldi.Kaldi(
@@ -75,10 +75,10 @@ class Transcriber():
             uid = uuid.uuid4().get_hex()[:8]
         return uid
 
-    def transcribe(self, uid, transcript, audio, async):
+    def transcribe(self, uid, transcript, audio, async, **kwargs):
 
         proto_langdir = get_resource('PROTO_LANGDIR')
-        
+
         status = self.get_status(uid)
 
         status['status'] = 'STARTED'
@@ -86,7 +86,7 @@ class Transcriber():
             'transcript': transcript
         }
 
-        outdir = os.path.join(self.data_dir, 'transcriptions', uid)                
+        outdir = os.path.join(self.data_dir, 'transcriptions', uid)
 
         tran_path = os.path.join(outdir, 'transcript.txt')
         with open(tran_path, 'w') as tranfile:
@@ -120,7 +120,7 @@ class Transcriber():
         if len(transcript.strip()) > 0:
             ms = metasentence.MetaSentence(transcript, self.vocab)
             ks = ms.get_kaldi_sequence()
-            gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir)
+            gen_hclg_filename = language_model.make_bigram_language_model(ks, proto_langdir, **kwargs)
 
             kaldi_queue = Queue()
             for i in range(self.nthreads):
@@ -139,7 +139,6 @@ class Transcriber():
             return
 
         words = mtt.transcribe(wavfile, progress_cb=on_progress)
-
         output = {}
         if len(transcript.strip()) > 0:
             # Clear queue (would this be gc'ed?)
@@ -148,7 +147,7 @@ class Transcriber():
                 k.stop()
 
             # Align words
-            output['words'] = diff_align.align(words, ms)
+            output['words'] = diff_align.align(words, ms, **kwargs)
             output['transcript'] = transcript
 
             # Perform a second-pass with unaligned words
@@ -159,7 +158,7 @@ class Transcriber():
             output['words'] = multipass.realign(wavfile, output['words'], ms, nthreads=self.nthreads, progress_cb=on_progress)
 
             logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in output['words'] if X.get("case") == "not-found-in-audio"]), len(output['words'])))
-            
+
         else:
             # Match format
             output = make_transcription_alignment({"words": words})
@@ -188,7 +187,7 @@ class TranscriptionsController(Resource):
     def __init__(self, transcriber):
         Resource.__init__(self)
         self.transcriber = transcriber
-    
+
     def getChild(self, uid, req):
         out_dir = self.transcriber.out_dir(uid)
         trans_ctrl = File(out_dir)
@@ -196,7 +195,7 @@ class TranscriptionsController(Resource):
         # Add a Status endpoint to the file
         trans_status = TranscriptionStatus(self.transcriber.get_status(uid))
         trans_ctrl.putChild("status.json", trans_status)
-        
+
         return trans_ctrl
 
     def render_POST(self, req):
@@ -204,6 +203,12 @@ class TranscriptionsController(Resource):
 
         tran = req.args.get('transcript', [''])[0]
         audio = req.args['audio'][0]
+
+        disfluency = True if 'disfluency' in req.args else False
+        conservative = True if 'conservative' in req.args else False
+        kwargs = {'disfluency': disfluency,
+                  'conservative': conservative,
+                  'disfluencies': set(['uh', 'um'])}
 
         async = True
         if 'async' in req.args and req.args['async'][0] == 'false':
@@ -221,7 +226,7 @@ class TranscriptionsController(Resource):
         result_promise = threads.deferToThreadPool(
             reactor, reactor.getThreadPool(),
             self.transcriber.transcribe,
-            uid, tran, audio, async)
+            uid, tran, audio, async, **kwargs)
 
         if not async:
             def write_result(result):
@@ -256,7 +261,7 @@ class TranscriptionZipper(Resource):
         self.cachedir = cachedir
         self.transcriber = transcriber
         Resource.__init__(self)
-    
+
     def getChild(self, path, req):
         uid = path.split('.')[0]
         t_dir = self.transcriber.out_dir(uid)
@@ -294,14 +299,14 @@ def make_transcription_alignment(trans):
 
 def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, ntranscriptionthreads=2, data_dir=get_datadir('webdata')):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
-    
+
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
 
     zip_dir = os.path.join(data_dir, 'zip')
     if not os.path.exists(zip_dir):
         os.makedirs(zip_dir)
-    
+
     f = File(data_dir)
 
     f.putChild('', File(get_resource('www/index.html')))
@@ -314,15 +319,15 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, n
 
     trans_zippr = TranscriptionZipper(zip_dir, trans)
     f.putChild('zip', trans_zippr)
-    
+
     s = Site(f)
     logging.info("about to listen")
     reactor.listenTCP(port, s, interface=interface)
     logging.info("listening")
 
     reactor.run(installSignalHandlers=installSignalHandlers)
-    
-    
+
+
 if __name__=='__main__':
     import argparse
 

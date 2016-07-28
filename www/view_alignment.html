@@ -260,6 +260,9 @@ function render(ret) {
     wds.forEach(function(wd) {
         if(wd['case'] == 'not-found-in-transcript') {
             // TODO: show phonemes somewhere
+            var txt = ' ' + wd.word;
+            var $plaintext = document.createTextNode(txt);
+            $trans.appendChild($plaintext);
             return;
         }
 
