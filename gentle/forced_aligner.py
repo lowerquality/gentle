@@ -11,6 +11,7 @@ class ForcedAligner():
         self.kwargs = kwargs
         self.nthreads = nthreads
         self.transcript = transcript
+        self.resources = resources
         self.ms = metasentence.MetaSentence(transcript, resources.vocab)
         ks = self.ms.get_kaldi_sequence()
         gen_hclg_filename = language_model.make_bigram_language_model(ks, resources.proto_langdir, **kwargs)
@@ -37,7 +38,7 @@ class ForcedAligner():
         if progress_cb is not None:
             progress_cb({'status': 'ALIGNING'})
 
-        output['words'] = multipass.realign(wavfile, output['words'], self.ms, nthreads=self.nthreads, progress_cb=progress_cb)
+        output['words'] = multipass.realign(wavfile, output['words'], self.ms, resources=self.resources, nthreads=self.nthreads, progress_cb=progress_cb)
 
         if logging is not None:
             logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in output['words'] if X.get("case") == "not-found-in-audio"]), len(output['words'])))

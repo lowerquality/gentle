@@ -6,14 +6,7 @@ import wave
 from gentle import standard_kaldi
 from gentle import metasentence
 from gentle import language_model
-from gentle.paths import get_resource
 from gentle import diff_align
-
-# XXX: refactor out somewhere
-proto_langdir = get_resource('PROTO_LANGDIR')
-vocab_path = os.path.join(proto_langdir, "graphdir/words.txt")
-with open(vocab_path) as f:
-    vocab = metasentence.load_vocabulary(f)
 
 def prepare_multipass(alignment):
     to_realign = []
@@ -41,7 +34,7 @@ def prepare_multipass(alignment):
 
     return to_realign
     
-def realign(wavfile, alignment, ms, nthreads=4, progress_cb=None):
+def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
     to_realign = prepare_multipass(alignment)
     realignments = []
 
@@ -64,14 +57,14 @@ def realign(wavfile, alignment, ms, nthreads=4, progress_cb=None):
         offset_offset = chunk['words'][0]['startOffset']
         chunk_len = chunk['words'][-1]['endOffset'] - offset_offset
         chunk_transcript = ms.raw_sentence[offset_offset:offset_offset+chunk_len].encode("utf-8")
-        chunk_ms = metasentence.MetaSentence(chunk_transcript, vocab)
+        chunk_ms = metasentence.MetaSentence(chunk_transcript, resources.vocab)
         chunk_ks = chunk_ms.get_kaldi_sequence()
 
-        chunk_gen_hclg_filename = language_model.make_bigram_language_model(chunk_ks, proto_langdir)
+        chunk_gen_hclg_filename = language_model.make_bigram_language_model(chunk_ks, resources.proto_langdir)
         k = standard_kaldi.Kaldi(
-            get_resource('data/nnet_a_gpu_online'),
+            resources.nnet_gpu_path,
             chunk_gen_hclg_filename,
-            proto_langdir)
+            resources.proto_langdir)
 
         wav_obj = wave.open(wavfile, 'r')
         wav_obj.setpos(int(start_t * wav_obj.getframerate()))

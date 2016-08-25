@@ -6,6 +6,8 @@ import sys
 import metasentence
 import language_model
 import standard_kaldi
+from resources import GentleResources
+
 
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
 # programming algorithm used in sclite's alignment process:
@@ -105,10 +107,7 @@ if __name__=='__main__':
     JSON_FILE = sys.argv[2]
     OUTPUT_FILE = sys.argv[3]
 
-    with open('data/graph/words.txt') as f:
-        vocab = metasentence.load_vocabulary(f)
-
-    ms = metasentence.MetaSentence(open(TEXT_FILE).read(), vocab)
+    ms = metasentence.MetaSentence(open(TEXT_FILE).read(), GentleResources().vocab)
     alignment = json.load(open(JSON_FILE))['words']
 
     out = align(alignment, ms)
