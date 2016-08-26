@@ -3,6 +3,8 @@ data/
 ext/standard_kaldi
 ext/mkgraph
 ext/*-test
+ext/*.o
+ext/.depend.mk
 *.pyc
 *~
 webdata/
