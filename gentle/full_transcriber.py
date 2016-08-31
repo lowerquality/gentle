@@ -16,7 +16,7 @@ class FullTranscriber():
 
     def transcribe(self, wavfile, progress_cb=None, logging=None):
         words = self.mtt.transcribe(wavfile, progress_cb=progress_cb)
-        return make_transcription_alignment({"words": words})
+        return self.make_transcription_alignment({"words": words})
 
     @staticmethod
     def make_transcription_alignment(trans):
