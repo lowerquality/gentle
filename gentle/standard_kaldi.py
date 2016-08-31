@@ -7,7 +7,7 @@ import tempfile
 import wave
 
 from gentle import ffmpeg
-from gentle.paths import get_binary
+from util.paths import get_binary
 from gentle.rpc import RPCProtocol
 from gentle.resources import Resources
 

@@ -12,9 +12,10 @@ import shutil
 import uuid
 import wave
 
-from gentle.paths import get_resource, get_datadir
-from gentle.cyst import Insist
-from gentle.ffmpeg import to_wav
+from util.paths import get_resource, get_datadir
+from util.cyst import Insist
+from util.ffmpeg import to_wav
+
 import gentle
 
 class TranscriptionStatus(Resource):

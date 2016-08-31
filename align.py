@@ -6,7 +6,7 @@ import sys
 import tempfile
 
 import gentle
-from gentle.ffmpeg import to_wav
+from util.ffmpeg import to_wav
 
 parser = argparse.ArgumentParser(
         description='Align a transcript to audio by generating a new language model.  Outputs JSON')

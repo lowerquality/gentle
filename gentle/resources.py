@@ -1,6 +1,6 @@
 import os
 
-from gentle.paths import get_resource
+from util.paths import get_resource
 from gentle import metasentence
 
 class Resources():

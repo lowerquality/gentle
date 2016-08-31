@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 
-from paths import get_binary
+from util.paths import get_binary
 from metasentence import MetaSentence
 from resources import Resources
 
