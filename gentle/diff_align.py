@@ -6,7 +6,7 @@ import sys
 import metasentence
 import language_model
 import standard_kaldi
-from resources import GentleResources
+from resources import Resources
 
 
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
@@ -107,7 +107,7 @@ if __name__=='__main__':
     JSON_FILE = sys.argv[2]
     OUTPUT_FILE = sys.argv[3]
 
-    ms = metasentence.MetaSentence(open(TEXT_FILE).read(), GentleResources().vocab)
+    ms = metasentence.MetaSentence(open(TEXT_FILE).read(), Resources().vocab)
     alignment = json.load(open(JSON_FILE))['words']
 
     out = align(alignment, ms)

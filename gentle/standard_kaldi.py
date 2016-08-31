@@ -9,7 +9,7 @@ import wave
 from gentle import ffmpeg
 from gentle.paths import get_binary
 from gentle.rpc import RPCProtocol
-from gentle.resources import GentleResources
+from gentle.resources import Resources
 
 EXECUTABLE_PATH = get_binary("ext/standard_kaldi")
 
@@ -71,7 +71,7 @@ def main():
         proto_langdir = sys.argv[5]
         k = Kaldi(nnet_dir, graph_dir, proto_langdir)
     else:
-        resources = GentleResources()
+        resources = Resources()
         k = Kaldi(resources.nnet_gpu_path, resources.full_hclg_path, resources.proto_langdir)
 
     words = None

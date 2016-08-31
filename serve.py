@@ -13,7 +13,6 @@ import uuid
 import wave
 
 from gentle.paths import get_resource, get_datadir
-from gentle.resources import GentleResources
 from gentle.transcription import to_csv
 from gentle.forced_aligner import ForcedAligner
 from gentle.full_transcriber import FullTranscriber
@@ -35,7 +34,7 @@ class Transcriber():
         self.data_dir = data_dir
         self.nthreads = nthreads
         self.ntranscriptionthreads = ntranscriptionthreads
-        self.resources = GentleResources()
+        self.resources = gentle.Resources()
 
         self.full_transcriber = FullTranscriber(self.resources, nthreads=ntranscriptionthreads)
         self._status_dicts = {}

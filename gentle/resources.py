@@ -3,7 +3,7 @@ import os
 from gentle.paths import get_resource
 from gentle import metasentence
 
-class GentleResources():
+class Resources():
 
     def __init__(self):
         self.proto_langdir = get_resource('PROTO_LANGDIR')

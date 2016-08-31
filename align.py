@@ -6,9 +6,9 @@ import os
 import sys
 import tempfile
 
+import gentle
 from gentle.forced_aligner import ForcedAligner
 from gentle.ffmpeg import to_wav
-from gentle.resources import GentleResources
 
 parser = argparse.ArgumentParser(
         description='Align a transcript to audio by generating a new language model.  Outputs JSON')
@@ -53,7 +53,7 @@ with open(args.txtfile) as fh:
 _, wavfile = tempfile.mkstemp(suffix='.wav')
 
 try:
-    resources = GentleResources()
+    resources = gentle.Resources()
     logging.info("converting audio to 8K sampled wav")
     to_wav(args.audiofile, wavfile)
     logging.info("starting alignment")

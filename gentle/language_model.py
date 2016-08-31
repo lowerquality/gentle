@@ -8,7 +8,7 @@ import tempfile
 
 from paths import get_binary
 from metasentence import MetaSentence
-from resources import GentleResources
+from resources import Resources
 
 MKGRAPH_PATH = get_binary("ext/mkgraph")
 
@@ -128,4 +128,4 @@ def make_bigram_language_model(kaldi_seq, proto_langdir, **kwargs):
 
 if __name__=='__main__':
     import sys
-    make_bigram_language_model(open(sys.argv[1]).read(), GentleResources().proto_langdir)
+    make_bigram_language_model(open(sys.argv[1]).read(), Resources().proto_langdir)
