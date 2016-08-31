@@ -7,7 +7,6 @@ import sys
 import tempfile
 
 import gentle
-from gentle.forced_aligner import ForcedAligner
 from gentle.ffmpeg import to_wav
 
 parser = argparse.ArgumentParser(
@@ -57,7 +56,7 @@ try:
     logging.info("converting audio to 8K sampled wav")
     to_wav(args.audiofile, wavfile)
     logging.info("starting alignment")
-    aligner = ForcedAligner(resources, transcript, nthreads=args.nthreads, disfluency=args.disfluency, conservative=args.conservative, disfluencies=disfluencies)
+    aligner = gentle.ForcedAligner(resources, transcript, nthreads=args.nthreads, disfluency=args.disfluency, conservative=args.conservative, disfluencies=disfluencies)
     result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
 finally:
     os.unlink(wavfile)

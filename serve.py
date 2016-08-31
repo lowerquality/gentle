@@ -14,8 +14,6 @@ import wave
 
 from gentle.paths import get_resource, get_datadir
 from gentle.transcription import to_csv
-from gentle.forced_aligner import ForcedAligner
-from gentle.full_transcriber import FullTranscriber
 from gentle.cyst import Insist
 from gentle.ffmpeg import to_wav
 import gentle
@@ -36,7 +34,7 @@ class Transcriber():
         self.ntranscriptionthreads = ntranscriptionthreads
         self.resources = gentle.Resources()
 
-        self.full_transcriber = FullTranscriber(self.resources, nthreads=ntranscriptionthreads)
+        self.full_transcriber = gentle.FullTranscriber(self.resources, nthreads=ntranscriptionthreads)
         self._status_dicts = {}
 
     def get_status(self, uid):
@@ -93,7 +91,7 @@ class Transcriber():
                 status[k] = v
 
         if len(transcript.strip()) > 0:
-            trans = ForcedAligner(self.resources, transcript, nthreads=self.nthreads, **kwargs)
+            trans = gentle.ForcedAligner(self.resources, transcript, nthreads=self.nthreads, **kwargs)
         elif self.full_transcriber.available:
             trans = self.full_transcriber
         else:
