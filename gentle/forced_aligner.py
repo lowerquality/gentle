@@ -3,7 +3,7 @@ from gentle import kaldi_queue
 from gentle import language_model
 from gentle import metasentence
 from gentle import multipass
-from gentle.transcription import MultiThreadedTranscriber
+from gentle.transcription import MultiThreadedTranscriber, Transcription
 
 class ForcedAligner():
 
@@ -27,20 +27,18 @@ class ForcedAligner():
             k.stop()
 
         # Align words
-        output = {}
-        output['words'] = diff_align.align(words, self.ms, **self.kwargs)
-        output['transcript'] = self.transcript
+        words = diff_align.align(words, self.ms, **self.kwargs)
 
         # Perform a second-pass with unaligned words
         if logging is not None:
-            logging.info("%d unaligned words (of %d)" % (len([X for X in output['words'] if X.get("case") == "not-found-in-audio"]), len(output['words'])))
+            logging.info("%d unaligned words (of %d)" % (len([X for X in words if X.get("case") == "not-found-in-audio"]), len(words)))
 
         if progress_cb is not None:
             progress_cb({'status': 'ALIGNING'})
 
-        output['words'] = multipass.realign(wavfile, output['words'], self.ms, resources=self.resources, nthreads=self.nthreads, progress_cb=progress_cb)
+        words = multipass.realign(wavfile, words, self.ms, resources=self.resources, nthreads=self.nthreads, progress_cb=progress_cb)
 
         if logging is not None:
-            logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in output['words'] if X.get("case") == "not-found-in-audio"]), len(output['words'])))
+            logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in words if X.get("case") == "not-found-in-audio"]), len(words)))
 
-        return output
+        return Transcription(words=words, transcript=self.transcript)

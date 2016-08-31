@@ -1,7 +1,7 @@
 import os
 
 from gentle import kaldi_queue
-from gentle.transcription import MultiThreadedTranscriber
+from gentle.transcription import MultiThreadedTranscriber, Transcription
 
 class FullTranscriber():
 
@@ -16,14 +16,14 @@ class FullTranscriber():
 
     def transcribe(self, wavfile, progress_cb=None, logging=None):
         words = self.mtt.transcribe(wavfile, progress_cb=progress_cb)
-        return self.make_transcription_alignment({"words": words})
+        return self.make_transcription_alignment(words)
 
     @staticmethod
     def make_transcription_alignment(trans):
         # Spoof the `diff_align` output format
         transcript = ""
         words = []
-        for t_wd in trans["words"]:
+        for t_wd in trans:
             word = {
                 "case": "success",
                 "startOffset": len(transcript),
@@ -37,6 +37,4 @@ class FullTranscriber():
 
             transcript += word["word"] + " "
 
-        trans["transcript"] = transcript
-        trans["words"] = words
-        return trans
+        return Transcription(words=words, transcript=transcript)

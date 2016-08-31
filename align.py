@@ -1,5 +1,4 @@
 import argparse
-import json
 import logging
 import multiprocessing
 import os
@@ -62,6 +61,6 @@ finally:
     os.unlink(wavfile)
 
 fh = open(args.output, 'w') if args.output else sys.stdout
-json.dump(result, fh, indent=2)
+fh.write(result.to_json(indent=2))
 if args.output:
     logging.info("output written to %s" % (args.output))

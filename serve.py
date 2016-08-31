@@ -13,7 +13,6 @@ import uuid
 import wave
 
 from gentle.paths import get_resource, get_datadir
-from gentle.transcription import to_csv
 from gentle.cyst import Insist
 from gentle.ffmpeg import to_wav
 import gentle
@@ -106,13 +105,13 @@ class Transcriber():
 
         # Save
         with open(os.path.join(outdir, 'align.json'), 'w') as jsfile:
-            json.dump(output, jsfile, indent=2)
+            jsfile.write(output.to_json(indent=2))
         with open(os.path.join(outdir, 'align.csv'), 'w') as csvfile:
-            csvfile.write(to_csv(output))
+            csvfile.write(output.to_csv())
 
         # Inline the alignment into the index.html file.
         htmltxt = open(get_resource('www/view_alignment.html')).read()
-        htmltxt = htmltxt.replace("var INLINE_JSON;", "var INLINE_JSON=%s;" % (json.dumps(output)));
+        htmltxt = htmltxt.replace("var INLINE_JSON;", "var INLINE_JSON=%s;" % (output.to_json()));
         open(os.path.join(outdir, 'index.html'), 'w').write(htmltxt)
 
         status['status'] = 'OK'
@@ -170,7 +169,7 @@ class TranscriptionsController(Resource):
             def write_result(result):
                 '''Write JSON to client on completion'''
                 req.setHeader("Content-Type", "application/json")
-                req.write(json.dumps(result, indent=2))
+                req.write(result.to_json(indent=2))
                 req.finish()
             result_promise.addCallback(write_result)
             result_promise.addErrback(lambda _: None) # ignore errors
