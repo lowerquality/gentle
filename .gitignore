@@ -8,3 +8,4 @@ ext/.depend.mk
 *.pyc
 *~
 webdata/
+.cache/
