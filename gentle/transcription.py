@@ -99,7 +99,6 @@ if __name__=='__main__':
     from Queue import Queue
     from util import ffmpeg
     from gentle import standard_kaldi
-    import tempfile
 
     import sys
 
@@ -112,9 +111,7 @@ if __name__=='__main__':
 
     trans = MultiThreadedTranscriber(k_queue)
 
-    with tempfile.NamedTemporaryFile(suffix='.wav') as fp:
-        ffmpeg.to_wav(sys.argv[1], fp.name)
-
-        out = trans.transcribe(fp.name)
+    with gentle.resampled(sys.argv[1]) as filename:
+        out = trans.transcribe(filename)
 
     open(sys.argv[2], 'w').write(out.to_json())

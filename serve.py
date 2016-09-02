@@ -14,7 +14,6 @@ import wave
 
 from util.paths import get_resource, get_datadir
 from util.cyst import Insist
-from util.ffmpeg import to_wav
 
 import gentle
 
@@ -71,7 +70,7 @@ class Transcriber():
         status['status'] = 'ENCODING'
 
         wavfile = os.path.join(outdir, 'a.wav')
-        if to_wav(os.path.join(outdir, 'upload'), wavfile) != 0:
+        if gentle.resample(os.path.join(outdir, 'upload'), wavfile) != 0:
             status['status'] = 'ERROR'
             status['error'] = "Encoding failed. Make sure that you've uploaded a valid media file."
             # Save the status so that errors are recovered on restart of the server

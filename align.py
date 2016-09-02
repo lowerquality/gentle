@@ -3,10 +3,8 @@ import logging
 import multiprocessing
 import os
 import sys
-import tempfile
 
 import gentle
-from util.ffmpeg import to_wav
 
 parser = argparse.ArgumentParser(
         description='Align a transcript to audio by generating a new language model.  Outputs JSON')
@@ -48,17 +46,13 @@ def on_progress(p):
 with open(args.txtfile) as fh:
     transcript = fh.read()
 
-_, wavfile = tempfile.mkstemp(suffix='.wav')
+resources = gentle.Resources()
+logging.info("converting audio to 8K sampled wav")
 
-try:
-    resources = gentle.Resources()
-    logging.info("converting audio to 8K sampled wav")
-    to_wav(args.audiofile, wavfile)
+with gentle.resampled(args.audiofile) as wavfile:
     logging.info("starting alignment")
     aligner = gentle.ForcedAligner(resources, transcript, nthreads=args.nthreads, disfluency=args.disfluency, conservative=args.conservative, disfluencies=disfluencies)
     result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
-finally:
-    os.unlink(wavfile)
 
 fh = open(args.output, 'w') if args.output else sys.stdout
 fh.write(result.to_json(indent=2))
