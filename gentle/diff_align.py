@@ -97,8 +97,16 @@ def by_word(opcodes):
             for i in range(s2, e2):
                 yield (op, s1, s1, i, i+1)
         else:
+            len1 = e1-s1
+            len2 = e2-s2
             for i1, i2 in zip(range(s1, e1), range(s2, e2)):
                 yield (op, i1, i1 + 1, i2, i2 + 1)
+            if len1 > len2:
+                for i in range(s1 + len2, e1):
+                    yield ('delete', i, i+1, e2, e2)
+            if len2 > len1:
+                for i in range(s2 + len1, e2):
+                    yield ('insert', s1, s1, i, i+1)
 
 if __name__=='__main__':
     TEXT_FILE = sys.argv[1]
