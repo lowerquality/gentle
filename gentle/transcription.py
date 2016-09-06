@@ -5,6 +5,8 @@ import math
 import logging
 import wave
 
+from collections import defaultdict
+
 from multiprocessing.pool import ThreadPool as Pool
 
 class MultiThreadedTranscriber:
@@ -68,12 +70,32 @@ class Transcription:
 
     def to_json(self, **kwargs):
         '''Return a JSON representation of the aligned transcript'''
+        options = {
+                'sort_keys':    True,
+                'indent':       4,
+                'separators':   (',', ': '),
+                }
+        options.update(kwargs)
+
         container = {}
         if self.transcript:
             container['transcript'] = self.transcript
         if self.words: 
             container['words'] = self.words
-        return json.dumps(container, **kwargs)
+        return json.dumps(container, **options)
+
+    @classmethod
+    def from_json(cls, json_str):
+        return cls._from_jsondata(json.loads(json_str))
+
+    @classmethod
+    def from_jsonfile(cls, filename):
+        with open(filename) as fh:
+            return cls._from_jsondata(json.load(fh))
+
+    @classmethod
+    def _from_jsondata(cls, data):
+        return cls(transcript = data['transcript'], words = [Word(**wd) for wd in data['words']])
 
     def to_csv(self):
         '''Return a CSV representation of the aligned transcript. Format:
@@ -93,6 +115,17 @@ class Transcription:
             ]
             w.writerow(row)
         return buf.getvalue()
+
+    def stats(self):
+        counts = defaultdict(int)
+        for word in self.words:
+            counts[word["case"]] += 1
+        stats = {}
+        stats['total'] = len(self.words)
+        for key, val in counts.iteritems():
+            stats[key] = val
+        return stats
+
 
 if __name__=='__main__':
     # full transcription
