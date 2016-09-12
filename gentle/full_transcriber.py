@@ -1,7 +1,9 @@
 import os
 
 from gentle import kaldi_queue
-from gentle.transcription import MultiThreadedTranscriber, Transcription
+from gentle import transcription
+from gentle.transcriber import MultiThreadedTranscriber
+from gentle.transcription import Transcription
 
 class FullTranscriber():
 
@@ -24,17 +26,17 @@ class FullTranscriber():
         transcript = ""
         words = []
         for t_wd in trans:
-            word = {
-                "case": "success",
-                "startOffset": len(transcript),
-                "endOffset": len(transcript) + len(t_wd["word"]),
-                "word": t_wd["word"],
-                "alignedWord": t_wd["word"],
-                "phones": t_wd["phones"],
-                "start": t_wd["start"],
-                "end": t_wd["start"] + t_wd["duration"]}
+            word = transcription.Word(
+                case="success",
+                startOffset=len(transcript),
+                endOffset=len(transcript) + len(t_wd.word),
+                word=t_wd.word,
+                alignedWord=t_wd.word,
+                phones=t_wd.phones,
+                start=t_wd.start,
+                end=t_wd.start + t_wd.duration)
             words.append(word)
 
-            transcript += word["word"] + " "
+            transcript += word.word + " "
 
         return Transcription(words=words, transcript=transcript)
