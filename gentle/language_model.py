@@ -6,8 +6,9 @@ import subprocess
 import sys
 import tempfile
 
-from paths import get_binary
+from util.paths import get_binary
 from metasentence import MetaSentence
+from resources import Resources
 
 MKGRAPH_PATH = get_binary("ext/mkgraph")
 
@@ -90,7 +91,7 @@ def make_bigram_lm_fst(word_sequences, **kwargs):
 
     return output
 
-def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR', **kwargs):
+def make_bigram_language_model(kaldi_seq, proto_langdir, **kwargs):
     """Generates a language model to fit the text.
 
     Returns the filename of the generated language model FST.
@@ -127,4 +128,4 @@ def make_bigram_language_model(kaldi_seq, proto_langdir='PROTO_LANGDIR', **kwarg
 
 if __name__=='__main__':
     import sys
-    make_bigram_language_model(open(sys.argv[1]).read())
+    make_bigram_language_model(open(sys.argv[1]).read(), Resources().proto_langdir)

@@ -60,35 +60,45 @@ class MultiThreadedTranscriber:
 
         return words
 
-def to_json(tran, **kwargs):
-    '''Return a JSON representation of the aligned transcript'''
-    return json.dumps(tran, **kwargs)
+class Transcription:
 
-def to_csv(tran):
-    '''Return a CSV representation of the aligned transcript. Format:
-    <word> <token> <start seconds> <end seconds>
-    '''
-    if not 'words' in tran:
-        return ''
-    buf = io.BytesIO()
-    w = csv.writer(buf)
-    for X in tran["words"]:
-        if X.get("case") not in ("success", "not-found-in-audio"):
-            continue
-        row = [X["word"],
-               X.get("alignedWord"),
-               X.get("start"),
-               X.get("end")
-        ]
-        w.writerow(row)
-    return buf.getvalue()
+    def __init__(self, transcript=None, words=None):
+        self.transcript = transcript
+        self.words = words
+
+    def to_json(self, **kwargs):
+        '''Return a JSON representation of the aligned transcript'''
+        container = {}
+        if self.transcript:
+            container['transcript'] = self.transcript
+        if self.words: 
+            container['words'] = self.words
+        return json.dumps(container, **kwargs)
+
+    def to_csv(self):
+        '''Return a CSV representation of the aligned transcript. Format:
+        <word> <token> <start seconds> <end seconds>
+        '''
+        if not self.words:
+            return ''
+        buf = io.BytesIO()
+        w = csv.writer(buf)
+        for X in self.words:
+            if X.get("case") not in ("success", "not-found-in-audio"):
+                continue
+            row = [X["word"],
+                X.get("alignedWord"),
+                X.get("start"),
+                X.get("end")
+            ]
+            w.writerow(row)
+        return buf.getvalue()
 
 if __name__=='__main__':
     # full transcription
     from Queue import Queue
-    from gentle import ffmpeg
+    from util import ffmpeg
     from gentle import standard_kaldi
-    import tempfile
 
     import sys
 
@@ -101,9 +111,7 @@ if __name__=='__main__':
 
     trans = MultiThreadedTranscriber(k_queue)
 
-    with tempfile.NamedTemporaryFile(suffix='.wav') as fp:
-        ffmpeg.to_wav(sys.argv[1], fp.name)
+    with gentle.resampled(sys.argv[1]) as filename:
+        out = trans.transcribe(filename)
 
-        out = trans.transcribe(fp.name)
-
-    open(sys.argv[2], 'w').write(to_json(out))
+    open(sys.argv[2], 'w').write(out.to_json())
