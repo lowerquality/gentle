@@ -6,7 +6,6 @@ import subprocess
 import tempfile
 import wave
 
-from gentle import ffmpeg
 from util.paths import get_binary
 from gentle.rpc import RPCProtocol
 from gentle.resources import Resources
