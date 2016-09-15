@@ -11,9 +11,10 @@ class TestForcedAligner:
         name = "harvard-sentences-list30"
         transcript = input_data(name + ".txt")
         audiofile = input_path(name + ".mp3")
+        expectedfile = expected_path("forced-" + name + ".json")
         resultfile = result_path("forced-" + name + ".json")
 
-        expected = gentle.Transcription.from_jsonfile(resultfile)
+        expected = gentle.Transcription.from_jsonfile(expectedfile)
         assert transcript == expected.transcript # test data consistency check
 
         resources = gentle.Resources()
@@ -28,6 +29,9 @@ class TestForcedAligner:
             result = aligner.transcribe(wavfile, logging=logger)
 
         log = [record.getMessage() for record in handler.buffer]
+
+        with open(resultfile, "w") as fh:
+            fh.write(result.to_json())
 
         assert result == expected
         assert "5 unaligned words (of 86)" in log
