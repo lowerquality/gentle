@@ -49,13 +49,19 @@ class MultiThreadedTranscriber:
         chunks.sort(key=lambda x: x['start'])
 
         # Combine chunks
-        # TODO: remove overlap? ...or just let the sequence aligner deal with it.
         words = []
         for c in chunks:
             chunk_start = c['start']
             for wd in c['words']:
                 wd['start'] += chunk_start
                 words.append(transcription.Word(**wd))
+
+        # Remove overlap:  Sort by time, then filter out any Word entries in
+        # the list that are adjacent to another entry corresponding to the same
+        # word in the audio.
+        words.sort(key=lambda word: word.start)
+        words.append(transcription.Word(word="__dummy__"))
+        words = [words[i] for i in range(len(words)-1) if not words[i].corresponds(words[i+1])]
 
         return words
 
