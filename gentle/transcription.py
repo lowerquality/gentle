@@ -29,6 +29,11 @@ class Word:
     def __repr__(self):
         return "Word(" + " ".join(sorted([key + "=" + str(val) for key, val in self.as_dict().iteritems()])) + ")"
 
+    def corresponds(self, other):
+        '''Returns true if self and other refer to the same word, at the same position in the audio (within a small tolerance)'''
+        if self.word != other.word: return False
+        return abs(self.start - other.start) / (self.duration + other.duration) < 0.1
+
 class Transcription:
 
     def __init__(self, transcript=None, words=None):
