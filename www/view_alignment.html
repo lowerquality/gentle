@@ -258,7 +258,7 @@ function render(ret) {
     var currentOffset = 0;
 
     wds.forEach(function(wd) {
-        if(wd['case'] == 'not-found-in-transcript') {
+        if(wd.case == 'not-found-in-transcript') {
             // TODO: show phonemes somewhere
             var txt = ' ' + wd.word;
             var $plaintext = document.createTextNode(txt);

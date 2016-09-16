@@ -3,10 +3,11 @@ import json
 import os
 import sys
 
-import metasentence
-import language_model
-import standard_kaldi
-from resources import Resources
+from gentle import metasentence
+from gentle import language_model
+from gentle import standard_kaldi
+from gentle import transcription
+from gentle.resources import Resources
 
 
 # TODO(maxhawkins): try using the (apparently-superior) time-mediated dynamic
@@ -23,7 +24,7 @@ def align(alignment, ms, **kwargs):
     disfluency = kwargs['disfluency'] if 'disfluency' in kwargs else False
     disfluencies = kwargs['disfluencies'] if 'disfluencies' in kwargs else []
 
-    hypothesis = [X["word"] for X in alignment]
+    hypothesis = [X.word for X in alignment]
     reference = ms.get_kaldi_sequence()
 
     display_seq = ms.get_display_sequence()
@@ -36,17 +37,16 @@ def align(alignment, ms, **kwargs):
             word = hypothesis[a]
             if disfluency and word in disfluencies:
                 hyp_token = alignment[a]
-                phones = hyp_token.get("phones", [])
-                start = hyp_token["start"]
-                end = hyp_token["start"] + hyp_token["duration"]
+                phones = hyp_token.phones or []
+                start = hyp_token.start
+                end = hyp_token.start + hyp_token.duration
 
-                out.append({
-                    "case": "not-found-in-transcript",
-                    "phones": phones,
-                    "start": start,
-                    "end": end,
-                    "word": word
-                })
+                out.append(transcription.Word(
+                    case="not-found-in-transcript",
+                    phones=phones,
+                    start=start,
+                    end=end,
+                    word=word))
             continue
 
         display_word = display_seq[b]
@@ -55,28 +55,26 @@ def align(alignment, ms, **kwargs):
         if op == 'equal':
             hyp_word = hypothesis[a]
             hyp_token = alignment[a]
-            phones = hyp_token.get("phones", [])
-            start = hyp_token["start"]
-            end = hyp_token["start"] + hyp_token["duration"]
+            phones = hyp_token.phones or []
+            start = hyp_token.start
+            end = hyp_token.start + hyp_token.duration
 
-            out.append({
-                "case": "success",
-                "startOffset": start_offset,
-                "endOffset": end_offset,
-                "word": display_word,
-                "alignedWord": hyp_word,
-                "phones": phones,
-                "start": start,
-                "end": end,
-            })
+            out.append(transcription.Word(
+                case="success",
+                startOffset=start_offset,
+                endOffset=end_offset,
+                word=display_word,
+                alignedWord=hyp_word,
+                phones=phones,
+                start=start,
+                end=end))
 
         elif op in ['insert', 'replace']:
-            out.append({
-                "case": "not-found-in-audio",
-                "startOffset": start_offset,
-                "endOffset": end_offset,
-                "word": display_word,
-            })
+            out.append(transcription.Word(
+                case="not-found-in-audio",
+                startOffset=start_offset,
+                endOffset=end_offset,
+                word=display_word))
     return out
 
 def word_diff(a, b):
