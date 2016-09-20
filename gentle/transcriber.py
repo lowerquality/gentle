@@ -49,12 +49,7 @@ class MultiThreadedTranscriber:
         chunks.sort(key=lambda x: x['start'])
 
         # Combine chunks
-        words = []
-        for c in chunks:
-            chunk_start = c['start']
-            for wd in c['words']:
-                wd['start'] += chunk_start
-                words.append(transcription.Word(**wd))
+        words = [transcription.Word(**wd).shift(time=c['start']) for c in chunks for wd in c['words']]
 
         # Remove overlap:  Sort by time, then filter out any Word entries in
         # the list that are adjacent to another entry corresponding to the same

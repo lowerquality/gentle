@@ -14,11 +14,17 @@ class Word:
         self.alignedWord = alignedWord
         self.phones = phones
         self.start = start
-        self.end = end
         self.duration = duration
+        self.end = end
+        if start is not None:
+            if end is None:
+                self.end = start + duration
+            elif duration is None:
+                self.duration = end - start
 
-    def as_dict(self):
-        return { key:val for key, val in self.__dict__.iteritems() if val is not None }
+
+    def as_dict(self, without=None):
+        return { key:val for key, val in self.__dict__.iteritems() if (val is not None) and (key != without)}
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
@@ -27,7 +33,18 @@ class Word:
         return not self == other
 
     def __repr__(self):
-        return "Word(" + " ".join(sorted([key + "=" + str(val) for key, val in self.as_dict().iteritems()])) + ")"
+        return "Word(" + " ".join(sorted([key + "=" + str(val) for key, val in self.as_dict(without="phones").iteritems()])) + ")"
+
+    def shift(self, time=None, offset=None):
+        if self.start is not None and time is not None:
+            self.start += time
+            self.end += time
+
+        if self.startOffset is not None and offset is not None:
+            self.startOffset += offset
+            self.endOffset += offset
+
+        return self # for easy chaining
 
     def corresponds(self, other):
         '''Returns true if self and other refer to the same word, at the same position in the audio (within a small tolerance)'''
@@ -56,7 +73,7 @@ class Transcription:
         if self.transcript:
             container['transcript'] = self.transcript
         if self.words: 
-            container['words'] = [word.as_dict() for word in self.words]
+            container['words'] = [word.as_dict(without="duration") for word in self.words]
         return json.dumps(container, **options)
 
     @classmethod

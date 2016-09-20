@@ -38,14 +38,12 @@ def align(alignment, ms, **kwargs):
             if disfluency and word in disfluencies:
                 hyp_token = alignment[a]
                 phones = hyp_token.phones or []
-                start = hyp_token.start
-                end = hyp_token.start + hyp_token.duration
 
                 out.append(transcription.Word(
                     case="not-found-in-transcript",
                     phones=phones,
-                    start=start,
-                    end=end,
+                    start=hyp_token.start,
+                    duration=hyp_token.duration,
                     word=word))
             continue
 
@@ -56,8 +54,6 @@ def align(alignment, ms, **kwargs):
             hyp_word = hypothesis[a]
             hyp_token = alignment[a]
             phones = hyp_token.phones or []
-            start = hyp_token.start
-            end = hyp_token.start + hyp_token.duration
 
             out.append(transcription.Word(
                 case="success",
@@ -66,8 +62,8 @@ def align(alignment, ms, **kwargs):
                 word=display_word,
                 alignedWord=hyp_word,
                 phones=phones,
-                start=start,
-                end=end))
+                start=hyp_token.start,
+                duration=hyp_token.duration))
 
         elif op in ['insert', 'replace']:
             out.append(transcription.Word(
