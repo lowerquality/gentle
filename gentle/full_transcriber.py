@@ -27,7 +27,7 @@ class FullTranscriber():
         words = []
         for t_wd in trans:
             word = transcription.Word(
-                case="success",
+                case=transcription.Word.SUCCESS,
                 startOffset=len(transcript),
                 endOffset=len(transcript) + len(t_wd.word),
                 word=t_wd.word,

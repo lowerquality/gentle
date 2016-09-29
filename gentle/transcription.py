@@ -6,6 +6,10 @@ from collections import defaultdict
 
 class Word:
 
+    SUCCESS = 'success'
+    NOT_FOUND_IN_AUDIO = 'not-found-in-audio'
+    NOT_FOUND_IN_TRANSCRIPT = 'not-found-in-transcript'
+
     def __init__(self, case=None, startOffset=None, endOffset=None, word=None, alignedWord=None, phones=None, start=None, end=None, duration=None):
         self.case = case
         self.startOffset = startOffset
@@ -22,6 +26,11 @@ class Word:
             elif duration is None:
                 self.duration = end - start
 
+    def success(self):
+        return self.case == Word.SUCCESS
+
+    def not_found_in_audio(self):
+        return self.case == Word.NOT_FOUND_IN_AUDIO
 
     def as_dict(self, without=None):
         return { key:val for key, val in self.__dict__.iteritems() if (val is not None) and (key != without)}
@@ -98,7 +107,7 @@ class Transcription:
         buf = io.BytesIO()
         w = csv.writer(buf)
         for X in self.words:
-            if X.case not in ("success", "not-found-in-audio"):
+            if X.case not in (Word.SUCCESS, Word.NOT_FOUND_IN_AUDIO):
                 continue
             row = [X.word,
                 X.alignedWord,

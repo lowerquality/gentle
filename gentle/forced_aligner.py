@@ -32,7 +32,7 @@ class ForcedAligner():
 
         # Perform a second-pass with unaligned words
         if logging is not None:
-            logging.info("%d unaligned words (of %d)" % (len([X for X in words if X.case == "not-found-in-audio"]), len(words)))
+            logging.info("%d unaligned words (of %d)" % (len([X for X in words if X.not_found_in_audio()]), len(words)))
 
         if progress_cb is not None:
             progress_cb({'status': 'ALIGNING'})
@@ -40,6 +40,6 @@ class ForcedAligner():
         words = multipass.realign(wavfile, words, self.ms, resources=self.resources, nthreads=self.nthreads, progress_cb=progress_cb)
 
         if logging is not None:
-            logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in words if X.case == "not-found-in-audio"]), len(words)))
+            logging.info("after 2nd pass: %d unaligned words (of %d)" % (len([X for X in words if X.not_found_in_audio()]), len(words)))
 
         return Transcription(words=words, transcript=self.transcript)

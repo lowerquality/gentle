@@ -15,9 +15,9 @@ def prepare_multipass(alignment):
     cur_unaligned_words = []
 
     for wd_idx,wd in enumerate(alignment):
-        if wd.case == 'not-found-in-audio':
+        if wd.not_found_in_audio():
             cur_unaligned_words.append(wd)
-        elif wd.case == 'success':
+        elif wd.success():
             if len(cur_unaligned_words) > 0:
                 to_realign.append({
                     "start": last_aligned_word,

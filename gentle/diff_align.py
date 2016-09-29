@@ -40,7 +40,7 @@ def align(alignment, ms, **kwargs):
                 phones = hyp_token.phones or []
 
                 out.append(transcription.Word(
-                    case="not-found-in-transcript",
+                    case=transcription.Word.NOT_FOUND_IN_TRANSCRIPT,
                     phones=phones,
                     start=hyp_token.start,
                     duration=hyp_token.duration,
@@ -56,7 +56,7 @@ def align(alignment, ms, **kwargs):
             phones = hyp_token.phones or []
 
             out.append(transcription.Word(
-                case="success",
+                case=transcription.Word.SUCCESS,
                 startOffset=start_offset,
                 endOffset=end_offset,
                 word=display_word,
@@ -67,7 +67,7 @@ def align(alignment, ms, **kwargs):
 
         elif op in ['insert', 'replace']:
             out.append(transcription.Word(
-                case="not-found-in-audio",
+                case=transcription.Word.NOT_FOUND_IN_AUDIO,
                 startOffset=start_offset,
                 endOffset=end_offset,
                 word=display_word))
