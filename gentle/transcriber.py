@@ -82,7 +82,7 @@ class MultiThreadedTranscriber:
         words.append(transcription.Word(word="__dummy__"))
         words = [words[i] for i in range(len(words)-1) if not words[i].corresponds(words[i+1])]
 
-        return words
+        return words, duration
 
 
 if __name__=='__main__':
