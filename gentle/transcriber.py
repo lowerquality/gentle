@@ -52,9 +52,28 @@ class MultiThreadedTranscriber:
         words = []
         for c in chunks:
             chunk_start = c['start']
-            for wd in c['words']:
-                wd['start'] += chunk_start
-                words.append(transcription.Word(**wd))
+            chunk_end = chunk_start + self.chunk_len
+
+            chunk_words = [transcription.Word(**wd).shift(time=chunk_start) for wd in c['words']]
+
+            # At chunk boundary cut points the audio often contains part of a
+            # word, which can get erroneously identified as one or more different
+            # in-vocabulary words.  So discard one or more words near the cut points
+            # (they'll be covered by the ovlerap anyway).
+            #
+            trim = min(0.25 * self.overlap_t, 0.5)
+            if c is not chunks[0]:
+                while len(chunk_words) > 1:
+                    chunk_words.pop(0)
+                    if chunk_words[0].end > chunk_start + trim:
+                        break
+            if c is not chunks[-1]:
+                while len(chunk_words) > 1:
+                    chunk_words.pop()
+                    if chunk_words[-1].start < chunk_end - trim:
+                        break
+
+            words.extend(chunk_words)
 
         # Remove overlap:  Sort by time, then filter out any Word entries in
         # the list that are adjacent to another entry corresponding to the same

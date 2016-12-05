@@ -34,7 +34,7 @@ class FullTranscriber():
                 alignedWord=t_wd.word,
                 phones=t_wd.phones,
                 start=t_wd.start,
-                end=t_wd.start + t_wd.duration)
+                end=t_wd.end)
             words.append(word)
 
             transcript += word.word + " "

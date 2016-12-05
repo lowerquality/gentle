@@ -80,16 +80,8 @@ def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
 
         word_alignment = diff_align.align(ret, chunk_ms)
 
-        # Adjust startOffset, endOffset, and timing to match originals
         for wd in word_alignment:
-            if wd.end is not None:
-                # Apply timing offset
-                wd.start += start_t
-                wd.end += start_t
-
-            if wd.endOffset is not None:
-                wd.startOffset += offset_offset
-                wd.endOffset += offset_offset
+            wd.shift(time=start_t, offset=offset_offset)
 
         # "chunk" should be replaced by "words"
         realignments.append({"chunk": chunk, "words": word_alignment})
