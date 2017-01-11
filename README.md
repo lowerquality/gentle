@@ -28,3 +28,10 @@ python align.py audio.mp3 words.txt
 ```
 
 The default behaviour outputs the JSON to stdout.  See `python align.py --help` for options.
+
+# Verbate
+** This package will be zipped and deployed as an AWS Lambda function.
+
+```
+// TODO: Installation instructions for deploying Gentle as a Lambda Service
+```
