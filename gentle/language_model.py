@@ -10,7 +10,10 @@ from util.paths import get_binary
 from metasentence import MetaSentence
 from resources import Resources
 
-MKGRAPH_PATH = get_binary("ext/mkgraph")
+MKGRAPH_PATH = get_binary("ext/m3")
+
+# [oov] no longer in words.txt
+OOV_TERM = '<unk>'
 
 def make_bigram_lm_fst(word_sequences, **kwargs):
     '''
@@ -33,27 +36,27 @@ def make_bigram_lm_fst(word_sequences, **kwargs):
     disfluency = kwargs['disfluency'] if 'disfluency' in kwargs else False
     disfluencies = kwargs['disfluencies'] if 'disfluencies' in kwargs else []
 
-    bigrams = {'[oov]': set(['[oov]'])}
+    bigrams = {OOV_TERM: set([OOV_TERM])}
 
     for word_sequence in word_sequences:
         if len(word_sequence) == 0:
             continue
 
         prev_word = word_sequence[0]
-        bigrams['[oov]'].add(prev_word) # valid start (?)
+        bigrams[OOV_TERM].add(prev_word) # valid start (?)
 
         if disfluency:
-            bigrams['[oov]'].update(disfluencies)
+            bigrams[OOV_TERM].update(disfluencies)
 
             for dis in disfluencies:
                 bigrams.setdefault(dis, set()).add(prev_word)
-                bigrams[dis].add('[oov]')
+                bigrams[dis].add(OOV_TERM)
 
         for word in word_sequence[1:]:
             bigrams.setdefault(prev_word, set()).add(word)
 
             if conservative:
-                bigrams[prev_word].add('[oov]')
+                bigrams[prev_word].add(OOV_TERM)
 
             if disfluency:
                 bigrams[prev_word].update(disfluencies)
@@ -64,7 +67,7 @@ def make_bigram_lm_fst(word_sequences, **kwargs):
             prev_word = word
 
         # ...valid end
-        bigrams.setdefault(prev_word, set()).add('[oov]')
+        bigrams.setdefault(prev_word, set()).add(OOV_TERM)
 
     node_ids = {}
     def get_node_id(word):

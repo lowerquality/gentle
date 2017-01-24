@@ -53,7 +53,8 @@ def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
             end_t = chunk["end"].start
 
         duration = end_t - start_t
-        if duration < 0.01 or duration > 60:
+        # XXX: the minimum length seems bigger now (?)
+        if duration < 0.75 or duration > 60:
             logging.debug("cannot realign %d words with duration %f" % (len(chunk['words']), duration))
             return
 

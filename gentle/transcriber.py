@@ -32,7 +32,7 @@ class MultiThreadedTranscriber:
             k = self.kaldi_queue.get()
             k.push_chunk(buf)
             ret = k.get_final()
-            k.reset()
+            # k.reset() (no longer needed)
             self.kaldi_queue.put(k)
 
             chunks.append({"start": start_t, "words": ret})

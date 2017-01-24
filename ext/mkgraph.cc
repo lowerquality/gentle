@@ -25,7 +25,6 @@ int main(int argc, char *argv[]) {
 		int32 N = 3, P = 1;
 		float transition_scale = 1.0;
 		float self_loop_scale = 0.1;
-		bool reverse = false;
 
 		std::string proto_dir = po.GetArg(1),
 					grammar_fst_filename = po.GetArg(2),
@@ -34,9 +33,9 @@ int main(int argc, char *argv[]) {
 		std::string lang_fst_filename = proto_dir + "/langdir/L.fst",
 			lang_disambig_fst_filename = proto_dir + "/langdir/L_disambig.fst",
 			disambig_phones_filename = proto_dir + "/langdir/phones/disambig.int",
-			model_filename = proto_dir + "/modeldir/final.mdl",
-			tree_filename = proto_dir + "/modeldir/tree",
-			words_filename = proto_dir + "/graphdir/words.txt";
+			model_filename = proto_dir + "/tdnn_7b_chain_online/final.mdl",
+			tree_filename = proto_dir + "/tdnn_7b_chain_online/tree",
+			words_filename = proto_dir + "/tdnn_7b_chain_online/graph_pp/words.txt";
 
 		if (!std::ifstream(lang_fst_filename.c_str())) {
 			std::cerr << "expected " << lang_fst_filename << " to exist" << std::endl;
@@ -128,10 +127,6 @@ int main(int argc, char *argv[]) {
 		// make-h-transducer
 		HTransducerConfig hcfg;
 		hcfg.transition_scale = transition_scale;
-		if (reverse) {
-			hcfg.reverse = true;
-			hcfg.push_weights = true;
-		}
 		ContextDependency ctx_dep;
 		ReadKaldiObject(tree_filename, &ctx_dep);
 		TransitionModel trans_model;

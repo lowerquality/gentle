@@ -1,84 +1,86 @@
-'''Glue code for communicating with standard_kaldi C++ process'''
-import json
-import logging
-import os
 import subprocess
-import tempfile
-import wave
-
 from util.paths import get_binary
-from gentle.rpc import RPCProtocol
-from gentle.resources import Resources
+import os
 
-EXECUTABLE_PATH = get_binary("ext/standard_kaldi")
+EXECUTABLE_PATH = get_binary("ext/k3")
 
-class Kaldi(object):
-    '''Kaldi spawns a standard_kaldi subprocess and provides a
-    Python wrapper for communicating with it.'''
-    def __init__(self, nnet_dir, hclg_path, proto_langdir):
-        self.proto_langdir = proto_langdir
+class Kaldi:
+    def __init__(self, nnet_dir=None, hclg_path=None, proto_langdir=None):
         devnull = open(os.devnull, 'w')
-        cmd = [EXECUTABLE_PATH, nnet_dir, hclg_path, proto_langdir]
-        self._subprocess = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=devnull)
+        
+        cmd = [EXECUTABLE_PATH]
+        
+        if nnet_dir is not None:
+            cmd.append(nnet_dir)
+            cmd.append(hclg_path)
 
-        self._transitions = None
-        self._words = None
-        self._stopped = False
+        self._p = subprocess.Popen(cmd,
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=devnull)
+        self.finished = False
 
-        self.rpc = RPCProtocol(self._subprocess.stdin, self._subprocess.stdout)
+    def _cmd(self, c):
+        self._p.stdin.write("%s\n" % (c))
+        self._p.stdin.flush()
 
     def push_chunk(self, buf):
-        '''Push a chunk of audio. Returns true if it worked OK.'''
-        self.rpc.do('push-chunk', body=buf)
-
-    def get_partial(self):
-        '''Dump the provisional (non-word-aligned) transcript'''
-        body, _ = self.rpc.do('get-partial')
-        hypothesis = json.loads(body)['hypothesis']
-        words = [h['word'] for h in hypothesis]
-        return " ".join(words)
+        # Wait until we're ready
+        self._cmd("push-chunk")
+        
+        cnt = len(buf)/2
+        self._cmd(str(cnt))
+        self._p.stdin.write(buf) #arr.tostring())
+        status = self._p.stdout.readline().strip()
+        return status == 'ok'
 
     def get_final(self):
-        '''Dump the final, phone-aligned transcript'''
-        body, _ = self.rpc.do('get-final')
-        hypothesis = json.loads(body)['hypothesis']
-        return hypothesis
+        self._cmd("get-final")
+        words = []
+        while True:
+            line = self._p.stdout.readline()
+            if line.startswith("done"):
+                break
+            parts = line.split(' / ')
+            if line.startswith('word'):
+                wd = {}
+                wd['word'] = parts[0].split(': ')[1]
+                wd['start'] = float(parts[1].split(': ')[1])
+                wd['duration'] = float(parts[2].split(': ')[1])
+                wd['phones'] = []
+                words.append(wd)
+            elif line.startswith('phone'):
+                ph = {}
+                ph['phone'] = parts[0].split(': ')[1]
+                ph['duration'] = float(parts[1].split(': ')[1])
+                words[-1]['phones'].append(ph)
 
-    def reset(self):
-        '''Reset the decoder, delete the decoding state'''
-        self.rpc.do('reset')
+        self._reset()
+        return words
+
+    def _reset(self):
+        self._cmd("reset")
 
     def stop(self):
-        '''Quit the program'''
-        self.rpc.do('stop')
-        self._stopped = True
+        if not self.finished:
+            self.finished = True
+            self._cmd("stop")
 
-def main():
-    '''Transcribe the given input file using a standard_kaldi C++ subprocess.'''
+    def __del__(self):
+        self.stop()
+
+if __name__=='__main__':
+    import numm3
     import sys
 
     infile = sys.argv[1]
-    outfile = sys.argv[2]
+    
+    k = Kaldi()
 
-    if len(sys.argv) > 5:
-        nnet_dir = sys.argv[3]
-        graph_dir = sys.argv[4]
-        proto_langdir = sys.argv[5]
-        k = Kaldi(nnet_dir, graph_dir, proto_langdir)
-    else:
-        resources = Resources()
-        k = Kaldi(resources.nnet_gpu_path, resources.full_hclg_path, resources.proto_langdir)
-
-    words = None
-    for words in k.transcribe_progress(infile, batch_size=1):
-        sys.stderr.write(".")
-    sys.stderr.write("\n")
-    with open(outfile, 'w') as out:
-        json.dump(words, out, indent=2)
-
-if __name__ == '__main__':
-    main()
+    buf = numm3.sound2np(infile, nchannels=1, R=8000)
+    print 'loaded_buf', len(buf)
+    
+    idx=0
+    while idx < len(buf):
+        k.push_chunk(buf[idx:idx+160000].tostring())
+        print k.get_final()
+        idx += 160000

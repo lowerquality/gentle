@@ -4,16 +4,14 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include $(KALDI_BASE)kaldi.mk
 
-BINFILES = standard_kaldi mkgraph
+BINFILES = k3 m3
 
-OBJFILES = decoder.o hypothesis.o hypothesizer.o rpc.o
-
-TESTFILES = rpc-test
+OBJFILES = 
 
 CXXFLAGS += -I$(KALDI_BASE) -O3 -DNDEBUG
 
-ADDLIBS = decoder.o hypothesis.o hypothesizer.o rpc.o \
-          $(KALDI_BASE)online2/kaldi-online2.a $(KALDI_BASE)ivector/kaldi-ivector.a \
+ADDLIBS = $(KALDI_BASE)online2/kaldi-online2.a $(KALDI_BASE)ivector/kaldi-ivector.a \
+          $(KALDI_BASE)nnet3/kaldi-nnet3.a $(KALDI_BASE)chain/kaldi-chain.a \
           $(KALDI_BASE)nnet2/kaldi-nnet2.a $(KALDI_BASE)lat/kaldi-lat.a \
           $(KALDI_BASE)decoder/kaldi-decoder.a  $(KALDI_BASE)cudamatrix/kaldi-cudamatrix.a \
           $(KALDI_BASE)feat/kaldi-feat.a $(KALDI_BASE)transform/kaldi-transform.a $(KALDI_BASE)gmm/kaldi-gmm.a \

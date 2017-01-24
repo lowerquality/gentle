@@ -1,6 +1,9 @@
 # coding=utf-8
 import re
 
+# [oov] no longer in words.txt
+OOV_TERM = '<unk>'
+
 def load_vocabulary(words_file):
     '''Load vocabulary words from an OpenFST SymbolTable formatted text file'''
     return set(x.split(' ')[0] for x in words_file if x != '')
@@ -16,7 +19,7 @@ def kaldi_normalize(word, vocab):
     # Turn fancy apostrophes into simpler apostrophes
     norm = norm.replace("’", "'")
     if len(norm) > 0 and not norm in vocab:
-        norm = '[oov]'
+        norm = OOV_TERM
     return norm
 
 class MetaSentence:

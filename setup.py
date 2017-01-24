@@ -6,7 +6,7 @@ setup(
     data_files=[],
     options={'py2app': {
         'argv_emulation': False,
-        'resources': 'standard_kaldi,mkgraph,ffmpeg,www,data,PROTO_LANGDIR'
+        'resources': 'k3,m3,ffmpeg,www,exp'
     }},
     name='gentle',
     version=__version__,
