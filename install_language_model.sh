@@ -1,4 +1,3 @@
-wget -c http://kaldi-asr.org/downloads/build/2/sandbox/online/egs/fisher_english/s5/exp/tri5a/graph/archive.tar.gz
-tar -xzvf archive.tar.gz ./HCLG.fst
-mkdir -p data/graph
-mv HCLG.fst data/graph/
+wget -c /lockers/interlace_vol/lowerquality.com/gentle/aspire-hclg.tar.gz
+tar -xzvf aspire-hclg.tar.gz
+rm aspire-hclg.tar.gz
