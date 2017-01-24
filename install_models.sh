@@ -2,7 +2,7 @@
 
 set -e
 
-VERSION="0.02"
+VERSION="0.03"
 
 download_models() {
 	local version="$1"
