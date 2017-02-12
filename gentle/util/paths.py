@@ -8,7 +8,7 @@ ENV_VAR = 'GENTLE_RESOURCES_ROOT'
 
 class SourceResolver:
     def __init__(self):
-        self.project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+        self.project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, os.pardir))
 
     def get_binary(self, name):
         path_in_project = os.path.join(self.project_root, name)
@@ -32,16 +32,17 @@ class PyinstallResolver:
         return os.path.join(self.root, name)
 
     def get_resource(self, name):
-        rpath = os.path.join(self.root, path)
+        rpath = os.path.join(self.root, name)
         if os.path.exists(rpath):
             return rpath
         else:
-            return get_datadir(path) # DMG may be read-only; fall-back to datadir (ie. so language models can be added)
+            return get_datadir(name) # DMG may be read-only; fall-back to datadir (ie. so language models can be added)
 
     def get_datadir(self, path):
-        return os.path.join(os.environ['HOME'], '.gentle')
+        return os.path.join(os.environ['HOME'], '.gentle', path)
 
 RESOLVER = PyinstallResolver() if hasattr(sys, "frozen") else SourceResolver()
+
 
 def get_binary(name):
     return RESOLVER.get_binary(name)

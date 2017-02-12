@@ -12,8 +12,8 @@ import shutil
 import uuid
 import wave
 
-from util.paths import get_resource, get_datadir
-from util.cyst import Insist
+from gentle.util.paths import get_resource, get_datadir
+from gentle.util.cyst import Insist
 
 import gentle
 
