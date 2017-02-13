@@ -81,6 +81,7 @@ int main(int argc, char *argv[]) {
     
     if(argc == 3) {
       nnet_dir = argv[1];
+      graph_dir = nnet_dir + "/graph_pp";
       fst_rxfilename = argv[2];
     }
     else if(argc != 1) {
