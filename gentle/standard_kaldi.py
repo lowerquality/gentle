@@ -7,9 +7,9 @@ EXECUTABLE_PATH = get_binary("ext/k3")
 class Kaldi:
     def __init__(self, nnet_dir=None, hclg_path=None, proto_langdir=None):
         devnull = open(os.devnull, 'w')
-        
+
         cmd = [EXECUTABLE_PATH]
-        
+
         if nnet_dir is not None:
             cmd.append(nnet_dir)
             cmd.append(hclg_path)
@@ -26,7 +26,7 @@ class Kaldi:
     def push_chunk(self, buf):
         # Wait until we're ready
         self._cmd("push-chunk")
-        
+
         cnt = len(buf)/2
         self._cmd(str(cnt))
         self._p.stdin.write(buf) #arr.tostring())
@@ -73,12 +73,12 @@ if __name__=='__main__':
     import sys
 
     infile = sys.argv[1]
-    
+
     k = Kaldi()
 
     buf = numm3.sound2np(infile, nchannels=1, R=8000)
     print 'loaded_buf', len(buf)
-    
+
     idx=0
     while idx < len(buf):
         k.push_chunk(buf[idx:idx+160000].tostring())
