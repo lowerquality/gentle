@@ -29,11 +29,15 @@ class MultiThreadedTranscriber:
             # Read frames
             buf = wav_obj.readframes(int(self.chunk_len * wav_obj.getframerate()))
 
-            k = self.kaldi_queue.get()
-            k.push_chunk(buf)
-            ret = k.get_final()
-            # k.reset() (no longer needed)
-            self.kaldi_queue.put(k)
+            if len(buf) < 4000:
+                logging.info('Short segment - ignored %d' % (idx))
+                ret = []
+            else:
+                k = self.kaldi_queue.get()
+                k.push_chunk(buf)
+                ret = k.get_final()
+                # k.reset() (no longer needed)
+                self.kaldi_queue.put(k)
 
             chunks.append({"start": start_t, "words": ret})
             logging.info('%d/%d' % (len(chunks), n_chunks))
