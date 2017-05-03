@@ -55,6 +55,15 @@ class Word:
 
         return self # for easy chaining
 
+    def swap_alignment(self, other):
+        '''Swaps the alignment info of two words, but does not swap the offset'''
+        self.case, other.case = other.case, self.case
+        self.alignedWord, other.alignedWord = other.alignedWord, self.alignedWord
+        self.phones, other.phones = other.phones, self.phones
+        self.start, other.start = other.start, self.start
+        self.end, other.end = other.end, self.end
+        self.duration, other.duration = other.duration, self.duration
+
     def corresponds(self, other):
         '''Returns true if self and other refer to the same word, at the same position in the audio (within a small tolerance)'''
         if self.word != other.word: return False
