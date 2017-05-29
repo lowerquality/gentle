@@ -27,7 +27,7 @@ class TranscriptionStatus(Resource):
         return json.dumps(self.status_dict)
 
 class Transcriber():
-    def __init__(self, data_dir, nthreads=4, ntranscriptionthreads=2, modelDir='exp', contextWidth="3", samplerate=8000):
+    def __init__(self, data_dir, nthreads=4, ntranscriptionthreads=2, modelDir='exp'):
         self.data_dir = data_dir
         self.nthreads = nthreads
         self.ntranscriptionthreads = ntranscriptionthreads
@@ -229,9 +229,8 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, n
     f.putChild('status.html', File(get_resource('www/status.html')))
     f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
    
-    resources = Resources(modelDir)
-    config = resources.getConfig()
-    trans = Transcriber(data_dir, nthreads=nthreads, ntranscriptionthreads=ntranscriptionthreads, modelDir=modelDir, contextWidth=config['context-width'], samplerate=config['samplerate'])
+    resources = gentle.Resources(modelDir)
+    trans = Transcriber(data_dir, nthreads=nthreads, ntranscriptionthreads=ntranscriptionthreads, modelDir=modelDir)
     trans_ctrl = TranscriptionsController(trans)
     f.putChild('transcriptions', trans_ctrl)
 
