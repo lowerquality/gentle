@@ -35,7 +35,7 @@ def prepare_multipass(alignment):
 
     return to_realign
     
-def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
+def realign(wavfile, alignment, ms, resources, nthreads=4, context_width='3', progress_cb=None):
     to_realign = prepare_multipass(alignment)
     realignments = []
 
@@ -65,7 +65,7 @@ def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
         chunk_ms = metasentence.MetaSentence(chunk_transcript, resources.vocab)
         chunk_ks = chunk_ms.get_kaldi_sequence()
 
-        chunk_gen_hclg_filename = language_model.make_bigram_language_model(chunk_ks, resources.proto_langdir)
+        chunk_gen_hclg_filename = language_model.make_bigram_language_model(chunk_ks, resources.proto_langdir, context_width=context_width)
         k = standard_kaldi.Kaldi(
             resources.nnet_gpu_path,
             chunk_gen_hclg_filename,

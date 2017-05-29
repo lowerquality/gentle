@@ -94,7 +94,7 @@ def make_bigram_lm_fst(word_sequences, **kwargs):
 
     return output
 
-def make_bigram_language_model(kaldi_seq, proto_langdir, **kwargs):
+def make_bigram_language_model(kaldi_seq, proto_langdir, context_width=3, **kwargs):
     """Generates a language model to fit the text.
 
     Returns the filename of the generated language model FST.
@@ -114,6 +114,7 @@ def make_bigram_language_model(kaldi_seq, proto_langdir, **kwargs):
     try:
         devnull = open(os.devnull, 'wb')
         subprocess.check_output([MKGRAPH_PATH,
+                        "--N={}".format(context_width),
                         proto_langdir,
                         txt_fst_file.name,
                         hclg_filename],

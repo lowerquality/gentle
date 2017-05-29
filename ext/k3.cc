@@ -62,8 +62,8 @@ void ConfigDecoding(kaldi::OnlineNnet3DecodingConfig& config) {
   config.decoder_opts.max_active = 7000;
 }
 
-void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
-  config.silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
+void ConfigEndpoint(kaldi::OnlineEndpointConfig& config, const std::string &silence_phones) {
+  config.silence_phones = silence_phones;
 }
 void usage() {
   fprintf(stderr, "usage: k3 [nnet_dir hclg_path]\n");
@@ -78,10 +78,17 @@ int main(int argc, char *argv[]) {
     std::string nnet_dir = "exp/tdnn_7b_chain_online";
     std::string graph_dir = nnet_dir + "/graph_pp";
     std::string fst_rxfilename = graph_dir + "/HCLG.fst";
+    std::string silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
     
-    if(argc == 3) {
+    if(argc == 4) {
       nnet_dir = argv[1];
-      graph_dir = nnet_dir + "/graph_pp";
+      graph_dir = nnet_dir + "/graph";
+      fst_rxfilename = argv[2];
+      silence_phones = argv[3]; 
+    }
+    else if(argc == 3) {
+      nnet_dir = argv[1];
+      graph_dir = nnet_dir + "/graph";
       fst_rxfilename = argv[2];
     }
     else if(argc != 1) {
@@ -104,7 +111,7 @@ int main(int argc, char *argv[]) {
     OnlineNnet3DecodingConfig nnet3_decoding_config;
     ConfigDecoding(nnet3_decoding_config);
     OnlineEndpointConfig endpoint_config;
-    ConfigEndpoint(endpoint_config);
+    ConfigEndpoint(endpoint_config, silence_phones);
     
 
     BaseFloat frame_shift = feature_info.FrameShiftInSeconds();

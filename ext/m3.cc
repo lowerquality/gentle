@@ -15,16 +15,18 @@ int main(int argc, char *argv[]) {
 	try {
 		const char *usage = "Usage: ./mkgraph [options] <proto-dir> <grammar-fst> <out-fst>\n";
 		
+
+		int32 N = 3, P = 1;
+		float transition_scale = 1.0;
+		float self_loop_scale = 0.1;
+
 		ParseOptions po(usage);
+		po.Register("N", &N, "context width");
 		po.Read(argc, argv);
 		if (po.NumArgs() != 3) {
 			po.PrintUsage();
 			return 1;
 		}
-
-		int32 N = 3, P = 1;
-		float transition_scale = 1.0;
-		float self_loop_scale = 0.1;
 
 		std::string proto_dir = po.GetArg(1),
 					grammar_fst_filename = po.GetArg(2),
@@ -33,9 +35,9 @@ int main(int argc, char *argv[]) {
 		std::string lang_fst_filename = proto_dir + "/langdir/L.fst",
 			lang_disambig_fst_filename = proto_dir + "/langdir/L_disambig.fst",
 			disambig_phones_filename = proto_dir + "/langdir/phones/disambig.int",
-			model_filename = proto_dir + "/tdnn_7b_chain_online/final.mdl",
-			tree_filename = proto_dir + "/tdnn_7b_chain_online/tree",
-			words_filename = proto_dir + "/tdnn_7b_chain_online/graph_pp/words.txt";
+			model_filename = proto_dir + "/online/final.mdl",
+			tree_filename = proto_dir + "/online/tree",
+			words_filename = proto_dir + "/online/graph/words.txt";
 
 		if (!std::ifstream(lang_fst_filename.c_str())) {
 			std::cerr << "expected " << lang_fst_filename << " to exist" << std::endl;
