@@ -27,11 +27,12 @@ class TranscriptionStatus(Resource):
         return json.dumps(self.status_dict)
 
 class Transcriber():
-    def __init__(self, data_dir, nthreads=4, ntranscriptionthreads=2):
+    def __init__(self, data_dir, nthreads=4, ntranscriptionthreads=2, modelDir='exp'):
         self.data_dir = data_dir
         self.nthreads = nthreads
         self.ntranscriptionthreads = ntranscriptionthreads
-        self.resources = gentle.Resources()
+        self.resources = gentle.Resources(modelDir)
+        self.config = self.resources.getConfig()
 
         self.full_transcriber = gentle.FullTranscriber(self.resources, nthreads=ntranscriptionthreads)
         self._status_dicts = {}
@@ -70,7 +71,7 @@ class Transcriber():
         status['status'] = 'ENCODING'
 
         wavfile = os.path.join(outdir, 'a.wav')
-        if gentle.resample(os.path.join(outdir, 'upload'), wavfile) != 0:
+        if gentle.resample(os.path.join(outdir, 'upload'), wavfile, self.config['samplerate']) != 0:
             status['status'] = 'ERROR'
             status['error'] = "Encoding failed. Make sure that you've uploaded a valid media file."
             # Save the status so that errors are recovered on restart of the server
@@ -90,7 +91,7 @@ class Transcriber():
                 status[k] = v
 
         if len(transcript.strip()) > 0:
-            trans = gentle.ForcedAligner(self.resources, transcript, nthreads=self.nthreads, **kwargs)
+            trans = gentle.ForcedAligner(self.resources, transcript, nthreads=self.nthreads, context_width=self.config['context-width'], **kwargs)
         elif self.full_transcriber.available:
             trans = self.full_transcriber
         else:
@@ -212,7 +213,7 @@ class TranscriptionZipper(Resource):
         else:
             return Resource.getChild(self, path, req)
 
-def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, ntranscriptionthreads=2, data_dir=get_datadir('webdata')):
+def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, ntranscriptionthreads=2, data_dir=get_datadir('webdata'), modelDir='exp'):
     logging.info("SERVE %d, %s, %d", port, interface, installSignalHandlers)
 
     if not os.path.exists(data_dir):
@@ -227,8 +228,9 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, n
     f.putChild('', File(get_resource('www/index.html')))
     f.putChild('status.html', File(get_resource('www/status.html')))
     f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
-
-    trans = Transcriber(data_dir, nthreads=nthreads, ntranscriptionthreads=ntranscriptionthreads)
+   
+    resources = gentle.Resources(modelDir)
+    trans = Transcriber(data_dir, nthreads=nthreads, ntranscriptionthreads=ntranscriptionthreads, modelDir=modelDir)
     trans_ctrl = TranscriptionsController(trans)
     f.putChild('transcriptions', trans_ctrl)
 
@@ -259,6 +261,9 @@ if __name__=='__main__':
     parser.add_argument('--log', default="INFO",
                         help='the log level (DEBUG, INFO, WARNING, ERROR, or CRITICAL)')
 
+    parser.add_argument('--model-dir', default='exp',
+                        help='model directory')
+
     args = parser.parse_args()
 
     log_level = args.log.upper()
@@ -267,4 +272,4 @@ if __name__=='__main__':
     logging.info('gentle %s' % (gentle.__version__))
     logging.info('listening at %s:%d\n' % (args.host, args.port))
 
-    serve(args.port, args.host, nthreads=args.nthreads, ntranscriptionthreads=args.ntranscriptionthreads, installSignalHandlers=1)
+    serve(args.port, args.host, nthreads=args.nthreads, ntranscriptionthreads=args.ntranscriptionthreads, installSignalHandlers=1, modelDir=args.model_dir)

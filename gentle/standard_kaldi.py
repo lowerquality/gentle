@@ -1,6 +1,7 @@
 import subprocess
 from util.paths import get_binary
 import os
+from resources import Config
 
 EXECUTABLE_PATH = get_binary("ext/k3")
 
@@ -10,9 +11,12 @@ class Kaldi:
         
         cmd = [EXECUTABLE_PATH]
         
+        self.config = Config()
+
         if nnet_dir is not None:
             cmd.append(nnet_dir)
             cmd.append(hclg_path)
+            cmd.append(self.config['silencephones'])
 
         self._p = subprocess.Popen(cmd,
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
