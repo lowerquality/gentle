@@ -55,13 +55,6 @@ void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
     info.ivector_extractor_info.Check();
 }
 
-void ConfigDecoding(kaldi::OnlineNnet3DecodingConfig& config) {
-  config.decodable_opts.acoustic_scale = 1.0; // changed from 0.1?
-  config.decoder_opts.lattice_beam = 6.0;
-  config.decoder_opts.beam = 15.0;
-  config.decoder_opts.max_active = 7000;
-}
-
 void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
   config.silence_phones = "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16:17:18:19:20";
 }
@@ -101,8 +94,13 @@ int main(int argc, char *argv[]) {
 
     OnlineNnet2FeaturePipelineInfo feature_info;
     ConfigFeatureInfo(feature_info, ivector_model_dir);
-    OnlineNnet3DecodingConfig nnet3_decoding_config;
-    ConfigDecoding(nnet3_decoding_config);
+    LatticeFasterDecoderConfig nnet3_decoding_config;
+
+    nnet3_decoding_config.lattice_beam = 6.0;
+    nnet3_decoding_config.beam = 15.0;
+    nnet3_decoding_config.max_active = 7000;
+
+    
     OnlineEndpointConfig endpoint_config;
     ConfigEndpoint(endpoint_config);
     
@@ -135,10 +133,17 @@ int main(int argc, char *argv[]) {
     OnlineSilenceWeighting silence_weighting(
                                              trans_model,
                                              feature_info.silence_weighting_config);
-        
+    nnet3::NnetSimpleLoopedComputationOptions decodable_opts;
+    
+
+    nnet3::NnetSimpleLoopedComputationOptions nnetopts;
+    nnetopts.acoustic_scale = 1.0;
+    nnet3::DecodableNnetSimpleLoopedInfo decodable_info(nnetopts,
+                                                        &am_nnet);
+
     SingleUtteranceNnet3Decoder decoder(nnet3_decoding_config,
                                         trans_model,
-                                        am_nnet,
+                                        decodable_info,
                                         *decode_fst,
                                         &feature_pipeline);
 
@@ -158,11 +163,12 @@ int main(int argc, char *argv[]) {
       
       decoder.~SingleUtteranceNnet3Decoder();
       new (&decoder) SingleUtteranceNnet3Decoder(nnet3_decoding_config,
-                                                 trans_model,
-                                                 am_nnet,
-                                                 *decode_fst,
-                                                 &feature_pipeline);
+                                        trans_model,
+                                        decodable_info,
+                                        *decode_fst,
+                                        &feature_pipeline);
     }
+      
     else if(strcmp(cmd,"push-chunk\n") == 0) {
 
       // Get chunk length from python
@@ -188,7 +194,7 @@ int main(int argc, char *argv[]) {
         silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
         silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
                                           &delta_weights);
-        feature_pipeline.UpdateFrameWeights(delta_weights);
+        feature_pipeline.IvectorFeature()->UpdateFrameWeights(delta_weights);
       }
 
       decoder.AdvanceDecoding();
