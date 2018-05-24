@@ -19,4 +19,12 @@ ADDLIBS = $(KALDI_BASE)online2/kaldi-online2.a $(KALDI_BASE)ivector/kaldi-ivecto
           $(KALDI_BASE)matrix/kaldi-matrix.a $(KALDI_BASE)fstext/kaldi-fstext.a \
           $(KALDI_BASE)util/kaldi-util.a $(KALDI_BASE)base/kaldi-base.a
 
+ifeq ($(CUDA), true)
+    LDFLAGS += $(CUDA_LDFLAGS)
+    LDLIBS += $(CUDA_LDLIBS)
+    $(info cuda libraries: $(CUDA_LDFLAGS) $(CUDA_LDLIBS))
+else
+    $(info Not building with cuda!!!)
+endif
+
 include $(KALDI_BASE)makefiles/default_rules.mk
