@@ -12,7 +12,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 	sudo easy_install pip
 	sudo pip install .
 elif [[ "$OSTYPE" == "linux-gnu" ]]; then
-	ID=$(awk -F= '/^ID=/{print $2}' /etc/os-release)
+	ID=$(awk -F= '/^ID=/{gsub(/"/, "", $2); print $2}' /etc/os-release)
 	if [[ "$ID" == "ubuntu" ]]; then
 		if [ -f /.dockerenv ]; then
 			SUDO=
