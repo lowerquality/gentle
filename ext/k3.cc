@@ -8,6 +8,7 @@
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
 #include "lat/word-align-lattice.h"
+#include "nnet3/decodable-simple-looped.h"
 
 #ifdef HAVE_CUDA
 #include "cudamatrix/cu-device.h"
@@ -59,11 +60,10 @@ void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
     info.ivector_extractor_info.Check();
 }
 
-void ConfigDecoding(kaldi::OnlineNnet3DecodingConfig& config) {
-  config.decodable_opts.acoustic_scale = 1.0; // changed from 0.1?
-  config.decoder_opts.lattice_beam = 6.0;
-  config.decoder_opts.beam = 15.0;
-  config.decoder_opts.max_active = 7000;
+void ConfigDecoding(kaldi::LatticeFasterDecoderConfig& config) {
+  config.lattice_beam = 6.0;
+  config.beam = 15.0;
+  config.max_active = 7000;
 }
 
 void ConfigEndpoint(kaldi::OnlineEndpointConfig& config) {
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
     OnlineNnet2FeaturePipelineInfo feature_info;
     ConfigFeatureInfo(feature_info, ivector_model_dir);
-    OnlineNnet3DecodingConfig nnet3_decoding_config;
+    LatticeFasterDecoderConfig nnet3_decoding_config;
     ConfigDecoding(nnet3_decoding_config);
     OnlineEndpointConfig endpoint_config;
     ConfigEndpoint(endpoint_config);
@@ -128,6 +128,11 @@ int main(int argc, char *argv[]) {
       trans_model.Read(ki.Stream(), binary);
       am_nnet.Read(ki.Stream(), binary);
     }
+
+    nnet3::NnetSimpleLoopedComputationOptions nnet_simple_looped_opts;
+    nnet_simple_looped_opts.acoustic_scale = 1.0; // changed from 0.1?
+
+    nnet3::DecodableNnetSimpleLoopedInfo de_nnet_simple_looped_info(nnet_simple_looped_opts, &am_nnet);
     
     fst::Fst<fst::StdArc> *decode_fst = ReadFstKaldi(fst_rxfilename);
 
@@ -149,7 +154,8 @@ int main(int argc, char *argv[]) {
         
     SingleUtteranceNnet3Decoder decoder(nnet3_decoding_config,
                                         trans_model,
-                                        am_nnet,
+					de_nnet_simple_looped_info,
+                                        //am_nnet, // kaldi::nnet3::DecodableNnetSimpleLoopedInfo
                                         *decode_fst,
                                         &feature_pipeline);
 
@@ -170,7 +176,8 @@ int main(int argc, char *argv[]) {
       decoder.~SingleUtteranceNnet3Decoder();
       new (&decoder) SingleUtteranceNnet3Decoder(nnet3_decoding_config,
                                                  trans_model,
-                                                 am_nnet,
+						 de_nnet_simple_looped_info,
+                                                 //am_nnet,
                                                  *decode_fst,
                                                  &feature_pipeline);
     }
@@ -199,7 +206,7 @@ int main(int argc, char *argv[]) {
         silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
         silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
                                           &delta_weights);
-        feature_pipeline.UpdateFrameWeights(delta_weights);
+        feature_pipeline.IvectorFeature()->UpdateFrameWeights(delta_weights);
       }
 
       decoder.AdvanceDecoding();
