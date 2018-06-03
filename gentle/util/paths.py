@@ -8,7 +8,11 @@ ENV_VAR = 'GENTLE_RESOURCES_ROOT'
 
 class SourceResolver:
     def __init__(self):
-        self.project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, os.pardir))
+        root = os.environ.get(ENV_VAR)
+        if root:
+            self.project_root = root
+        else:
+            self.project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir, os.pardir))
 
     def get_binary(self, name):
         path_in_project = os.path.join(self.project_root, name)
@@ -18,8 +22,7 @@ class SourceResolver:
             return name
 
     def get_resource(self, name):
-        root = os.environ.get(ENV_VAR) or self.project_root
-        return os.path.join(root, name)
+        return os.path.join(self.project_root, name)
 
     def get_datadir(self, name):
         return self.get_resource(name)

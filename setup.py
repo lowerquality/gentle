@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from gentle import __version__
 
 setup(
@@ -14,6 +14,6 @@ setup(
     url='http://lowerquality.com/gentle',
     author='Robert M Ochshorn',
     license='MIT',
-    packages=['gentle'],
+    packages=find_packages(),
     install_requires=['twisted'],
 )

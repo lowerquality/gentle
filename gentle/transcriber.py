@@ -11,7 +11,7 @@ class MultiThreadedTranscriber:
         self.chunk_len = chunk_len
         self.overlap_t = overlap_t
         self.nthreads = nthreads
-            
+
         self.kaldi_queue = kaldi_queue
 
     def transcribe(self, wavfile, progress_cb=None):
@@ -45,11 +45,10 @@ class MultiThreadedTranscriber:
                 progress_cb({"message": ' '.join([X['word'] for X in ret]),
                              "percent": len(chunks) / float(n_chunks)})
 
-
         pool = Pool(min(n_chunks, self.nthreads))
         pool.map(transcribe_chunk, range(n_chunks))
         pool.close()
-        
+
         chunks.sort(key=lambda x: x['start'])
 
         # Combine chunks
@@ -103,7 +102,6 @@ if __name__=='__main__':
 
     resources = gentle.Resources()
 
-    
     k_queue = Queue()
     for i in range(3):
         k_queue.put(standard_kaldi.Kaldi(resources.nnet_gpu_path, resources.full_hclg_path, resources.proto_langdir))
