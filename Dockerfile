@@ -4,7 +4,7 @@ RUN DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
 	apt-get install -y zlib1g-dev automake autoconf git \
 		libtool subversion libatlas3-base ffmpeg python-pip \
-		python-dev wget unzip && \
+		python-dev wget unzip gfortran python3 && \
 	apt-get clean
 
 ADD ext /gentle/ext
