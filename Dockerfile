@@ -1,14 +1,23 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 RUN DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
-	apt-get install -y zlib1g-dev automake autoconf git \
-		libtool subversion libatlas3-base ffmpeg python-pip \
-		python-dev wget unzip && \
+	apt-get install -y \
+		gcc g++ gfortran \
+		libc++-dev \
+		libstdc++-6-dev zlib1g-dev \
+		automake autoconf libtool \
+		git subversion \
+		libatlas3-base \
+		nvidia-cuda-dev \
+		ffmpeg \
+		python3 python3-dev python3-pip \
+		python python-dev python-pip \
+		wget unzip && \
 	apt-get clean
 
 ADD ext /gentle/ext
-RUN MAKEFLAGS=' -j8' cd /gentle/ext && \
+RUN export MAKEFLAGS=' -j8' &&  cd /gentle/ext && \
 	./install_kaldi.sh && \
 	make && rm -rf kaldi *.o
 
