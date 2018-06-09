@@ -5,7 +5,7 @@ import tempfile
 from contextlib import contextmanager
 
 
-from util.paths import get_binary
+from .util.paths import get_binary
 
 FFMPEG = get_binary("ffmpeg")
 

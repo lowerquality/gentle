@@ -1,6 +1,7 @@
 import subprocess
-from util.paths import get_binary
 import os
+
+from .util.paths import get_binary
 
 EXECUTABLE_PATH = get_binary("ext/k3")
 
@@ -20,7 +21,7 @@ class Kaldi:
         self.finished = False
 
     def _cmd(self, c):
-        self._p.stdin.write("%s\n" % (c))
+        self._p.stdin.write(("%s\n" % (c)).encode())
         self._p.stdin.flush()
 
     def push_chunk(self, buf):
@@ -30,14 +31,14 @@ class Kaldi:
         cnt = len(buf)/2
         self._cmd(str(cnt))
         self._p.stdin.write(buf) #arr.tostring())
-        status = self._p.stdout.readline().strip()
+        status = self._p.stdout.readline().strip().decode()
         return status == 'ok'
 
     def get_final(self):
         self._cmd("get-final")
         words = []
         while True:
-            line = self._p.stdout.readline()
+            line = self._p.stdout.readline().decode()
             if line.startswith("done"):
                 break
             parts = line.split(' / ')
@@ -77,10 +78,10 @@ if __name__=='__main__':
     k = Kaldi()
 
     buf = numm3.sound2np(infile, nchannels=1, R=8000)
-    print 'loaded_buf', len(buf)
+    print('loaded_buf', len(buf))
     
     idx=0
     while idx < len(buf):
         k.push_chunk(buf[idx:idx+160000].tostring())
-        print k.get_final()
+        print(k.get_final())
         idx += 160000

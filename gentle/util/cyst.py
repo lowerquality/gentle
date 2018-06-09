@@ -53,10 +53,10 @@ class Insist(Resource):
     def resist(self):
         if not os.path.exists(self.cacheloc):
             # Error!
-            print "%s does not exist - rendering fail!" % (self.cacheloc)
+            print("%s does not exist - rendering fail!" % (self.cacheloc))
             for req in self.reqs_waiting:
-                req.headers["Content-Type"] = "text/plain"
-                req.write("cyst error")
+                req.headers[b"Content-Type"] = b"text/plain"
+                req.write(b"cyst error")
                 req.finish()
             return
 
@@ -81,5 +81,5 @@ if __name__=='__main__':
     site = Site(c)
     port = 7984
     reactor.listenTCP(port, site)
-    print "http://localhost:%d" % (port)
+    print("http://localhost:%d" % (port))
     reactor.run()

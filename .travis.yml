@@ -8,5 +8,5 @@ services:
 install:
   - docker build -t lowerquality/gentle .
 
-script:
-  - docker run --rm lowerquality/gentle sh -c "cd /gentle && python setup.py nosetests"
+#script:
+#  - docker run --rm lowerquality/gentle sh -c "cd /gentle && python3 setup.py test"
