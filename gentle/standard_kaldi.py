@@ -67,6 +67,9 @@ class Kaldi:
         if not self.finished:
             self.finished = True
             self._cmd("stop")
+            self._p.stdin.close()
+            self._p.stdout.close()
+            self._p.wait()
 
     def __del__(self):
         self.stop()
