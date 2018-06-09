@@ -92,7 +92,6 @@ class MultiThreadedTranscriber:
 
 if __name__=='__main__':
     # full transcription
-    from queue import Queue
     import json
     import sys
 
@@ -101,18 +100,15 @@ if __name__=='__main__':
 
     import gentle
     from gentle import standard_kaldi
+    from gentle import kaldi_queue
 
     resources = gentle.Resources()
 
-    
-    k_queue = Queue()
-    for i in range(3):
-        k_queue.put(standard_kaldi.Kaldi(resources.nnet_gpu_path, resources.full_hclg_path, resources.proto_langdir))
-
+    k_queue = kaldi_queue.build(resources, 3)
     trans = MultiThreadedTranscriber(k_queue)
 
     with gentle.resampled(sys.argv[1]) as filename:
-        out = trans.transcribe(filename)
+        words, duration = trans.transcribe(filename)
 
-    open(sys.argv[2], 'w').write(transcription.Transcription(words=out).to_json())
+    open(sys.argv[2], 'w').write(transcription.Transcription(words=words).to_json())
 

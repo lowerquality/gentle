@@ -6,5 +6,6 @@ ext/*-test
 ext/*.o
 ext/.depend.mk
 *.pyc
+*.swp
 *~
 webdata/
