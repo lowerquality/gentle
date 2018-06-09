@@ -30,7 +30,7 @@ class MetaSentence:
     def __init__(self, sentence, vocab):
         self.raw_sentence = sentence
 
-        if type(sentence) != unicode:
+        if type(sentence) == bytes:
             self.raw_sentence = sentence.decode('utf-8')
         self.vocab = vocab
 
@@ -38,9 +38,9 @@ class MetaSentence:
 
     def _tokenize(self):
         self._seq = []
-        for m in re.finditer(ur'(\w|\’\w|\'\w)+', self.raw_sentence, re.UNICODE):
+        for m in re.finditer(r'(\w|\’\w|\'\w)+', self.raw_sentence, re.UNICODE):
             start, end = m.span()
-            word = m.group().encode('utf-8')
+            word = m.group()
             token = kaldi_normalize(word, self.vocab)
             self._seq.append({
                 "start": start, # as unicode codepoint offset
@@ -55,7 +55,7 @@ class MetaSentence:
         display_sequence = []
         for x in self._seq:
             start, end = x["start"], x["end"]
-            word = self.raw_sentence[start:end].encode('utf-8')
+            word = self.raw_sentence[start:end]
             display_sequence.append(word)
         return display_sequence
 

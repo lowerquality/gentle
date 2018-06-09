@@ -1,8 +1,8 @@
 import logging
 import os
 
-from util.paths import get_resource, ENV_VAR
-from gentle import metasentence
+from .util.paths import get_resource, ENV_VAR
+from . import metasentence
 
 class Resources():
 

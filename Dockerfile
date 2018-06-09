@@ -22,11 +22,11 @@ RUN export MAKEFLAGS=' -j8' &&  cd /gentle/ext && \
 	make && rm -rf kaldi *.o
 
 ADD . /gentle
-RUN cd /gentle && pip install .
+RUN cd /gentle && pip3 install .
 RUN cd /gentle && ./install_models.sh
 
 EXPOSE 8765
 
 VOLUME /gentle/webdata
 
-CMD cd /gentle && python serve.py
+CMD cd /gentle && python3 serve.py

@@ -40,7 +40,7 @@ def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
     realignments = []
 
     def realign(chunk):
-        wav_obj = wave.open(wavfile, 'r')
+        wav_obj = wave.open(wavfile, 'rb')
 
         if chunk["start"] is None:
             start_t = 0
@@ -71,7 +71,7 @@ def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
             chunk_gen_hclg_filename,
             resources.proto_langdir)
 
-        wav_obj = wave.open(wavfile, 'r')
+        wav_obj = wave.open(wavfile, 'rb')
         wav_obj.setpos(int(start_t * wav_obj.getframerate()))
         buf = wav_obj.readframes(int(duration * wav_obj.getframerate()))
 
@@ -99,8 +99,8 @@ def realign(wavfile, alignment, ms, resources, nthreads=4, progress_cb=None):
     for ret in realignments:
         st_idx = o_words.index(ret["chunk"]["words"][0])
         end_idx= o_words.index(ret["chunk"]["words"][-1])+1
-        logging.debug('splice in: "%s' % (str(ret["words"])))
-        logging.debug('splice out: "%s' % (str(o_words[st_idx:end_idx])))
+        #logging.debug('splice in: "%s' % (str(ret["words"])))
+        #logging.debug('splice out: "%s' % (str(o_words[st_idx:end_idx])))
         o_words = o_words[:st_idx] + ret["words"] + o_words[end_idx:]
 
     return o_words

@@ -23,8 +23,8 @@ class TranscriptionStatus(Resource):
         Resource.__init__(self)
 
     def render_GET(self, req):
-        req.setHeader("Content-Type", "application/json")
-        return json.dumps(self.status_dict)
+        req.setHeader(b"Content-Type", "application/json")
+        return json.dumps(self.status_dict).encode()
 
 class Transcriber():
     def __init__(self, data_dir, nthreads=4, ntranscriptionthreads=2):
@@ -46,7 +46,7 @@ class Transcriber():
     def next_id(self):
         uid = None
         while uid is None or os.path.exists(os.path.join(self.data_dir, uid)):
-            uid = uuid.uuid4().get_hex()[:8]
+            uid = uuid.uuid4().hex[:8]
         return uid
 
     def transcribe(self, uid, transcript, audio, async, **kwargs):
@@ -64,7 +64,7 @@ class Transcriber():
         with open(tran_path, 'w') as tranfile:
             tranfile.write(transcript)
         audio_path = os.path.join(outdir, 'upload')
-        with open(audio_path, 'w') as wavfile:
+        with open(audio_path, 'wb') as wavfile:
             wavfile.write(audio)
 
         status['status'] = 'ENCODING'
@@ -81,11 +81,12 @@ class Transcriber():
 
         #XXX: Maybe we should pass this wave object instead of the
         # file path to align_progress
-        wav_obj = wave.open(wavfile, 'r')
+        wav_obj = wave.open(wavfile, 'rb')
         status['duration'] = wav_obj.getnframes() / float(wav_obj.getframerate())
         status['status'] = 'TRANSCRIBING'
 
         def on_progress(p):
+            print(p)
             for k,v in p.items():
                 status[k] = v
 
@@ -126,29 +127,30 @@ class TranscriptionsController(Resource):
         self.transcriber = transcriber
 
     def getChild(self, uid, req):
+        uid = uid.decode()
         out_dir = self.transcriber.out_dir(uid)
         trans_ctrl = File(out_dir)
 
         # Add a Status endpoint to the file
         trans_status = TranscriptionStatus(self.transcriber.get_status(uid))
-        trans_ctrl.putChild("status.json", trans_status)
+        trans_ctrl.putChild(b"status.json", trans_status)
 
         return trans_ctrl
 
     def render_POST(self, req):
         uid = self.transcriber.next_id()
 
-        tran = req.args.get('transcript', [''])[0]
-        audio = req.args['audio'][0]
+        tran = req.args.get(b'transcript', [b''])[0].decode()
+        audio = req.args[b'audio'][0]
 
-        disfluency = True if 'disfluency' in req.args else False
-        conservative = True if 'conservative' in req.args else False
+        disfluency = True if b'disfluency' in req.args else False
+        conservative = True if b'conservative' in req.args else False
         kwargs = {'disfluency': disfluency,
                   'conservative': conservative,
                   'disfluencies': set(['uh', 'um'])}
 
         async = True
-        if 'async' in req.args and req.args['async'][0] == 'false':
+        if b'async' in req.args and req.args[b'async'][0] == b'false':
             async = False
 
         # We need to make the transcription directory here, so that
@@ -169,7 +171,7 @@ class TranscriptionsController(Resource):
             def write_result(result):
                 '''Write JSON to client on completion'''
                 req.setHeader("Content-Type", "application/json")
-                req.write(result.to_json(indent=2))
+                req.write(result.to_json(indent=2).encode())
                 req.finish()
             result_promise.addCallback(write_result)
             result_promise.addErrback(lambda _: None) # ignore errors
@@ -180,7 +182,7 @@ class TranscriptionsController(Resource):
 
         req.setResponseCode(FOUND)
         req.setHeader(b"Location", "/transcriptions/%s" % (uid))
-        return ''
+        return b''
 
 class LazyZipper(Insist):
     def __init__(self, cachedir, transcriber, uid):
@@ -200,13 +202,15 @@ class TranscriptionZipper(Resource):
         Resource.__init__(self)
 
     def getChild(self, path, req):
-        uid = path.split('.')[0]
+        uid = path.decode().split('.')[0]
         t_dir = self.transcriber.out_dir(uid)
         if os.path.exists(t_dir):
             # TODO: Check that "status" is complete and only create a LazyZipper if so
             # Otherwise, we could have incomplete transcriptions that get permanently zipped.
             # For now, a solution will be hiding the button in the client until it's done.
             lz = LazyZipper(self.cachedir, self.transcriber, uid)
+            if not isinstance(path, bytes):
+                path = path.encode()
             self.putChild(path, lz)
             return lz
         else:
@@ -224,16 +228,16 @@ def serve(port=8765, interface='0.0.0.0', installSignalHandlers=0, nthreads=4, n
 
     f = File(data_dir)
 
-    f.putChild('', File(get_resource('www/index.html')))
-    f.putChild('status.html', File(get_resource('www/status.html')))
-    f.putChild('preloader.gif', File(get_resource('www/preloader.gif')))
+    f.putChild(b'', File(get_resource('www/index.html')))
+    f.putChild(b'status.html', File(get_resource('www/status.html')))
+    f.putChild(b'preloader.gif', File(get_resource('www/preloader.gif')))
 
     trans = Transcriber(data_dir, nthreads=nthreads, ntranscriptionthreads=ntranscriptionthreads)
     trans_ctrl = TranscriptionsController(trans)
-    f.putChild('transcriptions', trans_ctrl)
+    f.putChild(b'transcriptions', trans_ctrl)
 
     trans_zippr = TranscriptionZipper(zip_dir, trans)
-    f.putChild('zip', trans_zippr)
+    f.putChild(b'zip', trans_zippr)
 
     s = Site(f)
     logging.info("about to listen")
