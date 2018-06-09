@@ -1,23 +1,25 @@
 import subprocess
 import os
+import logging
 
 from .util.paths import get_binary
 
 EXECUTABLE_PATH = get_binary("ext/k3")
+logger = logging.getLogger(__name__)
 
 class Kaldi:
     def __init__(self, nnet_dir=None, hclg_path=None, proto_langdir=None):
-        devnull = open(os.devnull, 'w')
-        
         cmd = [EXECUTABLE_PATH]
         
         if nnet_dir is not None:
             cmd.append(nnet_dir)
             cmd.append(hclg_path)
 
+        if not os.path.exists(hclg_path):
+            logger.error('hclg_path does not exist: %s', hclg_path)
         self._p = subprocess.Popen(cmd,
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=devnull)
+                                   stderr=subprocess.DEVNULL)
         self.finished = False
 
     def _cmd(self, c):
