@@ -19,11 +19,11 @@ RUN DEBIAN_FRONTEND=noninteractive && \
 ADD ext /gentle/ext
 RUN export MAKEFLAGS=' -j8' &&  cd /gentle/ext && \
 	./install_kaldi.sh && \
-	make && rm -rf kaldi *.o
+	make depend && make && rm -rf kaldi *.o
 
 ADD . /gentle
 RUN cd /gentle && pip3 install .
-RUN cd /gentle && ./install_models.sh
+RUN cd /gentle && ./install_models.sh && ./install_language_model.sh
 
 EXPOSE 8765
 
