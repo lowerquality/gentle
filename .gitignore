@@ -9,3 +9,4 @@ ext/.depend.mk
 *.swp
 *~
 webdata/
+.cache/

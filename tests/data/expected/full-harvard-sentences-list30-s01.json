@@ -1,0 +1,223 @@
+{
+    "transcript": "the mute muscle the higher tones are who are and ",
+    "words": [
+        {
+            "alignedWord": "the",
+            "case": "success",
+            "end": 0.5900000000000001,
+            "endOffset": 3,
+            "phones": [
+                {
+                    "duration": 0.17,
+                    "phone": "dh_B"
+                },
+                {
+                    "duration": 0.08,
+                    "phone": "iy_E"
+                }
+            ],
+            "start": 0.34,
+            "startOffset": 0,
+            "word": "the"
+        },
+        {
+            "alignedWord": "mute",
+            "case": "success",
+            "end": 0.98,
+            "endOffset": 8,
+            "phones": [
+                {
+                    "duration": 0.08,
+                    "phone": "m_B"
+                },
+                {
+                    "duration": 0.11,
+                    "phone": "y_I"
+                },
+                {
+                    "duration": 0.13,
+                    "phone": "uw_I"
+                },
+                {
+                    "duration": 0.07,
+                    "phone": "t_E"
+                }
+            ],
+            "start": 0.59,
+            "startOffset": 4,
+            "word": "mute"
+        },
+        {
+            "alignedWord": "muscle",
+            "case": "success",
+            "end": 1.74,
+            "endOffset": 15,
+            "phones": [
+                {
+                    "duration": 0.23,
+                    "phone": "m_B"
+                },
+                {
+                    "duration": 0.11,
+                    "phone": "ah_I"
+                },
+                {
+                    "duration": 0.12,
+                    "phone": "s_I"
+                },
+                {
+                    "duration": 0.05,
+                    "phone": "ah_I"
+                },
+                {
+                    "duration": 0.22,
+                    "phone": "l_E"
+                }
+            ],
+            "start": 1.01,
+            "startOffset": 9,
+            "word": "muscle"
+        },
+        {
+            "alignedWord": "the",
+            "case": "success",
+            "end": 1.97,
+            "endOffset": 19,
+            "phones": [
+                {
+                    "duration": 0.11,
+                    "phone": "dh_B"
+                },
+                {
+                    "duration": 0.09,
+                    "phone": "iy_E"
+                }
+            ],
+            "start": 1.77,
+            "startOffset": 16,
+            "word": "the"
+        },
+        {
+            "alignedWord": "higher",
+            "case": "success",
+            "end": 2.29,
+            "endOffset": 26,
+            "phones": [
+                {
+                    "duration": 0.1,
+                    "phone": "hh_B"
+                },
+                {
+                    "duration": 0.18,
+                    "phone": "ay_I"
+                },
+                {
+                    "duration": 0.04,
+                    "phone": "er_E"
+                }
+            ],
+            "start": 1.97,
+            "startOffset": 20,
+            "word": "higher"
+        },
+        {
+            "alignedWord": "tones",
+            "case": "success",
+            "end": 2.86,
+            "endOffset": 32,
+            "phones": [
+                {
+                    "duration": 0.16,
+                    "phone": "t_B"
+                },
+                {
+                    "duration": 0.24,
+                    "phone": "ow_I"
+                },
+                {
+                    "duration": 0.09,
+                    "phone": "n_I"
+                },
+                {
+                    "duration": 0.08,
+                    "phone": "z_E"
+                }
+            ],
+            "start": 2.29,
+            "startOffset": 27,
+            "word": "tones"
+        },
+        {
+            "alignedWord": "are",
+            "case": "success",
+            "end": 3.12,
+            "endOffset": 36,
+            "phones": [
+                {
+                    "duration": 0.26,
+                    "phone": "er_S"
+                }
+            ],
+            "start": 2.86,
+            "startOffset": 33,
+            "word": "are"
+        },
+        {
+            "alignedWord": "who",
+            "case": "success",
+            "end": 3.43,
+            "endOffset": 40,
+            "phones": [
+                {
+                    "duration": 0.11,
+                    "phone": "hh_B"
+                },
+                {
+                    "duration": 0.2,
+                    "phone": "uw_E"
+                }
+            ],
+            "start": 3.12,
+            "startOffset": 37,
+            "word": "who"
+        },
+        {
+            "alignedWord": "are",
+            "case": "success",
+            "end": 3.49,
+            "endOffset": 44,
+            "phones": [
+                {
+                    "duration": 0.06,
+                    "phone": "er_S"
+                }
+            ],
+            "start": 3.43,
+            "startOffset": 41,
+            "word": "are"
+        },
+        {
+            "alignedWord": "and",
+            "case": "success",
+            "end": 3.64,
+            "endOffset": 48,
+            "phones": [
+                {
+                    "duration": 0.03,
+                    "phone": "ah_B"
+                },
+                {
+                    "duration": 0.05,
+                    "phone": "n_I"
+                },
+                {
+                    "duration": 0.07,
+                    "phone": "d_E"
+                }
+            ],
+            "start": 3.49,
+            "startOffset": 45,
+            "word": "and"
+        }
+    ]
+}
