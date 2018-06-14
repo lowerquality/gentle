@@ -9,7 +9,7 @@ There are three ways to install Gentle.
 
 2. Use the [Docker](https://www.docker.com/) image. Just run ```docker run -P lowerquality/gentle```. This works on all platforms supported by Docker.
 
-3. Download the source code and run ```./install.sh```. Then run ```python serve.py``` to start the server. This works on Mac and Linux.
+3. Download the source code and run ```./install.sh```. Then run ```python3 serve.py``` to start the server. This works on Mac and Linux.
 
 ## Using Gentle
 
@@ -24,7 +24,7 @@ curl -F "audio=@audio.mp3" -F "transcript=@words.txt" "http://localhost:8765/tra
 If you've downloaded the source code you can also run the aligner as a command line program:
 
 ```bash
-python align.py audio.mp3 words.txt
+python3 align.py audio.mp3 words.txt
 ```
 
-The default behaviour outputs the JSON to stdout.  See `python align.py --help` for options.
+The default behaviour outputs the JSON to stdout.  See `python3 align.py --help` for options.
