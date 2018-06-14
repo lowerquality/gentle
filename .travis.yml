@@ -1,6 +1,5 @@
 sudo: required
-
-language: python
+dist: trusty
 
 services:
   - docker
