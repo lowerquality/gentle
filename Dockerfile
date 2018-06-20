@@ -22,7 +22,7 @@ RUN export MAKEFLAGS=' -j8' &&  cd /gentle/ext && \
 	make depend && make && rm -rf kaldi *.o
 
 ADD . /gentle
-RUN cd /gentle && pip3 install .
+RUN cd /gentle && python3 setup.py develop
 RUN cd /gentle && ./install_models.sh && ./install_language_model.sh
 
 EXPOSE 8765

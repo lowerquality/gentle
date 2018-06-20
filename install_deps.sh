@@ -11,10 +11,8 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
 		libtool subversion libatlas3-base python3-pip \
 		python3-dev wget unzip python3
 	apt-get install -y ffmpeg || echo -n  "\n\nYou have to install ffmpeg from a PPA or from https://ffmpeg.org before you can run gentle\n\n"
-	pip3 install .
+	python3 setup.py develop
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	brew install ffmpeg libtool automake autoconf wget python3
-
-	sudo easy_install pip
-	sudo pip install .
+	sudo python3 setup.py develop
 fi
