@@ -29,4 +29,4 @@ EXPOSE 8765
 
 VOLUME /gentle/webdata
 
-CMD cd /gentle && python3 serve.py
+CMD cd /gentle && python3 serve.py --port $PORT
