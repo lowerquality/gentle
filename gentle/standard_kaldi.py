@@ -32,7 +32,7 @@ class Kaldi:
         # Wait until we're ready
         self._cmd("push-chunk")
         
-        cnt = len(buf)/2
+        cnt = int(len(buf)/2)
         self._cmd(str(cnt))
         self._p.stdin.write(buf) #arr.tostring())
         status = self._p.stdout.readline().strip().decode()
