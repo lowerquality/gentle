@@ -9,3 +9,9 @@ install:
 
 script:
   - docker run --rm lowerquality/gentle sh -c 'cd /gentle && python3 setup.py test'
+
+after_success:
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+    docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker push lowerquality/gentle:latest
+    fi
