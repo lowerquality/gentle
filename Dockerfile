@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:16.04 as builder-kaldi
 
 RUN DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
@@ -12,12 +12,21 @@ RUN MAKEFLAGS=' -j8' cd /gentle/ext && \
 	./install_kaldi.sh && \
 	make && rm -rf kaldi *.o
 
+FROM ubuntu:16.04 as builder
 ADD . /gentle
-RUN cd /gentle && pip install .
-RUN cd /gentle && ./install_models.sh
+WORKDIR /gentle/ext
+COPY --from=builder-kaldi /gentle/ext .
+WORKDIR /gentle
+RUN pip install .
+RUN ./install_models.sh
 
+FROM ubuntu:16.04
+WORKDIR /gentle
+COPY from=builder /gentle .
 EXPOSE 8765
+ENV PORT=8765
 
 VOLUME /gentle/webdata
 
-CMD cd /gentle && python serve.py
+CMD cd /gentle && python serve.py --port $PORT
+
