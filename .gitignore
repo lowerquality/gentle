@@ -6,6 +6,11 @@ ext/*-test
 ext/*.o
 ext/.depend.mk
 *.pyc
+*.swp
 *~
 webdata/
-exp
+gentle.egg-info/
+exp/
+ext/k3
+ext/m3
+.vscode/.ropeproject

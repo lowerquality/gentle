@@ -13,6 +13,7 @@ RUN MAKEFLAGS=' -j8' cd /gentle/ext && \
 	make && rm -rf kaldi *.o
 
 FROM python:2-stretch 
+
 ADD . /gentle
 WORKDIR /gentle/ext
 COPY --from=builder-kaldi /gentle/ext .
@@ -22,8 +23,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install unzip && apt-get clean
 RUN ./install_models.sh
 
-EXPOSE 8765
 ENV PORT=8765
+EXPOSE 8765
 
 VOLUME /gentle/webdata
 

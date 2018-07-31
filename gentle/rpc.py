@@ -40,7 +40,7 @@ class RPCProtocol(object):
             self.send_pipe.write('%d\n' % len(data))
             self.send_pipe.write(data)
             self.send_pipe.write('\n')
-        except IOError, _:
+        except IOError as _:
             raise IOError("Lost connection with standard_kaldi subprocess")
 
     def _read_reply(self):
@@ -57,7 +57,7 @@ class RPCProtocol(object):
 
             status_str, body = data.split('\n', 1)
             status = int(status_str)
-        except IOError, _:
+        except IOError as _:
             raise IOError("Lost connection with standard_kaldi subprocess")
 
         if status < 200 or status >= 300:

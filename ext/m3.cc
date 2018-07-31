@@ -166,10 +166,11 @@ int main(int argc, char *argv[]) {
 
 		// add-self-loops
 		std::vector<int32> null_disambig_syms;
-	    AddSelfLoops(trans_model,
+		AddSelfLoops(trans_model,
 	                 null_disambig_syms,
 	                 self_loop_scale,
 	                 true,
+			 true,
 	                 &hclg_fst);
 
 	    // fstisstochastic
