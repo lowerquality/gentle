@@ -12,17 +12,16 @@ RUN MAKEFLAGS=' -j8' cd /gentle/ext && \
 	./install_kaldi.sh && \
 	make && rm -rf kaldi *.o
 
-FROM ubuntu:16.04 as builder
+FROM python:2-stretch 
 ADD . /gentle
 WORKDIR /gentle/ext
 COPY --from=builder-kaldi /gentle/ext .
-WORKDIR /gentle
+WORKDIR /gentle/
 RUN pip install .
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install unzip && apt-get clean
 RUN ./install_models.sh
 
-FROM ubuntu:16.04
-WORKDIR /gentle
-COPY from=builder /gentle .
 EXPOSE 8765
 ENV PORT=8765
 
