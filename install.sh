@@ -6,6 +6,11 @@ git submodule init
 git submodule update
 
 ./install_deps.sh
-(cd ext && ./install_kaldi.sh)
+pushd ext
+./install_kaldi.sh
+popd
 ./install_models.sh
-cd ext && make depend && make
+pushd ext
+make depend
+make
+popd

@@ -16,5 +16,5 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 	brew install ffmpeg libtool automake autoconf wget
 
 	easy_install pip
-	pip install .
+	env pip2 install .
 fi
