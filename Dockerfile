@@ -1,7 +1,7 @@
 FROM ubuntu:16.04 as builder-kaldi
 
-RUN DEBIAN_FRONTEND=noninteractive && \
-	apt-get update && \
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
 	apt-get install -y zlib1g-dev automake autoconf git \
 		libtool subversion libatlas3-base ffmpeg python-pip \
 		python-dev wget unzip sox && \
@@ -14,7 +14,7 @@ RUN make depend && make
 WORKDIR /gentle
 RUN ./install_models.sh
 
-FROM python:2-stretch 
+FROM python:3-stretch 
 
 ADD . /gentle
 WORKDIR /gentle/ext
