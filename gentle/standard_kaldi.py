@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 STDERR = subprocess.DEVNULL
 
+
 class Kaldi:
     def __init__(self, nnet_dir=None, hclg_path=None, proto_langdir=None):
         cmd = [EXECUTABLE_PATH]
-        
+
         if nnet_dir is not None:
             cmd.append(nnet_dir)
             cmd.append(hclg_path)
@@ -31,11 +32,14 @@ class Kaldi:
     def push_chunk(self, buf):
         # Wait until we're ready
         self._cmd("push-chunk")
-        
+
         cnt = int(len(buf)/2)
+        logger.info("[%d] Sending command push-chunk to process pid %d, with len(buf): %d, cnt: %d", self._p.pid, self._p.pid, len(buf), cnt)
         self._cmd(str(cnt))
-        self._p.stdin.write(buf) #arr.tostring())
+        written = self._p.stdin.write(buf) #arr.tostring())
+        logger.info("[%d] Command written successfully, written: %d", self._p.pid, written)
         status = self._p.stdout.readline().strip().decode()
+        logger.info("[%d] Got reply from subprocess", self._p.pid)
         return status == 'ok'
 
     def get_final(self):
@@ -76,18 +80,19 @@ class Kaldi:
     def __del__(self):
         self.stop()
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     import numm3
     import sys
 
     infile = sys.argv[1]
-    
+
     k = Kaldi()
 
     buf = numm3.sound2np(infile, nchannels=1, R=8000)
     print('loaded_buf', len(buf))
-    
-    idx=0
+
+    idx = 0
     while idx < len(buf):
         k.push_chunk(buf[idx:idx+160000].tostring())
         print(k.get_final())

@@ -14,3 +14,5 @@ exp/
 ext/k3
 ext/m3
 .vscode/.ropeproject
+log*
+.vscode/
