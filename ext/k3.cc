@@ -2,6 +2,8 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <iostream>
+#include <sstream>
 
 #include "online2/online-nnet3-decoding.h"
 #include "online2/online-nnet2-feature-pipeline.h"
@@ -167,20 +169,20 @@ int main(int argc, char *argv[])
                                       *decode_fst,
                                       &feature_pipeline);
 
-  char cmd[1024];
+  std::string cmd;
   std::ofstream log(std::string("log_") + std::to_string(getpid()));
   while (true)
   {
     // Let the client decide what we should do...
-    fgets(cmd, sizeof(cmd), stdin);
+    std::getline(std::cin, cmd);
     log << "Got command: " << cmd << std::endl;
     log.flush();
 
-    if (strcmp(cmd, "stop\n") == 0)
+    if (cmd == "stop")
     {
       break;
     }
-    else if (strcmp(cmd, "reset\n") == 0)
+    else if (cmd == "reset")
     {
       feature_pipeline.~OnlineNnet2FeaturePipeline();
       new (&feature_pipeline) OnlineNnet2FeaturePipeline(feature_info);
@@ -193,23 +195,36 @@ int main(int argc, char *argv[])
                                                  *decode_fst,
                                                  &feature_pipeline);
     }
-    else if (strcmp(cmd, "push-chunk\n") == 0)
+    else if (cmd == "push-chunk")
     {
 
       // Get chunk length from python
       int chunk_len;
-      fgets(cmd, sizeof(cmd), stdin);
-      log << "Got parameters: '" << cmd << "'" << std::endl;
+      std::string line;
+      std::getline(std::cin, line);
+      log << "Got parameters: '" << line << "'" << std::endl;
       log.flush();
 
-      sscanf(cmd, "%d\n", &chunk_len);
+      std::stringstream s(line);
+      s >> chunk_len;
+
+      std::ifstream comm("comm_" + std::to_string(::getpid()), std::ios::in | std::ios::binary);
+      if(!comm.good())
+        throw std::runtime_error("Cannot open comm file for reading");
 
       int16_t audio_chunk[chunk_len];
       Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_len);
 
-      log << "Will read " << chunk_len << " entries, 2 bytes each" << std::endl;
-      auto const readItems = fread(&audio_chunk, 2, chunk_len, stdin);
-      log << "Read " << readItems << " entries" << std::endl;
+
+      log << "Will read " << chunk_len << " entries, 2 bytes each (" << (chunk_len*2) << " bytes" << std::endl;
+      comm.read(reinterpret_cast<char*>(audio_chunk), 2 * chunk_len);
+      auto const readBytes = comm.gcount();
+      log << "Read " << readBytes << " bytes" << std::endl;
+
+      if(readBytes != 2*chunk_len)
+        throw std::runtime_error("Did not read all the data in one go!");
+
+      comm.close();
 
       // We need to copy this into the `wave_part' Vector<BaseFloat> thing.
       // From `gst-audio-source.cc' in gst-kaldi-nnet2
@@ -233,7 +248,7 @@ int main(int argc, char *argv[])
 
       fprintf(stdout, "ok\n");
     }
-    else if (strcmp(cmd, "get-final\n") == 0)
+    else if (cmd == "get-final")
     {
       feature_pipeline.InputFinished(); // XXX: this is new: what does it do?
 
@@ -282,7 +297,7 @@ int main(int argc, char *argv[])
     else
     {
 
-      fprintf(stderr, "unknown command %s\n", cmd);
+      fprintf(stderr, "unknown command %s\n", cmd.c_str());
     }
   }
 }

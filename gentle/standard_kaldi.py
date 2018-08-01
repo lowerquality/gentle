@@ -30,14 +30,18 @@ class Kaldi:
         self._p.stdin.flush()
 
     def push_chunk(self, buf):
-        # Wait until we're ready
-        self._cmd("push-chunk")
 
+        commfd = open('comm_{}'.format(self._p.pid), 'wb')
+        written = commfd.write(buf) #arr.tostring())
+        commfd.flush();
+        commfd.close();
+        logger.info("[%d] Command written successfully, written: %d", self._p.pid, written)
+
+        self._cmd("push-chunk")
         cnt = int(len(buf)/2)
         logger.info("[%d] Sending command push-chunk to process pid %d, with len(buf): %d, cnt: %d", self._p.pid, self._p.pid, len(buf), cnt)
         self._cmd(str(cnt))
-        written = self._p.stdin.write(buf) #arr.tostring())
-        logger.info("[%d] Command written successfully, written: %d", self._p.pid, written)
+
         status = self._p.stdout.readline().strip().decode()
         logger.info("[%d] Got reply from subprocess", self._p.pid)
         return status == 'ok'
