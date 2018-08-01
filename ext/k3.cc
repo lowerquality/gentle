@@ -82,28 +82,14 @@ void usage()
   fprintf(stderr, "usage: k3 [nnet_dir hclg_path]\n");
 }
 
-int main(int argc, char *argv[])
+int work(
+  std::string const& nnet_dir,
+  std::string const& graph_dir,
+  std::string const& fst_rxfilename,
+  std::string const& commFileName)
 {
   using namespace kaldi;
   using namespace fst;
-
-  setbuf(stdout, NULL);
-
-  std::string nnet_dir = "exp/tdnn_7b_chain_online";
-  std::string graph_dir = nnet_dir + "/graph_pp";
-  std::string fst_rxfilename = graph_dir + "/HCLG.fst";
-
-  if (argc == 3)
-  {
-    nnet_dir = argv[1];
-    graph_dir = nnet_dir + "/graph_pp";
-    fst_rxfilename = argv[2];
-  }
-  else if (argc != 1)
-  {
-    usage();
-    return EXIT_FAILURE;
-  }
 
 #ifdef HAVE_CUDA
   fprintf(stdout, "Cuda enabled\n");
@@ -170,13 +156,10 @@ int main(int argc, char *argv[])
                                       &feature_pipeline);
 
   std::string cmd;
-  std::ofstream log(std::string("log_") + std::to_string(getpid()));
   while (true)
   {
     // Let the client decide what we should do...
     std::getline(std::cin, cmd);
-    log << "Got command: " << cmd << std::endl;
-    log.flush();
 
     if (cmd == "stop")
     {
@@ -197,30 +180,24 @@ int main(int argc, char *argv[])
     }
     else if (cmd == "push-chunk")
     {
-
       // Get chunk length from python
       int chunk_len;
       std::string line;
       std::getline(std::cin, line);
-      log << "Got parameters: '" << line << "'" << std::endl;
-      log.flush();
 
       std::stringstream s(line);
       s >> chunk_len;
 
-      std::ifstream comm("comm_" + std::to_string(::getpid()), std::ios::in | std::ios::binary);
+      std::ifstream comm(commFileName, std::ios::in | std::ios::binary);
       if(!comm.good())
         throw std::runtime_error("Cannot open comm file for reading");
 
       int16_t audio_chunk[chunk_len];
       Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_len);
 
-
-      log << "Will read " << chunk_len << " entries, 2 bytes each (" << (chunk_len*2) << " bytes" << std::endl;
+      /* FIXME: do reading properly, handling needing to read more than once */
       comm.read(reinterpret_cast<char*>(audio_chunk), 2 * chunk_len);
       auto const readBytes = comm.gcount();
-      log << "Read " << readBytes << " bytes" << std::endl;
-
       if(readBytes != 2*chunk_len)
         throw std::runtime_error("Did not read all the data in one go!");
 
@@ -300,4 +277,58 @@ int main(int argc, char *argv[])
       fprintf(stderr, "unknown command %s\n", cmd.c_str());
     }
   }
+}
+
+struct FileDeleter
+{
+  FileDeleter(std::string const fileName)
+    : fn(fileName)
+  {
+
+  }
+
+  ~FileDeleter()
+  {
+    ::unlink(fn.c_str());
+  }
+
+  std::string fn;
+};
+
+int main(int argc, char *argv[])
+{
+  try
+  {
+    setbuf(stdout, NULL);
+
+    std::string nnet_dir = "exp/tdnn_7b_chain_online";
+    std::string graph_dir = nnet_dir + "/graph_pp";
+    std::string fst_rxfilename = graph_dir + "/HCLG.fst";
+    std::string const commFileName = "comm_" + std::to_string(::getpid());
+
+    if (argc == 3)
+    {
+      nnet_dir = argv[1];
+      graph_dir = nnet_dir + "/graph_pp";
+      fst_rxfilename = argv[2];
+    }
+    else if (argc != 1)
+    {
+      usage();
+      return EXIT_FAILURE;
+    }
+
+    FileDeleter commDeleter(commFileName);
+    return work(nnet_dir, graph_dir, fst_rxfilename, commFileName);
+  }
+  catch(std::exception const& e)
+  {
+    std::cerr << "Process failed with exception: " << e.what() << "\n";
+  }
+  catch(...)
+  {
+    std::cerr << "Process failed with unknown error\n";
+  }
+
+  return 1;
 }

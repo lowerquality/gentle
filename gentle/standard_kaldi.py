@@ -35,15 +35,12 @@ class Kaldi:
         written = commfd.write(buf) #arr.tostring())
         commfd.flush();
         commfd.close();
-        logger.info("[%d] Command written successfully, written: %d", self._p.pid, written)
 
         self._cmd("push-chunk")
         cnt = int(len(buf)/2)
-        logger.info("[%d] Sending command push-chunk to process pid %d, with len(buf): %d, cnt: %d", self._p.pid, self._p.pid, len(buf), cnt)
         self._cmd(str(cnt))
 
         status = self._p.stdout.readline().strip().decode()
-        logger.info("[%d] Got reply from subprocess", self._p.pid)
         return status == 'ok'
 
     def get_final(self):
