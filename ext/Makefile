@@ -8,7 +8,7 @@ BINFILES = k3 m3
 
 OBJFILES =
 
-CXXFLAGS += -I$(KALDI_BASE) -g -O3 -DNDEBUG
+CXXFLAGS += -I$(KALDI_BASE) -DNDEBUG
 
 ADDLIBS = $(KALDI_BASE)online2/kaldi-online2.a $(KALDI_BASE)ivector/kaldi-ivector.a \
           $(KALDI_BASE)nnet3/kaldi-nnet3.a $(KALDI_BASE)chain/kaldi-chain.a \
