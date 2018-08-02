@@ -40,23 +40,8 @@ RUN ./configure --static --static-math=yes --static-fst=yes --use-cuda=no --open
 	make depend -j $CPU_CORE && \
 	make -j $CPU_CORE
 
-
-RUN git clone https://github.com/descriptinc/gentle.git gentle
-WORKDIR /gentle
-RUN git submodule update --init --recursive
-WORKDIR /gentle/ext/kaldi/tools
-ENV CXX=clang++
-RUN make && \
-	./extras/install_openblas.sh
-WORKDIR /gentle/ext/kaldi/src
-RUN ./configure --static --static-math=yes --static-fst=yes --use-cuda=no --openblas-root=../tools/OpenBLAS/install && \
-	make depend && \
-	make
-WORKDIR /gentle/ext
-RUN make depend && \
-	make
-
-WORKDIR /gentle
+ENV KALDI_BASE=/usr/local/kaldi/src/
+WORKDIR /usr/local/gentle
 RUN ./install_models.sh
 
 FROM python:3-stretch
