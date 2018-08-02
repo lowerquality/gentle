@@ -1,11 +1,45 @@
 FROM ubuntu:latest as builder-kaldi
 
+ENV CPU_CORE 4
 ENV DEBIAN_FRONTEND=noninteractive
+ENV CXX=clang++
+
 RUN apt-get update && \
-	apt-get install -y clang zlib1g-dev automake autoconf git \
-		libtool subversion libatlas3-base ffmpeg python3-pip \
-		python3-dev wget unzip sox gfortran python-pip python-dev && \
-	apt-get clean
+	apt-get install -y \
+		autoconf \
+		automake \
+		bzip2 \
+		clang \
+		ffmpeg \
+		g++ \
+		gfortran \
+		git \
+		libatlas3-base \
+		libtool \
+		make \
+		python \
+		python3 \
+		sox \
+		subversion \
+		unzip \
+		wget \
+		zlib1g-dev
+
+WORKDIR /usr/local
+# Use the newest kaldi version
+RUN git clone https://github.com/kaldi-asr/kaldi.git
+
+# Build Kaldi
+WORKDIR /usr/local/kaldi/tools
+RUN extras/check_dependencies.sh
+RUN make CXX=${CXX} -j $CPU_CORE
+RUN extras/install_openblas.sh
+
+WORKDIR /usr/local/kaldi/src
+RUN ./configure --static --static-math=yes --static-fst=yes --use-cuda=no --openblas-root=../tools/OpenBLAS/install && \
+	make depend -j $CPU_CORE && \
+	make -j $CPU_CORE
+
 
 RUN git clone https://github.com/descriptinc/gentle.git gentle
 WORKDIR /gentle
