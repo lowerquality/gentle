@@ -6,11 +6,11 @@ VERSION="0.03"
 
 download_models() {
 	local version="$1"
-	local filename="kaldi-models-$version.zip"
-	local url="https://lowerquality.com/gentle/$filename"
-	wget -O $filename $url
+	local filename="gentle_aligner_models_$version.zip"
+	local url="https://s3-us-west-2.amazonaws.com/descript-public/app-models/$filename"
+	curl -O $url
 	unzip $filename
-	rm $filename
+        rm $filename
 }
 
 echo "Downloading models for v$VERSION..." 1>&2

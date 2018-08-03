@@ -42,22 +42,48 @@ RUN ./configure --static --static-math=yes --static-fst=yes --use-cuda=no --open
 
 ENV KALDI_BASE=/usr/local/kaldi/src/
 WORKDIR /usr/local/gentle
-RUN ./install_models.sh
 
-FROM python:3-stretch
-ADD . /gentle
-WORKDIR /gentle/ext
-COPY --from=builder-kaldi /gentle/ext/k3 .
-COPY --from=builder-kaldi /gentle/ext/m3 .
-WORKDIR /gentle/
-COPY --from=builder-kaldi /gentle/exp exp
+RUN apt-get install -y gdb cgdb python3-pip
+
+ADD ./install_models.sh .
+RUN ./install_models.sh
+ADD ./gentle/ ./gentle/
+ADD ./www ./www/
+ADD ./ext ./ext/
+ADD ./*.py ./
+
+WORKDIR /usr/local/gentle/ext
+RUN make depend KALDI_BASE=$KALDI_BASE -j $CPU_CORE
+RUN make KALDI_BASE=$KALDI_BASE -j $CPU_CORE
+
+FROM ubuntu:latest as gentle-packer
+WORKDIR /gentle
+COPY --from=builder-kaldi /usr/local/gentle/ext/m3 ./ext/
+COPY --from=builder-kaldi /usr/local/gentle/ext/k3 ./ext/
+ADD . .
+RUN ./create_dist.sh
+RUN mkdir ./output
+RUN cp ./gentle_aligner.tar.gz ./output/
+VOLUME /gentle/output
+
+FROM ubuntu:latest as gentle
+RUN apt-get update
+RUN	apt-get install -y \
+		libgfortran4 \
+		ffmpeg \
+		python3 \
+		python3-pip
+
+COPY --from=gentle-packer /gentle/gentle_aligner.tar.gz .
+RUN tar xzvf gentle_aligner.tar.gz
+WORKDIR /gentle_aligner
+
+COPY --from=builder-kaldi /usr/local/gentle/exp/ ./exp/
 
 RUN pip3 install .
-
 ENV PORT=8765
 EXPOSE 8765
 
-VOLUME /gentle/webdata
+VOLUME /gentle_aligner/webdata
 
 CMD python3 serve.py --port $PORT
-

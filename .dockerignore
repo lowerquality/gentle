@@ -1,4 +1,4 @@
-examples
-ext
-exp
-
+examples/
+ext/kaldi
+exp/
+webdata/
