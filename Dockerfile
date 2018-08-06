@@ -1,4 +1,4 @@
-FROM ubuntu:latest as builder-kaldi
+FROM ubuntu:16.04 as builder-kaldi
 
 ENV CPU_CORE 4
 ENV DEBIAN_FRONTEND=noninteractive
@@ -43,7 +43,7 @@ RUN ./configure --static --static-math=yes --static-fst=yes --use-cuda=no --open
 ENV KALDI_BASE=/usr/local/kaldi/src/
 WORKDIR /usr/local/gentle
 
-RUN apt-get install -y gdb cgdb python3-pip
+RUN apt-get install -y gdb cgdb python3-pip curl
 
 ADD ./install_models.sh .
 RUN ./install_models.sh
@@ -56,7 +56,7 @@ WORKDIR /usr/local/gentle/ext
 RUN make depend KALDI_BASE=$KALDI_BASE -j $CPU_CORE
 RUN make KALDI_BASE=$KALDI_BASE -j $CPU_CORE
 
-FROM ubuntu:latest as gentle-packer
+FROM ubuntu:16.04 as gentle-packer
 WORKDIR /gentle
 COPY --from=builder-kaldi /usr/local/gentle/ext/m3 ./ext/
 COPY --from=builder-kaldi /usr/local/gentle/ext/k3 ./ext/
@@ -66,10 +66,10 @@ RUN mkdir ./output
 RUN cp ./gentle_aligner.tar.gz ./output/
 VOLUME /gentle/output
 
-FROM ubuntu:latest as gentle
+FROM ubuntu:16.04 as gentle
 RUN apt-get update
 RUN	apt-get install -y \
-		libgfortran4 \
+		libgfortran3 \
 		ffmpeg \
 		python3 \
 		python3-pip
