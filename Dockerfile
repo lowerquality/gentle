@@ -70,6 +70,7 @@ FROM ubuntu:16.04 as gentle
 RUN apt-get update
 RUN	apt-get install -y \
 		libgfortran3 \
+		libatlas3-base \
 		ffmpeg \
 		python3 \
 		python3-pip
