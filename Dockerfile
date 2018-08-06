@@ -62,7 +62,7 @@ COPY --from=builder-kaldi /usr/local/gentle/ext/m3 ./ext/
 COPY --from=builder-kaldi /usr/local/gentle/ext/k3 ./ext/
 ADD . .
 RUN ./create_dist.sh
-RUN mkdir ./output
+RUN mkdir -p ./output
 RUN cp ./gentle_aligner.tar.gz ./output/
 VOLUME /gentle/output
 
