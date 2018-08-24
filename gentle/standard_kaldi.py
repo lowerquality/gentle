@@ -21,7 +21,7 @@ class Kaldi:
             logger.error('hclg_path does not exist: %s', hclg_path)
         self._p = subprocess.Popen(cmd,
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=STDERR)
+                                   stderr=STDERR, bufsize=0)
         self.finished = False
 
     def _cmd(self, c):
