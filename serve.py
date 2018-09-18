@@ -49,7 +49,7 @@ class Transcriber():
             uid = uuid.uuid4().hex[:8]
         return uid
 
-    def transcribe(self, uid, transcript, audio, async, **kwargs):
+    def transcribe(self, uid, transcript, audio, async_mode, **kwargs):
 
         status = self.get_status(uid)
 
@@ -149,9 +149,9 @@ class TranscriptionsController(Resource):
                   'conservative': conservative,
                   'disfluencies': set(['uh', 'um'])}
 
-        async = True
+        async_mode = True
         if b'async' in req.args and req.args[b'async'][0] == b'false':
-            async = False
+            async_mode = False
 
         # We need to make the transcription directory here, so that
         # when we redirect the user we are sure that there's a place
@@ -165,9 +165,9 @@ class TranscriptionsController(Resource):
         result_promise = threads.deferToThreadPool(
             reactor, reactor.getThreadPool(),
             self.transcriber.transcribe,
-            uid, tran, audio, async, **kwargs)
+            uid, tran, audio, async_mode, **kwargs)
 
-        if not async:
+        if not async_mode:
             def write_result(result):
                 '''Write JSON to client on completion'''
                 req.setHeader("Content-Type", "application/json")
