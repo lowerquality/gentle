@@ -43,7 +43,7 @@ def on_progress(p):
         logging.debug("%s: %s" % (k, v))
 
 
-with open(args.txtfile) as fh:
+with open(args.txtfile, encoding="utf-8") as fh:
     transcript = fh.read()
 
 resources = gentle.Resources()
@@ -54,7 +54,7 @@ with gentle.resampled(args.audiofile) as wavfile:
     aligner = gentle.ForcedAligner(resources, transcript, nthreads=args.nthreads, disfluency=args.disfluency, conservative=args.conservative, disfluencies=disfluencies)
     result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
 
-fh = open(args.output, 'w') if args.output else sys.stdout
+fh = open(args.output, 'w', encoding="utf-8") if args.output else sys.stdout
 fh.write(result.to_json(indent=2))
 if args.output:
     logging.info("output written to %s" % (args.output))
