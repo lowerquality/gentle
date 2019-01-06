@@ -214,8 +214,8 @@ int main(int argc, char *argv[]) {
       fprintf(stdout, "ok\n");
     }
     else if(strcmp(cmd, "get-final\n") == 0) {
-      feature_pipeline.InputFinished(); // XXX: this is new: what does it do?
-      
+      feature_pipeline.InputFinished(); // Computes last few frames of input
+      decoder.AdvanceDecoding();        // Decodes remaining frames
       decoder.FinalizeDecoding();
 
       Lattice final_lat;
