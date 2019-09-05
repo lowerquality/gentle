@@ -13,5 +13,5 @@ script:
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
-    docker push lowerquality/gentle:latest
+    docker push lowerquality/gentle:latest;
     fi
