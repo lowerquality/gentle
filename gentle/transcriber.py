@@ -127,7 +127,7 @@ if __name__=='__main__':
     program = argparse.ArgumentParser("transcriber.py")
     program.add_argument("-d", "--debug", action='store_true', help="Enable debug logging")
     program.add_argument("-t", "--threads", type=int, default=4, help="Configure thread count.")
-    program.add_argument("-i", "--isolation", action='store_true', help="Execute Kaldi processes in isolation")
+    program.add_argument("-i", "--isolated", action='store_true', help="Execute Kaldi processes in isolation")
     program.add_argument("-s", "--chunk-size", type=int, default=20, help="Configure chunk size.")
     program.add_argument("input_file", type=str)
     program.add_argument("output_file", type=argparse.FileType('w'))
@@ -141,7 +141,7 @@ if __name__=='__main__':
     k_queue = kaldi_queue.build(
         gentle.Resources(), 
         nthreads=args.threads, 
-        kaldi_module=isolated_kaldi if args.isolation else standard_kaldi
+        kaldi_module=isolated_kaldi if args.isolated else standard_kaldi
     )
 
     if args.threads > 1:
