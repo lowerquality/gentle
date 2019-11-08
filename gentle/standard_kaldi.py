@@ -23,14 +23,14 @@ class Kaldi:
 
         if not os.path.exists(hclg_path):
             logger.error('hclg_path does not exist: %s', hclg_path)
-        
-        logger.debug(f"{self.k3_id} Opening pipe with cmd {cmd}")
+
+        logger.debug("%s Opening pipe with cmd %s", self.k3_id, cmd)
 
         self._p = subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE, 
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL if suppress_stderr else sys.stderr, 
+            stderr=subprocess.DEVNULL if suppress_stderr else sys.stderr,
             bufsize=0
         )
 
@@ -42,21 +42,21 @@ class Kaldi:
         binary = data if encoded else data.encode()
 
         if encoded:
-            logger.debug(f"{self.k3_id} Writing bytes to k3 {len(data)}")
+            logger.debug("%s Writing bytes to k3 %i", self.k3_id, len(data))
         else:
-            logger.debug(f"{self.k3_id} Writing cmd to k3 {data.strip()}")
-        
+            logger.debug("%s Writing cmd to k3 %s", self.k3_id, data.strip())
+
         self._p.stdin.write(binary)
 
     def _read(self):
         output = self._p.stdout.readline().strip().decode()
-        logger.debug(f"{self.k3_id} Reading from k3 {output}")
+        logger.debug("%s Reading from k3 %s", self.k3_id, output)
         return output
 
     def push_chunk(self, buf):
         # Wait until we're ready
         self._cmd("push-chunk")
-        
+
         cnt = int(len(buf)/2)
         self._cmd(str(cnt))
         self._write(buf, encoded=True) #arr.tostring())
@@ -106,12 +106,12 @@ if __name__=='__main__':
     import sys
 
     infile = sys.argv[1]
-    
+
     k = Kaldi()
 
     buf = numm3.sound2np(infile, nchannels=1, R=8000)
-    logger.debug(f'loaded_buf {len(buf)}')
-    
+    logger.debug('loaded_buf %i', len(buf))
+
     idx=0
     while idx < len(buf):
         k.push_chunk(buf[idx:idx+160000].tostring())
