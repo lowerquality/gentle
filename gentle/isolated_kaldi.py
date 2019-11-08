@@ -16,6 +16,7 @@ class Kaldi:
         self.finished = False
         self.cmd = [EXECUTABLE_PATH]
         self.result = None
+        self.suppress_stderr = suppress_stderr
 
         if nnet_dir is not None:
             self.cmd.append(nnet_dir)
@@ -36,7 +37,12 @@ class Kaldi:
 
     def push_chunk(self, buf):
         logger.debug("%s Processing buffer of size %i", self.k3_id, len(buf))
-        result = subprocess.run(self.cmd, capture_output=True, input=self.__build_command(buf))
+        result = subprocess.run(
+            self.cmd, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.DEVNULL if self.suppress_stderr else sys.stderr,
+            input=self.__build_command(buf)
+        )
         lines = [x.strip() for x in result.stdout.decode().split('\n') if len(x.strip()) > 0]
 
         if result.returncode != 0 or len(lines) < 2 or not lines[0].startswith('ok'):
