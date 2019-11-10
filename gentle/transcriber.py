@@ -6,51 +6,51 @@ from gentle import transcription
 
 from multiprocessing.pool import ThreadPool as Pool
 
-class MultiThreadedTranscriber:
-    def __init__(self, kaldi_queue, chunk_len=20, overlap_t=2, nthreads=4):
+class Transcriber:
+    def __init__(self, kaldi_queue, chunk_len=20, overlap_t=2):
         self.chunk_len = chunk_len
-        self.overlap_t = overlap_t
-        self.nthreads = nthreads
-            
+        self.overlap_t = overlap_t if overlap_t < chunk_len else max(chunk_len - 1, 0)
         self.kaldi_queue = kaldi_queue
+
+    def transcribe_chunk(self, wavfile, idx):
+        wav_obj = wave.open(wavfile, 'rb')
+        start_t = idx * (self.chunk_len - self.overlap_t)
+        # Seek
+        wav_obj.setpos(int(start_t * wav_obj.getframerate()))
+        # Read frames
+        buf = wav_obj.readframes(int(self.chunk_len * wav_obj.getframerate()))
+
+        if len(buf) < 4000:
+            logging.info('Short segment - ignored %d' % (idx))
+            ret = []
+        else:
+            k = self.kaldi_queue.get()
+            k.push_chunk(buf)
+            ret = k.get_final()
+            self.kaldi_queue.put(k)
+
+        return {"start": start_t, "words": ret}
 
     def transcribe(self, wavfile, progress_cb=None):
         wav_obj = wave.open(wavfile, 'rb')
         duration = wav_obj.getnframes() / float(wav_obj.getframerate())
         n_chunks = int(math.ceil(duration / float(self.chunk_len - self.overlap_t)))
 
-        chunks = []
+        chunks = []        
+        for n in range(0, n_chunks):
+            chunk = self.transcribe_chunk(wavfile, n)
+            chunks.append(chunk)
+            self.log_progress(len(chunks), n_chunks, chunk.get("words"), progress_cb)
 
+        return self.combine_chunks(chunks, duration)
 
-        def transcribe_chunk(idx):
-            wav_obj = wave.open(wavfile, 'rb')
-            start_t = idx * (self.chunk_len - self.overlap_t)
-            # Seek
-            wav_obj.setpos(int(start_t * wav_obj.getframerate()))
-            # Read frames
-            buf = wav_obj.readframes(int(self.chunk_len * wav_obj.getframerate()))
-
-            if len(buf) < 4000:
-                logging.info('Short segment - ignored %d' % (idx))
-                ret = []
-            else:
-                k = self.kaldi_queue.get()
-                k.push_chunk(buf)
-                ret = k.get_final()
-                # k.reset() (no longer needed)
-                self.kaldi_queue.put(k)
-
-            chunks.append({"start": start_t, "words": ret})
-            logging.info('%d/%d' % (len(chunks), n_chunks))
-            if progress_cb is not None:
-                progress_cb({"message": ' '.join([X['word'] for X in ret]),
-                             "percent": len(chunks) / float(n_chunks)})
-
-
-        pool = Pool(min(n_chunks, self.nthreads))
-        pool.map(transcribe_chunk, range(n_chunks))
-        pool.close()
+    def log_progress(self, x_chunks, n_chunks, ret, progress_cb):
+        logging.info('%d/%d' % (x_chunks, n_chunks))
+        if progress_cb is not None:
+            progress_cb({"message": ' '.join([X['word'] for X in ret]),
+                            "percent": x_chunks / float(n_chunks)})
         
+    def combine_chunks(self, chunks, duration):
         chunks.sort(key=lambda x: x['start'])
 
         # Combine chunks
@@ -89,26 +89,68 @@ class MultiThreadedTranscriber:
 
         return words, duration
 
+class MultiThreadedTranscriber(Transcriber):
+    def __init__(self, kaldi_queue, chunk_len=20, overlap_t=2, nthreads=4):
+        super().__init__(kaldi_queue, chunk_len, overlap_t)
+            
+        self.nthreads = nthreads
+
+    def transcribe(self, wavfile, progress_cb=None):
+        wav_obj = wave.open(wavfile, 'rb')
+        duration = wav_obj.getnframes() / float(wav_obj.getframerate())
+        n_chunks = int(math.ceil(duration / float(self.chunk_len - self.overlap_t)))
+
+        chunks = []
+
+        def transcribe_chunk(idx):
+            chunk = self.transcribe_chunk(wavfile, idx)
+            chunks.append(chunk)
+            self.log_progress(len(chunks), n_chunks, chunk.get("words"), progress_cb)
+
+        pool = Pool(min(n_chunks, self.nthreads))
+        pool.map(transcribe_chunk, range(n_chunks))
+        pool.close()
+        
+        return self.combine_chunks(chunks, duration)
+
 
 if __name__=='__main__':
     # full transcription
     import json
     import sys
-
+    import argparse
     import logging
-    logging.getLogger().setLevel('INFO')
-
     import gentle
-    from gentle import standard_kaldi
+    from gentle import standard_kaldi, isolated_kaldi
     from gentle import kaldi_queue
 
-    resources = gentle.Resources()
+    program = argparse.ArgumentParser("transcriber.py")
+    program.add_argument("-d", "--debug", action='store_true', help="Enable debug logging")
+    program.add_argument("-t", "--threads", type=int, default=4, help="Configure thread count.")
+    program.add_argument("-i", "--isolated", action='store_true', help="Execute Kaldi processes in isolation")
+    program.add_argument("-s", "--chunk-size", type=int, default=20, help="Configure chunk size.")
+    program.add_argument("input_file", type=str)
+    program.add_argument("output_file", type=argparse.FileType('w'))
+    args = program.parse_args(sys.argv[1:])
 
-    k_queue = kaldi_queue.build(resources, 3)
-    trans = MultiThreadedTranscriber(k_queue)
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-    with gentle.resampled(sys.argv[1]) as filename:
+    k_queue = kaldi_queue.build(
+        gentle.Resources(), 
+        nthreads=args.threads, 
+        kaldi_module=isolated_kaldi if args.isolated else standard_kaldi
+    )
+
+    if args.threads > 1:
+        trans = MultiThreadedTranscriber(k_queue, nthreads=args.threads, chunk_len=args.chunk_size)
+    else:
+        trans = Transcriber(k_queue, chunk_len=args.chunk_size)
+
+    with gentle.resampled(args.input_file) as filename:
         words, duration = trans.transcribe(filename)
 
-    open(sys.argv[2], 'w').write(transcription.Transcription(words=words).to_json())
+    args.output_file.write(transcription.Transcription(words=words).to_json())
 

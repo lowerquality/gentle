@@ -1,48 +1,73 @@
 import subprocess
 import os
 import logging
+import sys
+import uuid
 
 from .util.paths import get_binary
 
 EXECUTABLE_PATH = get_binary("ext/k3")
+
 logger = logging.getLogger(__name__)
 
-STDERR = subprocess.DEVNULL
-
 class Kaldi:
-    def __init__(self, nnet_dir=None, hclg_path=None, proto_langdir=None):
+    def __init__(self, nnet_dir=None, hclg_path=None, suppress_stderr=False):
+        self.k3_id = str(uuid.uuid4())[0:6]
+        self.finished = False
+
         cmd = [EXECUTABLE_PATH]
-        
+
         if nnet_dir is not None:
             cmd.append(nnet_dir)
             cmd.append(hclg_path)
 
         if not os.path.exists(hclg_path):
             logger.error('hclg_path does not exist: %s', hclg_path)
-        self._p = subprocess.Popen(cmd,
-                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=STDERR, bufsize=0)
-        self.finished = False
+
+        logger.debug("%s Opening pipe with cmd %s", self.k3_id, cmd)
+
+        self._p = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL if suppress_stderr else sys.stderr,
+            bufsize=0
+        )
 
     def _cmd(self, c):
-        self._p.stdin.write(("%s\n" % (c)).encode())
+        self._write(f"{c}\n")
         self._p.stdin.flush()
+
+    def _write(self, data, encoded=False):
+        binary = data if encoded else data.encode()
+
+        if encoded:
+            logger.debug("%s Writing bytes to k3 %i", self.k3_id, len(data))
+        else:
+            logger.debug("%s Writing cmd to k3 %s", self.k3_id, data.strip())
+
+        self._p.stdin.write(binary)
+
+    def _read(self):
+        output = self._p.stdout.readline().strip().decode()
+        logger.debug("%s Reading from k3 %s", self.k3_id, output)
+        return output
 
     def push_chunk(self, buf):
         # Wait until we're ready
         self._cmd("push-chunk")
-        
+
         cnt = int(len(buf)/2)
         self._cmd(str(cnt))
-        self._p.stdin.write(buf) #arr.tostring())
-        status = self._p.stdout.readline().strip().decode()
+        self._write(buf, encoded=True) #arr.tostring())
+        status = self._read()
         return status == 'ok'
 
     def get_final(self):
         self._cmd("get-final")
         words = []
         while True:
-            line = self._p.stdout.readline().decode()
+            line = self._read()
             if line.startswith("done"):
                 break
             parts = line.split(' / ')
@@ -81,12 +106,12 @@ if __name__=='__main__':
     import sys
 
     infile = sys.argv[1]
-    
+
     k = Kaldi()
 
     buf = numm3.sound2np(infile, nchannels=1, R=8000)
-    print('loaded_buf', len(buf))
-    
+    logger.debug('loaded_buf %i', len(buf))
+
     idx=0
     while idx < len(buf):
         k.push_chunk(buf[idx:idx+160000].tostring())
