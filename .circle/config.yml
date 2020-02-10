@@ -1,0 +1,53 @@
+version: 2.1
+
+orbs:
+  slack: circleci/slack@3.2.0
+
+variables:
+  amazon_ecr: &amazon_ecr 784573623826.dkr.ecr.us-west-2.amazonaws.com
+  build_image: &build_image 784573623826.dkr.ecr.us-west-2.amazonaws.com/python37-build:latest
+
+  aws_docker_login: &aws_docker_login
+    run:
+      name: "AWS Docker login"
+      command: $(aws ecr get-login --no-include-email --region=us-west-2)
+
+  docker_build: &docker_build
+    run:
+      name: "Docker build"
+      command: bash docker/build.sh
+
+  docker_tag_and_publish: &docker_tag_and_publish
+    run:
+      name: "Docker tag and push"
+      command: .circleci/docker_tag_and_push.sh
+
+jobs:
+  build_and_publish:
+    docker:
+      - image: *build_image
+    environment:
+      AMAZON_ECR: *amazon_ecr
+      ECR_REPO: gentle
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - checkout
+      - *aws_docker_login
+      - *docker_build
+      - *docker_tag_and_publish
+      - slack/status:
+          fail_only: true
+
+workflows:
+  version: 2
+
+  test:
+    jobs:
+      - build_and_publish:
+          filters:
+            branches:
+              only:
+                - master
+                - bl-gentle-build-fix
+
