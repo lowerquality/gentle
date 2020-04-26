@@ -13,6 +13,13 @@ if [[ "$OSTYPE" == "linux-gnu" ]]; then
 	apt-get install -y ffmpeg || echo -n  "\n\nYou have to install ffmpeg from a PPA or from https://ffmpeg.org before you can run gentle\n\n"
 	python3 setup.py develop
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-	brew install ffmpeg libtool automake autoconf wget python3
+	brew bundle --no-upgrade --file=- <<-EOS
+		brew "ffmpeg"
+		brew "libtool"
+		brew "automake"
+		brew "autoconf"
+		brew "wget"
+		brew "python3"
+EOS
 	sudo python3 setup.py develop
 fi
