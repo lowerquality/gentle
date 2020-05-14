@@ -24,6 +24,9 @@ curl -F "audio=@audio.mp3" -F "transcript=@words.txt" "http://localhost:8765/tra
 If you've downloaded the source code you can also run the aligner as a command line program:
 
 ```bash
+git clone https://github.com/lowerquality/gentle.git
+cd gentle
+./install.sh
 python3 align.py audio.mp3 words.txt
 ```
 
