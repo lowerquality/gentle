@@ -4,6 +4,8 @@
 #include "fstext/table-matcher.h"
 #include "hmm/hmm-utils.h"
 #include "hmm/transition-model.h"
+#include "tree/context-dep.h"
+#include "lat/lattice-functions-transition-model.h"
 #include "util/common-utils.h"
 #include <fst/script/arcsort.h>
 #include <fst/script/compile.h>
@@ -14,7 +16,7 @@ int main(int argc, char *argv[]) {
 	using fst::script::ArcSort;
 	try {
 		const char *usage = "Usage: ./mkgraph [options] <proto-dir> <grammar-fst> <out-fst>\n";
-		
+
 		ParseOptions po(usage);
 		po.Read(argc, argv);
 		if (po.NumArgs() != 3) {

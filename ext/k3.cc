@@ -7,6 +7,7 @@
 #include "online2/online-endpoint.h"
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
+#include "lat/lattice-functions-transition-model.h"
 #include "lat/word-align-lattice.h"
 #include "nnet3/decodable-simple-looped.h"
 
@@ -15,7 +16,7 @@
 #endif
 
 const int arate = 8000;
-    
+
 void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
                        std::string ivector_model_dir) {
     // Configure inline to avoid absolute paths in ".conf" files
@@ -32,7 +33,7 @@ void ConfigFeatureInfo(kaldi::OnlineNnet2FeaturePipelineInfo& info,
                     &info.ivector_extractor_info.diag_ubm);
     ReadKaldiObject(ivector_model_dir + "/final.ie",
                     &info.ivector_extractor_info.extractor);
-    
+
     info.ivector_extractor_info.num_gselect = 5;
     info.ivector_extractor_info.min_post = 0.025;
     info.ivector_extractor_info.posterior_scale = 0.1;
@@ -77,12 +78,12 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     using namespace fst;
 
-    setbuf(stdout, NULL);  
+    setbuf(stdout, NULL);
 
     std::string nnet_dir = "exp/tdnn_7b_chain_online";
     std::string graph_dir = nnet_dir + "/graph_pp";
     std::string fst_rxfilename = graph_dir + "/HCLG.fst";
-    
+
     if(argc == 3) {
       nnet_dir = argv[1];
       graph_dir = nnet_dir + "/graph_pp";
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]) {
       usage();
       return EXIT_FAILURE;
     }
-	
+
 #ifdef HAVE_CUDA
     fprintf(stdout, "Cuda enabled\n");
     CuDevice &cu_device = CuDevice::Instantiate();
@@ -102,7 +103,7 @@ int main(int argc, char *argv[]) {
 #endif
     const std::string ivector_model_dir = nnet_dir + "/ivector_extractor";
     const std::string nnet3_rxfilename = nnet_dir + "/final.mdl";
-    
+
     const std::string word_syms_rxfilename = graph_dir + "/words.txt";
     const string word_boundary_filename = graph_dir + "/phones/word_boundary.int";
     const string phone_syms_rxfilename = graph_dir + "/phones.txt";
@@ -116,7 +117,7 @@ int main(int argc, char *argv[]) {
     ConfigDecoding(nnet3_decoding_config);
     OnlineEndpointConfig endpoint_config;
     ConfigEndpoint(endpoint_config);
-    
+
 
     BaseFloat frame_shift = feature_info.FrameShiftInSeconds();
 
@@ -133,7 +134,7 @@ int main(int argc, char *argv[]) {
     nnet_simple_looped_opts.acoustic_scale = 1.0; // changed from 0.1?
 
     nnet3::DecodableNnetSimpleLoopedInfo de_nnet_simple_looped_info(nnet_simple_looped_opts, &am_nnet);
-    
+
     fst::Fst<fst::StdArc> *decode_fst = ReadFstKaldi(fst_rxfilename);
 
     fst::SymbolTable *word_syms =
@@ -141,8 +142,8 @@ int main(int argc, char *argv[]) {
 
     fst::SymbolTable* phone_syms =
       fst::SymbolTable::ReadText(phone_syms_rxfilename);
-    
-    
+
+
     OnlineIvectorExtractorAdaptationState adaptation_state(feature_info.ivector_extractor_info);
 
     OnlineNnet2FeaturePipeline feature_pipeline(feature_info);
@@ -151,7 +152,7 @@ int main(int argc, char *argv[]) {
     OnlineSilenceWeighting silence_weighting(
                                              trans_model,
                                              feature_info.silence_weighting_config);
-        
+
     SingleUtteranceNnet3Decoder decoder(nnet3_decoding_config,
                                         trans_model,
 					de_nnet_simple_looped_info,
@@ -172,7 +173,7 @@ int main(int argc, char *argv[]) {
     else if(strcmp(cmd,"reset\n") == 0) {
       feature_pipeline.~OnlineNnet2FeaturePipeline();
       new (&feature_pipeline) OnlineNnet2FeaturePipeline(feature_info);
-      
+
       decoder.~SingleUtteranceNnet3Decoder();
       new (&decoder) SingleUtteranceNnet3Decoder(nnet3_decoding_config,
                                                  trans_model,
@@ -188,11 +189,11 @@ int main(int argc, char *argv[]) {
       fgets(cmd, sizeof(cmd), stdin);
       sscanf(cmd, "%d\n", &chunk_len);
 
-      int16_t audio_chunk[chunk_len];  
+      int16_t audio_chunk[chunk_len];
       Vector<BaseFloat> wave_part = Vector<BaseFloat>(chunk_len);
-      
+
       fread(&audio_chunk, 2, chunk_len, stdin);
-      
+
       // We need to copy this into the `wave_part' Vector<BaseFloat> thing.
       // From `gst-audio-source.cc' in gst-kaldi-nnet2
       for (int i = 0; i < chunk_len ; ++i) {
@@ -221,7 +222,7 @@ int main(int argc, char *argv[]) {
       Lattice final_lat;
       decoder.GetBestPath(true, &final_lat);
       CompactLattice clat;
-      ConvertLattice(final_lat, &clat);      
+      ConvertLattice(final_lat, &clat);
 
       // Compute prons alignment (see: kaldi/latbin/nbest-to-prons.cc)
       CompactLattice aligned_clat;
@@ -254,12 +255,12 @@ int main(int argc, char *argv[]) {
       }
 
       fprintf(stdout, "done with words\n");
-      
+
     }
     else {
 
       fprintf(stderr, "unknown command %s\n", cmd);
-      
+
     }
   }
 }
