@@ -68,7 +68,7 @@ def resample_sox(infile, outfile, offset=None, duration=None):
 def resample(infile, outfile, offset=None, duration=None):
     if not os.path.isfile(infile):
         raise IOError("Not a file: %s" % infile)
-    if shutil.which(FFMPEG):
+    if shutil.which(FFMPEG) or os.path.exists(FFMPEG):
         return resample_ffmpeg(infile, outfile, offset, duration)
     else:
         return resample_sox(infile, outfile, offset, duration)
