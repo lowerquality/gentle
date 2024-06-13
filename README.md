@@ -18,7 +18,7 @@ By default, the aligner listens at http://localhost:8765. That page has a graphi
 There is also a REST API so you can use Gentle in your programs. Here's an example of how to use the API with CURL:
 
 ```bash
-curl -F "audio=@audio.mp3" -F "transcript=@words.txt" "http://localhost:8765/transcriptions?async=false"
+curl -F "audio=@audio.mp3" -F "transcript=@words.txt" "http://localhost:8765/transcriptions?async=false&disfluency=true&conservative=true"
 ```
 
 If you've downloaded the source code you can also run the aligner as a command line program:
