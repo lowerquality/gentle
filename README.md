@@ -7,7 +7,7 @@ There are three ways to install Gentle.
 
 1. Download the [pre-built Mac application](https://github.com/lowerquality/gentle/releases/latest). This package includes a GUI that will start the server and a browser. It only works on Mac OS.
 
-2. Use the [Docker](https://www.docker.com/) image. Just run ```docker run -P lowerquality/gentle```. This works on all platforms supported by Docker.
+2. Use the [Docker](https://www.docker.com/) image. Just run ```docker run -P 8765:8765 lowerquality/gentle```. This works on all platforms supported by Docker.
 
 3. Download the source code and run ```./install.sh```. Then run ```python3 serve.py``` to start the server. This works on Mac and Linux.
 
