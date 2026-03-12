@@ -9,6 +9,7 @@
 #include "util/common-utils.h"
 #include <fst/script/arcsort.h>
 #include <fst/script/compile.h>
+#include <fst/symbol-table.h>
 
 int main(int argc, char *argv[]) {
 	using namespace kaldi;
@@ -65,11 +66,10 @@ int main(int argc, char *argv[]) {
 		}
 
 		// fstcompile
-		const SymbolTable *ssyms = 0;
-		fst::SymbolTableTextOptions opts;
-		const SymbolTable *isyms = SymbolTable::ReadText(words_filename, opts);
+		SymbolTable *ssyms = 0;
+		fst::SymbolTable *isyms = fst::SymbolTable::ReadText(words_filename);
 		if (!isyms) { return 1; }
-		const SymbolTable *osyms = SymbolTable::ReadText(words_filename, opts);
+		fst::SymbolTable *osyms = fst::SymbolTable::ReadText(words_filename);
 		if (!osyms) { return 1; }
 		std::ifstream grammar_fst_file(grammar_fst_filename.c_str());
 		FstCompiler<StdArc> fstcompiler(grammar_fst_file, "", isyms,
