@@ -15,6 +15,15 @@ There are three ways to install Gentle.
 
 By default, the aligner listens at http://localhost:8765. That page has a graphical interface for transcribing audio, viewing results, and downloading data.
 
+Alignment result pages can also drive transcript playback from a YouTube video instead of the uploaded audio file. Add a `youtube` query parameter with a video ID or URL to the result page:
+
+```text
+http://localhost:8765/transcriptions/<id>/?youtube=M7lc1UVf-VE
+http://localhost:8765/transcriptions/<id>/?youtube=https://www.youtube.com/watch?v=M7lc1UVf-VE
+```
+
+Clicking aligned transcript words will seek and play the YouTube video at the matching timestamp.
+
 There is also a REST API so you can use Gentle in your programs. Here's an example of how to use the API with CURL:
 
 ```bash
