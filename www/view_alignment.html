@@ -47,10 +47,14 @@ html, body {
 .home:hover a {
   background: #555;
 }
-#audio {
+#audio, #youtube-player {
     margin-top: 9px;
     width: 50%;
     display: inline-block;
+}
+#youtube-player {
+    height: 28px;
+    display: none;
 }
 #transcript {
     margin: 0 15px;
@@ -117,12 +121,24 @@ html, body {
   font-family: Helvetica, sans-serif;
   padding: 10px;
 }
+body.youtube #header {
+    height: 190px;
+}
+body.youtube #youtube-player {
+    width: 267px;
+    height: 150px;
+    margin-top: 20px;
+}
+body.youtube #transcript {
+    margin-top: 210px;
+}
     </style>
   </head>
   <body>
     <div id="header">
       <h1 class="home"><a href="/">Gentle</a></h1>
       <audio id="audio" src="a.wav" controls="true"></audio>
+      <div id="youtube-player"></div>
       <img src="/preloader.gif" id="preloader" alt="loading...">
       <span id="downloads"> </div>
     </div>
@@ -148,10 +164,131 @@ function get_json(url, cb) {
 }
 
 var $a = document.getElementById("audio");
+var $youtube = document.getElementById("youtube-player");
+var youtube_player = null;
+var youtube_ready = false;
+var youtube_pending_seek = null;
+
+function get_query_param(name) {
+    var pairs = window.location.search.replace(/^\?/, '').split('&');
+    for(var i = 0; i < pairs.length; i++) {
+        var idx = pairs[i].indexOf('=');
+        var key = idx >= 0 ? pairs[i].slice(0, idx) : pairs[i];
+        var value = idx >= 0 ? pairs[i].slice(idx + 1) : '';
+        if(decodeURIComponent(key || '') == name) {
+            return decodeURIComponent(value.replace(/\+/g, ' '));
+        }
+    }
+}
+
+function parse_youtube_id(value) {
+    if(!value) {
+        return null;
+    }
+    var match = value.match(/^[A-Za-z0-9_-]{11}$/);
+    if(match) {
+        return value;
+    }
+    match = value.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+    if(match) {
+        return match[1];
+    }
+    match = value.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
+    if(match) {
+        return match[1];
+    }
+    match = value.match(/\/embed\/([A-Za-z0-9_-]{11})/);
+    if(match) {
+        return match[1];
+    }
+    return null;
+}
+
+var youtube_id = parse_youtube_id(get_query_param('youtube') || get_query_param('youtube_id'));
+
+var media = {
+    currentTime: function() {
+        return $a.currentTime;
+    },
+    seek: function(t) {
+        $a.currentTime = t;
+    },
+    play: function() {
+        $a.play();
+    },
+    pause: function() {
+        $a.pause();
+    },
+    hide: function() {
+        $a.style.visibility = 'hidden';
+    }
+};
+
+function enable_youtube_player(video_id) {
+    document.body.className += (document.body.className ? ' ' : '') + 'youtube';
+    $a.style.display = 'none';
+    $youtube.style.display = 'inline-block';
+
+    media.currentTime = function() {
+        if(youtube_ready && youtube_player && youtube_player.getCurrentTime) {
+            return youtube_player.getCurrentTime();
+        }
+        return 0;
+    };
+    media.seek = function(t) {
+        youtube_pending_seek = t;
+        if(youtube_ready && youtube_player && youtube_player.seekTo) {
+            youtube_player.seekTo(t, true);
+        }
+    };
+    media.play = function() {
+        if(youtube_ready && youtube_player && youtube_player.playVideo) {
+            youtube_player.playVideo();
+        }
+    };
+    media.pause = function() {
+        if(youtube_ready && youtube_player && youtube_player.pauseVideo) {
+            youtube_player.pauseVideo();
+        }
+    };
+    media.hide = function() {
+        $youtube.style.visibility = 'hidden';
+    };
+
+    window.onYouTubeIframeAPIReady = function() {
+        youtube_player = new YT.Player('youtube-player', {
+            height: '150',
+            width: '267',
+            videoId: video_id,
+            playerVars: {
+                controls: 1,
+                modestbranding: 1,
+                rel: 0
+            },
+            events: {
+                onReady: function() {
+                    youtube_ready = true;
+                    if(youtube_pending_seek !== null) {
+                        youtube_player.seekTo(youtube_pending_seek, true);
+                    }
+                }
+            }
+        });
+    };
+
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.body.appendChild(tag);
+}
+
+if(youtube_id) {
+    enable_youtube_player(youtube_id);
+}
+
 window.onkeydown = function(ev) {
     if(ev.keyCode == 32) {
         ev.preventDefault();
-        $a.pause();
+        media.pause();
     }
 }
 
@@ -223,7 +360,7 @@ function highlight_phone(t) {
 }
 
 function highlight_word() {
-    var t = $a.currentTime;
+    var t = media.currentTime();
     // XXX: O(N); use binary search
     var hits = wds.filter(function(x) {
         return (t - x.start) > 0.01 && (x.end - t) > 0.01;
@@ -285,8 +422,8 @@ function render(ret) {
         $wd.onclick = function() {
             if(wd.start !== undefined) {
                 console.log(wd.start);
-                $a.currentTime = wd.start;
-                $a.play();
+                media.seek(wd.start);
+                media.play();
             }
         };
         $trans.appendChild($wd);
@@ -372,7 +509,7 @@ function update() {
     else  {
 	// Show the status
         get_json('status.json', function(ret) {
-	    $a.style.visibility = 'hidden';
+	    media.hide();
             if (ret.status == 'ERROR') {
                 $preloader.style.visibility = 'hidden';
                 $trans.innerHTML = '<b>' + ret.status + ': ' + ret.error + '</b>';
